@@ -1,0 +1,12 @@
+{
+    "aliases": {
+        "lune": "~/.lune/.typedefs/0.10.4+horse.0.2/"
+    },
+    "globals": [
+        "afterEach",
+        "beforeEach",
+        "describe",
+        "expect",
+        "it"
+    ]
+}
