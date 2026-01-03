@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
+      - release
 
 jobs:
   test:
@@ -21,4 +25,4 @@ jobs:
         run: wally install
 
       - name: Run tests
-        run: lune run ./Test/RunTests.luau
+        run: lune run ./Scripts/RunTests.luau
