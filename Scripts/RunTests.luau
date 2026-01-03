@@ -2,7 +2,7 @@ local Testable = require("../Source/Testable")
 local process = require("@lune/process")
 
 local TESTS = {
-    { Name = "ExampleTest", Func = require("./Tests/ExampleTest") },
+    { Name = "ExampleTest", Func = require("../Tests/ExampleTest") },
 }
 
 local function runTests()

@@ -21,4 +21,4 @@ jobs:
         run: wally install
 
       - name: Run tests
-        run: lune run ./Test/RunTests.luau
+        run: lune run ./Scripts/RunTests.luau
