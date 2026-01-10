@@ -4,7 +4,7 @@ EnsureProperVersionUpdate
 
 Validates that the VERSION file contains a proper semantic version and that it has been
 bumped correctly since the last release tag. Compares against the most recent git tag
-(excluding v0.0.0) to determine if a valid version bump has occurred.
+(excluding 0.0.0) to determine if a valid version bump has occurred.
 
 --]]
 
@@ -42,10 +42,10 @@ local function ensureProperVersionUpdate()
         return
     end
 
-    -- Find the first tag that isn't v0.0.0
+    -- Find the first tag that isn't 0.0.0
     local latestTag = nil
     for tag in string.gmatch(tagResult.stdout, "[^\n]+") do
-        if tag ~= "v0.0.0" and tag ~= "0.0.0" then
+        if tag ~= "0.0.0" then
             latestTag = tag
             break
         end
