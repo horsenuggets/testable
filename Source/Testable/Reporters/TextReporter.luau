@@ -105,10 +105,6 @@ function TextReporter.report(results)
         print(table.concat(resultBuffer, "\n"))
     end
 
-    if results.failureCount > 0 then
-        print(("%d test nodes reported failures."):format(results.failureCount))
-    end
-
     if #results.errors > 0 then
         print("Errors reported by tests...\n")
 
