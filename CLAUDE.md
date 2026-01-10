@@ -31,6 +31,14 @@ Every Luau file should have this at the top:
 
 - All comments should word-wrap at column 90
 
+## Functions
+
+- Always add runtime typechecking to function parameters using assert
+
+## Operators
+
+- Use compound assignment operators (`+=`, `-=`, `*=`, `/=`) instead of expanded form
+
 ## Print Statements
 
 - Avoid using colons `:` in prints for stylistic reasons
