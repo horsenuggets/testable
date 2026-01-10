@@ -4,6 +4,10 @@ local process = require("@lune/process")
 -- Atomic counter for unique test IDs (works with parallel execution)
 local testCounter = 0
 
+-- Shared template directory - created once, copied for each test
+local templateDir: string? = nil
+local templateLock = { locked = false }
+
 local function getTempDirectory(): string
     -- Check for Windows temp directory first, then Unix
     local tempDir = process.env.TEMP or process.env.TMP or process.env.TMPDIR or "/tmp"
@@ -14,8 +18,16 @@ local function createTempDir(): string
     testCounter += 1
     local timestamp = os.time()
     local baseTempDir = getTempDirectory()
-    -- Use counter + high-precision clock to ensure uniqueness even in parallel
-    local tempPath = `{baseTempDir}/version-test-{timestamp}-{testCounter}-{os.clock() * 1000000}`
+    local random = math.random(100000, 999999)
+    -- Use counter + clock + random to ensure uniqueness even in parallel
+    local tempPath = `{baseTempDir}/version-test-{timestamp}-{testCounter}-{random}`
+
+    -- Keep trying with different random values if directory already exists
+    while fs.isDir(tempPath) do
+        random = math.random(100000, 999999)
+        tempPath = `{baseTempDir}/version-test-{timestamp}-{testCounter}-{random}`
+    end
+
     fs.writeDir(tempPath)
     return tempPath
 end
@@ -26,13 +38,33 @@ local function cleanupTempDir(path: string)
     end
 end
 
+local function copyDir(src: string, dest: string)
+    fs.writeDir(dest)
+    for _, entry in ipairs(fs.readDir(src)) do
+        local srcPath = `{src}/{entry}`
+        local destPath = `{dest}/{entry}`
+        if fs.isDir(srcPath) then
+            copyDir(srcPath, destPath)
+        else
+            fs.writeFile(destPath, fs.readFile(srcPath))
+        end
+    end
+end
+
 local function initGitRepo(repoPath: string)
-    process.exec("git", { "init" }, { cwd = repoPath })
+    local result = process.exec("git", { "init" }, { cwd = repoPath })
+    if not result.ok then
+        error(`Failed to init git repo at {repoPath}: {result.stderr}`)
+    end
     process.exec("git", { "config", "user.email", "test@test.com" }, { cwd = repoPath })
     process.exec("git", { "config", "user.name", "Test User" }, { cwd = repoPath })
 end
 
-local function setupRokit(repoPath: string)
+local function setupRokitTemplate(): string
+    local baseTempDir = getTempDirectory()
+    local templatePath = `{baseTempDir}/version-test-template-{os.time()}`
+    fs.writeDir(templatePath)
+
     local rokitToml = [[
         [tools]
         lune = "horsenuggets/lune@0.10.5"
@@ -40,8 +72,57 @@ local function setupRokit(repoPath: string)
     -- Strip leading whitespace from each line for proper TOML format
     rokitToml = string.gsub(rokitToml, "\n%s+", "\n")
     rokitToml = string.gsub(rokitToml, "^%s+", "")
-    fs.writeFile(`{repoPath}/rokit.toml`, rokitToml)
-    process.exec("rokit", { "install", "--no-trust-check" }, { cwd = repoPath })
+    fs.writeFile(`{templatePath}/rokit.toml`, rokitToml)
+
+    -- Retry rokit install a few times in case of transient failures
+    local maxRetries = 3
+    for i = 1, maxRetries do
+        local result = process.exec("rokit", { "install", "--no-trust-check" }, { cwd = templatePath })
+        if result.ok then
+            return templatePath
+        end
+        if i < maxRetries then
+            -- Delay with jitter before retry
+            local delay = 0.1 * i + math.random() * 0.1
+            local start = os.clock()
+            while os.clock() - start < delay do
+            end
+        end
+    end
+    return templatePath
+end
+
+local function getOrCreateTemplate(): string
+    -- Simple spinlock to ensure only one thread creates the template
+    while templateLock.locked do
+        local task = require("@lune/task")
+        task.wait()
+    end
+
+    if templateDir and fs.isDir(templateDir) then
+        return templateDir
+    end
+
+    templateLock.locked = true
+    -- Double-check after acquiring lock
+    if templateDir and fs.isDir(templateDir) then
+        templateLock.locked = false
+        return templateDir
+    end
+
+    templateDir = setupRokitTemplate()
+    templateLock.locked = false
+    return templateDir
+end
+
+local function setupRokit(repoPath: string)
+    -- Copy from template instead of running rokit install
+    local template = getOrCreateTemplate()
+    fs.writeFile(`{repoPath}/rokit.toml`, fs.readFile(`{template}/rokit.toml`))
+    -- Copy the .rokit directory with installed tools
+    if fs.isDir(`{template}/.rokit`) then
+        copyDir(`{template}/.rokit`, `{repoPath}/.rokit`)
+    end
 end
 
 local function commitVersion(repoPath: string, version: string, message: string?)
@@ -57,9 +138,14 @@ end
 local function runVersionCheck(repoPath: string): (boolean, string)
     local result = process.exec("lune", { "run", "Scripts/EnsureProperVersionUpdate" }, {
         cwd = repoPath,
+        stdio = {
+            stdout = "default",
+            stderr = "default",
+        },
     })
-    local output = result.stdout .. result.stderr
-    return result.ok, output
+    local stdout = result.stdout or ""
+    local stderr = result.stderr or ""
+    return result.ok, stdout .. stderr
 end
 
 local function copyScriptsToRepo(repoPath: string)
@@ -160,7 +246,9 @@ return function()
             commitVersion(tempDir, "0.0.0")
             setWorkingVersion(tempDir, "0.0.1")
             local success, output = runVersionCheck(tempDir)
-            expect(success).to.equal(true)
+            if not success then
+                error(`Expected success but got failure. Output: "{output}"`)
+            end
             expect(string.find(output, "Valid patch version bump")).to.be.ok()
             cleanupTempDir(tempDir)
         end)
@@ -298,7 +386,9 @@ return function()
             setWorkingVersion(tempDir, "-1.0.0")
             local success, output = runVersionCheck(tempDir)
             expect(success).to.equal(false)
-            expect(string.find(output, "MAJOR.MINOR.PATCH")).to.be.ok()
+            if not string.find(output, "MAJOR.MINOR.PATCH") then
+                error(`Expected output to contain "MAJOR.MINOR.PATCH", got: "{output}"`)
+            end
             cleanupTempDir(tempDir)
         end)
 
