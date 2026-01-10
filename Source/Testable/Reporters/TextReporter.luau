@@ -5,18 +5,28 @@
 
 local TestService = game and game:GetService("TestService")
 
+local Ansi = require("../Ansi")
 local TestEnum = require("../TestEnum")
 
 local INDENT = (" "):rep(3)
 local ALPHABETICAL_SORT = false -- Set to true to sort tests alphabetically instead of definition order
 local INDIVIDUAL_PRINTS = true -- Set to false to print all results as one big message
-local STATUS_SYMBOLS = {
-    [TestEnum.TestStatus.Success] = "✅",
-    [TestEnum.TestStatus.Failure] = "❌",
-    [TestEnum.TestStatus.Skipped] = "🕐",
-}
-local UNKNOWN_STATUS_SYMBOL = "?"
 local PRINT_SKIPPED = false
+
+local IS_LUNE = Ansi.isLune()
+
+local STATUS_SYMBOLS = if IS_LUNE
+    then {
+        [TestEnum.TestStatus.Success] = "+",
+        [TestEnum.TestStatus.Failure] = "-",
+        [TestEnum.TestStatus.Skipped] = "~",
+    }
+    else {
+        [TestEnum.TestStatus.Success] = "✅",
+        [TestEnum.TestStatus.Failure] = "❌",
+        [TestEnum.TestStatus.Skipped] = "🕐",
+    }
+local UNKNOWN_STATUS_SYMBOL = "?"
 
 local TextReporter = {}
 
@@ -36,8 +46,23 @@ local function reportNode(node, buffer, level)
 
     if node.status then
         local symbol = STATUS_SYMBOLS[node.status] or UNKNOWN_STATUS_SYMBOL
+        local indent = INDENT:rep(level)
+        local fullLine = `[{symbol}] {node.planNode.phrase}`
 
-        line = ("%s[%s] %s"):format(INDENT:rep(level), symbol, node.planNode.phrase)
+        -- Apply ANSI colors in Lune environment
+        if IS_LUNE then
+            if node.status == TestEnum.TestStatus.Success then
+                line = indent .. Ansi.brightGreen(fullLine)
+            elseif node.status == TestEnum.TestStatus.Failure then
+                line = indent .. Ansi.brightRed(fullLine)
+            elseif node.status == TestEnum.TestStatus.Skipped then
+                line = indent .. Ansi.brightYellow(fullLine)
+            else
+                line = indent .. fullLine
+            end
+        else
+            line = indent .. fullLine
+        end
     else
         line = ("%s%s"):format(INDENT:rep(level), node.planNode.phrase)
     end
@@ -85,16 +110,45 @@ function TextReporter.report(results)
             print(line)
         end
 
-        if PRINT_SKIPPED and results.skippedCount > 0 then
-            print(`{results.successCount} passed, {results.failureCount} failed, {results.skippedCount} skipped`)
+        local summaryLine
+        if IS_LUNE then
+            local passedPart = Ansi.brightGreen(`{results.successCount} passed`)
+            local failedPart = Ansi.brightRed(`{results.failureCount} failed`)
+            if PRINT_SKIPPED and results.skippedCount > 0 then
+                local skippedPart = Ansi.brightYellow(`{results.skippedCount} skipped`)
+                summaryLine = passedPart .. ", " .. failedPart .. ", " .. skippedPart .. "."
+            else
+                summaryLine = passedPart .. ", " .. failedPart .. "."
+            end
         else
-            print(`{results.successCount} passed, {results.failureCount} failed`)
+            if PRINT_SKIPPED and results.skippedCount > 0 then
+                summaryLine =
+                    `{results.successCount} passed, {results.failureCount} failed, {results.skippedCount} skipped.`
+            else
+                summaryLine = `{results.successCount} passed, {results.failureCount} failed.`
+            end
         end
+        print(summaryLine)
     else
         -- Print all as one big message
-        local summaryLine = if PRINT_SKIPPED and results.skippedCount > 0
-            then `{results.successCount} passed, {results.failureCount} failed, {results.skippedCount} skipped`
-            else `{results.successCount} passed, {results.failureCount} failed`
+        local summaryLine
+        if IS_LUNE then
+            local passedPart = Ansi.brightGreen(`{results.successCount} passed`)
+            local failedPart = Ansi.brightRed(`{results.failureCount} failed`)
+            if PRINT_SKIPPED and results.skippedCount > 0 then
+                local skippedPart = Ansi.brightYellow(`{results.skippedCount} skipped`)
+                summaryLine = passedPart .. ", " .. failedPart .. ", " .. skippedPart .. "."
+            else
+                summaryLine = passedPart .. ", " .. failedPart .. "."
+            end
+        else
+            if PRINT_SKIPPED and results.skippedCount > 0 then
+                summaryLine =
+                    `{results.successCount} passed, {results.failureCount} failed, {results.skippedCount} skipped.`
+            else
+                summaryLine = `{results.successCount} passed, {results.failureCount} failed.`
+            end
+        end
 
         local resultBuffer = {
             "The tests have completed.",
