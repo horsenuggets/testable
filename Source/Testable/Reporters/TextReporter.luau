@@ -85,21 +85,21 @@ function TextReporter.report(results)
             print(line)
         end
 
-        print(`[{STATUS_SYMBOLS[TestEnum.TestStatus.Success]}] [PASSED] {results.successCount}`)
-        print(`[{STATUS_SYMBOLS[TestEnum.TestStatus.Failure]}] [FAILED] {results.failureCount}`)
-        if PRINT_SKIPPED then
-            print(`[{STATUS_SYMBOLS[TestEnum.TestStatus.Skipped]}] [SKIPPED] {results.skippedCount}`)
+        if PRINT_SKIPPED and results.skippedCount > 0 then
+            print(`{results.successCount} passed, {results.failureCount} failed, {results.skippedCount} skipped`)
+        else
+            print(`{results.successCount} passed, {results.failureCount} failed`)
         end
     else
         -- Print all as one big message
+        local summaryLine = if PRINT_SKIPPED and results.skippedCount > 0
+            then `{results.successCount} passed, {results.failureCount} failed, {results.skippedCount} skipped`
+            else `{results.successCount} passed, {results.failureCount} failed`
+
         local resultBuffer = {
             "The tests have completed.",
             table.concat(report(results), "\n"),
-            `[{STATUS_SYMBOLS[TestEnum.TestStatus.Success]}] [PASSED] {results.successCount}`,
-            `[{STATUS_SYMBOLS[TestEnum.TestStatus.Failure]}] [FAILED] {results.failureCount}`,
-            if PRINT_SKIPPED
-                then `[{STATUS_SYMBOLS[TestEnum.TestStatus.Skipped]}] [SKIPPED] {results.skippedCount}`
-                else nil,
+            summaryLine,
         }
 
         print(table.concat(resultBuffer, "\n"))
