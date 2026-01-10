@@ -1,0 +1,54 @@
+name: Release checks
+
+on:
+  pull_request:
+    branches:
+      - release
+
+jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rokit
+        uses: CompeyDev/setup-rokit@v0.1.2
+
+      - name: Install dependencies
+        run: wally install
+
+      - name: Run tests
+        run: lune run ./Scripts/RunTests.luau
+
+  format:
+    name: Check formatting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rokit
+        uses: CompeyDev/setup-rokit@v0.1.2
+
+      - name: Check formatting
+        run: lune run ./Scripts/CheckFormatting.luau
+
+  version:
+    name: Validate version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Rokit
+        uses: CompeyDev/setup-rokit@v0.1.2
+
+      - name: Check version update
+        run: lune run ./Scripts/EnsureProperVersionUpdate.luau
+
+      - name: Check version match
+        run: lune run ./Scripts/CheckVersionMatch.luau
