@@ -19,12 +19,25 @@ jobs:
       - name: Setup Rokit
         uses: CompeyDev/setup-rokit@v0.1.2
 
-      - name: Get version
+      - name: Get version and changelog
         id: version
         run: |
           VERSION=$(cat VERSION | tr -d '[:space:]')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=$VERSION" >> $GITHUB_OUTPUT
+
+          # Extract changelog for this version
+          CHANGELOG=$(awk -v ver="$VERSION" '
+            /^## / {
+              if (found) exit
+              if ($2 == ver) found=1
+              next
+            }
+            found { print }
+          ' CHANGELOG.md | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | sed '/^$/N;/^\n$/d')
+
+          # Write to file for multi-line support
+          echo "$CHANGELOG" > /tmp/changelog.txt
 
       - name: Create git tag
         run: |
@@ -47,4 +60,4 @@ jobs:
         run: |
           gh release create ${{ steps.version.outputs.tag }} \
             --title "${{ steps.version.outputs.tag }}" \
-            --notes "This is the release for version \`${{ steps.version.outputs.version }}\`!"
+            --notes-file /tmp/changelog.txt

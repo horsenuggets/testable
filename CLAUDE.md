@@ -95,6 +95,10 @@ CHANGELOG.md should follow this format:
 - This is another example fix
 ```
 
+## Ordering
+
+- When things can be sorted alphabetically, definitely do that (e.g., imports, table keys, function parameters)
+
 ## Tests
 
 - For TestEZ-style tests, do not wrap everything in a describe block with just the file name

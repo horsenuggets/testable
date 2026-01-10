@@ -52,3 +52,6 @@ jobs:
 
       - name: Check version match
         run: lune run ./Scripts/CheckVersionMatch.luau
+
+      - name: Check changelog entry
+        run: lune run ./Scripts/CheckChangelogVersion.luau
