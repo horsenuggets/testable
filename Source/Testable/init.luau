@@ -1,3 +1,12 @@
+--[[
+
+Testable
+
+A Luau testing framework with TestEZ-style API. Provides describe/it blocks, expectation
+matchers, lifecycle hooks, and parallel test execution support.
+
+--]]
+
 local Expectation = require("@self/Expectation")
 local TestBootstrap = require("@self/TestBootstrap")
 local TestEnum = require("@self/TestEnum")

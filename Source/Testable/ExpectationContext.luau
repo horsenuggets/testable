@@ -1,4 +1,13 @@
 --!nocheck
+--[[
+
+ExpectationContext
+
+Manages the expectation context for tests, allowing custom matchers to be extended and
+providing the expect() API for test assertions.
+
+--]]
+
 local Expectation = require("./Expectation")
 local checkMatcherNameCollisions = Expectation.checkMatcherNameCollisions
 

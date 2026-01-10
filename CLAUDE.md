@@ -28,6 +28,8 @@ Every Luau file should have this at the top:
 --]]
 ```
 
+For `init.luau` files, use the parent folder name instead of "init".
+
 ## Comments
 
 - All comments should word-wrap at column 90
@@ -92,6 +94,11 @@ CHANGELOG.md should follow this format:
 - This is an example fix
 - This is another example fix
 ```
+
+## Tests
+
+- For TestEZ-style tests, do not wrap everything in a describe block with just the file name
+- The file name is already used as the test name, so a wrapping describe block is redundant
 
 ## Lune Documentation
 
