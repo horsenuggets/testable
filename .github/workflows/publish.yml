@@ -36,7 +36,10 @@ jobs:
       - name: Publish to Wally
         env:
           WALLY_AUTH: ${{ secrets.WALLY_AUTH }}
-        run: wally publish
+        run: |
+          mkdir -p ~/.wally
+          echo "$WALLY_AUTH" > ~/.wally/auth.toml
+          wally publish
 
       - name: Create GitHub release
         env:
