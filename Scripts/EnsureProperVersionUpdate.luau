@@ -1,31 +1,7 @@
 local fs = require("@lune/fs")
 local process = require("@lune/process")
 
-local MAX_VERSION_NUMBER = 99999
-
-local function parseVersion(versionString: string): (number?, number?, number?)
-    assert(typeof(versionString) == "string", "Expected a string.")
-
-    -- Trim whitespace
-    versionString = string.match(versionString, "^%s*(.-)%s*$")
-
-    -- Parse MAJOR.MINOR.PATCH format
-    local major, minor, patch = string.match(versionString, "^(%d+)%.(%d+)%.(%d+)$")
-
-    if not major or not minor or not patch then
-        return nil, nil, nil
-    end
-
-    local majorNum, minorNum, patchNum = tonumber(major), tonumber(minor), tonumber(patch)
-
-    -- Validate version numbers are within reasonable bounds
-    if majorNum > MAX_VERSION_NUMBER or minorNum > MAX_VERSION_NUMBER or patchNum > MAX_VERSION_NUMBER then
-        print(`Version number exceeds maximum allowed value of {MAX_VERSION_NUMBER}.`)
-        return nil, nil, nil
-    end
-
-    return majorNum, minorNum, patchNum
-end
+local parseVersion = require("./Helpers/parseVersion")
 
 local function ensureProperVersionUpdate()
     if not fs.isFile("VERSION") then

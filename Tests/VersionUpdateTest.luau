@@ -150,8 +150,11 @@ end
 
 local function copyScriptsToRepo(repoPath: string)
     fs.writeDir(`{repoPath}/Scripts`)
+    fs.writeDir(`{repoPath}/Scripts/Helpers`)
     local scriptContent = fs.readFile("Scripts/EnsureProperVersionUpdate.luau")
     fs.writeFile(`{repoPath}/Scripts/EnsureProperVersionUpdate.luau`, scriptContent)
+    local helperContent = fs.readFile("Scripts/Helpers/parseVersion.luau")
+    fs.writeFile(`{repoPath}/Scripts/Helpers/parseVersion.luau`, helperContent)
 end
 
 local function setupTestRepo(): string
