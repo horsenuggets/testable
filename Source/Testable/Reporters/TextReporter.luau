@@ -78,7 +78,7 @@ end
 function TextReporter.report(results)
     if INDIVIDUAL_PRINTS then
         -- Print each line separately
-        print("[Testable] The tests have completed.")
+        print("The tests have completed.")
 
         local reportBuffer = report(results)
         for _, line in ipairs(reportBuffer) do
@@ -93,7 +93,7 @@ function TextReporter.report(results)
     else
         -- Print all as one big message
         local resultBuffer = {
-            "[Testable] The tests have completed.",
+            "The tests have completed.",
             table.concat(report(results), "\n"),
             `[{STATUS_SYMBOLS[TestEnum.TestStatus.Success]}] [PASSED] {results.successCount}`,
             `[{STATUS_SYMBOLS[TestEnum.TestStatus.Failure]}] [FAILED] {results.failureCount}`,
@@ -110,16 +110,17 @@ function TextReporter.report(results)
     end
 
     if #results.errors > 0 then
-        print("Errors reported by tests...")
-        print("")
+        print("Errors reported by tests...\n")
 
         for _, message in ipairs(results.errors) do
             if TestService then
                 TestService:Error(message)
-            end
 
-            -- Insert a blank line after each error
-            print("")
+                -- Insert a blank line after each error
+                print("")
+            else
+                print(message)
+            end
         end
     end
 end
