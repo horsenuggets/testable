@@ -85,7 +85,9 @@ local function ensureProperVersionUpdate()
 
     local isMajorBump = currentMajor == previousMajor + 1 and currentMinor == 0 and currentPatch == 0
     local isMinorBump = currentMajor == previousMajor and currentMinor == previousMinor + 1 and currentPatch == 0
-    local isPatchBump = currentMajor == previousMajor and currentMinor == previousMinor and currentPatch == previousPatch + 1
+    local isPatchBump = currentMajor == previousMajor
+        and currentMinor == previousMinor
+        and currentPatch == previousPatch + 1
 
     if isMajorBump then
         print("Valid major version bump.")
@@ -98,7 +100,9 @@ local function ensureProperVersionUpdate()
         print("Valid bumps are:")
         print(`  - Major: {previousMajor}.{previousMinor}.{previousPatch} -> {previousMajor + 1}.0.0`)
         print(`  - Minor: {previousMajor}.{previousMinor}.{previousPatch} -> {previousMajor}.{previousMinor + 1}.0`)
-        print(`  - Patch: {previousMajor}.{previousMinor}.{previousPatch} -> {previousMajor}.{previousMinor}.{previousPatch + 1}`)
+        print(
+            `  - Patch: {previousMajor}.{previousMinor}.{previousPatch} -> {previousMajor}.{previousMinor}.{previousPatch + 1}`
+        )
         process.exit(1)
     end
 
