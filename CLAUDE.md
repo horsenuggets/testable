@@ -11,6 +11,7 @@
 - Every file should end in a single newline
 - Text should be LF normalized
 - Prefer Luau string interpolation using backticks, like `` `Here is a string with an interpolated {value}.` ``
+- Prefer double quotes over single quotes
 - Always read through existing code to match style
 
 ## Luau File Headers
