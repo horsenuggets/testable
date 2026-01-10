@@ -51,6 +51,48 @@ Every Luau file should have this at the top:
 
 - Version tags should NOT have a "v" prefix (use `0.0.1`, not `v0.0.1`)
 
+## Changelog Format
+
+CHANGELOG.md should follow this format:
+
+```md
+# Changelog
+
+## 0.0.2
+
+### Added
+
+- This is an example addition
+- This is another example addition
+
+### Changed
+
+- This is an example change
+- This is another example change
+
+### Fixed
+
+- This is an example fix
+- This is another example fix
+
+## 0.0.1
+
+### Added
+
+- This is an example addition
+- This is another example addition
+
+### Changed
+
+- This is an example change
+- This is another example change
+
+### Fixed
+
+- This is an example fix
+- This is another example fix
+```
+
 ## Lune Documentation
 
 You can read Lune documentation as needed to understand the Lune code you're writing:
