@@ -44,6 +44,7 @@ Every Luau file should have this at the top:
 - Avoid using colons `:` in prints for stylistic reasons
 - Structure everything in complete sentences
 - Surround strings of interest in quotation marks `"`
+- Use `[Usage]` instead of `Usage:` for usage messages
 
 ## Lune Documentation
 
