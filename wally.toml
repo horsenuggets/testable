@@ -1,7 +1,7 @@
 [package]
 name = "horsenuggets/testable"
 description = "A Luau testing framework based off of TestEZ."
-version = "0.0.0"
+version = "0.0.1"
 license = "MIT"
 realm = "shared"
 registry = "https://github.com/UpliftGames/wally-index"

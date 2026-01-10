@@ -15,12 +15,44 @@ local TestResults = require("./TestResults")
 local TestSession = require("./TestSession")
 
 local RUNNING_GLOBAL = "__TESTABLE_RUNNING_TEST__"
+local RUNNING_COUNT_GLOBAL = "__TESTABLE_RUNNING_COUNT__"
+
+-- Global semaphore for limiting concurrent test execution across all describe blocks
+local globalSemaphore = { activeCount = 0, lock = false }
 
 local TestRunner = {
     environment = {},
     parallelEnabled = true, -- Set to false to disable parallel execution
     verbose = false, -- Set to true to enable detailed logging
+    maxConcurrency = 4, -- Maximum number of tests running in parallel
 }
+
+-- Helper to acquire a global semaphore slot
+local function acquireGlobalSlot()
+    while true do
+        while globalSemaphore.lock do
+            task.wait()
+        end
+        globalSemaphore.lock = true
+        if globalSemaphore.activeCount < TestRunner.maxConcurrency then
+            globalSemaphore.activeCount = globalSemaphore.activeCount + 1
+            globalSemaphore.lock = false
+            return
+        end
+        globalSemaphore.lock = false
+        task.wait()
+    end
+end
+
+-- Helper to release a global semaphore slot
+local function releaseGlobalSlot()
+    while globalSemaphore.lock do
+        task.wait()
+    end
+    globalSemaphore.lock = true
+    globalSemaphore.activeCount = globalSemaphore.activeCount - 1
+    globalSemaphore.lock = false
+end
 
 --[[
     Logs messages when verbose mode is enabled.
@@ -102,6 +134,8 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
         -- Any code can check RUNNING_GLOBAL to fork behavior based on
         -- whether a test is running. We use this to avoid accessing
         -- protected APIs; it's a workaround that will go away someday.
+        -- Use a counter instead of boolean to handle parallel test execution safely.
+        _G[RUNNING_COUNT_GLOBAL] = (_G[RUNNING_COUNT_GLOBAL] or 0) + 1
         _G[RUNNING_GLOBAL] = true
 
         messagePrefix = messagePrefix or ""
@@ -138,7 +172,12 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
             errorMessage = nodeResult
         end
 
-        _G[RUNNING_GLOBAL] = nil
+        -- Decrement the counter and only clear the flag when no tests are running
+        _G[RUNNING_COUNT_GLOBAL] = (_G[RUNNING_COUNT_GLOBAL] or 1) - 1
+        if _G[RUNNING_COUNT_GLOBAL] <= 0 then
+            _G[RUNNING_GLOBAL] = nil
+            _G[RUNNING_COUNT_GLOBAL] = nil
+        end
 
         return success, errorMessage
     end
@@ -202,11 +241,17 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
 
         -- Run "it" tests in parallel if enabled
         if TestRunner.parallelEnabled and #itTests > 0 then
-            log(string.format("Running %d tests in parallel...", #itTests))
+            log(
+                string.format(
+                    "Running %d tests in parallel (max %d concurrent)...",
+                    #itTests,
+                    TestRunner.maxConcurrency
+                )
+            )
             local completed = 0
             local total = #itTests
             local startTime = os.clock()
-            local mutex = {}
+            local completionLock = false
 
             -- Pre-create all test nodes to maintain proper order in tree
             local testNodes = {}
@@ -227,9 +272,12 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
                 testExpectationContexts[i] = ExpectationContext.new(lastExpectationContext)
             end
 
-            -- Now run tests in parallel
+            -- Now run tests in parallel with global concurrency limit
             for i, childPlanNode in ipairs(itTests) do
                 task.spawn(function()
+                    -- Wait for a global slot to become available
+                    acquireGlobalSlot()
+
                     log(string.format("  [%d/%d] Starting: %s", i, total, childPlanNode.phrase))
 
                     -- Create isolated session for this test that writes to the pre-created node
@@ -281,14 +329,15 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
                         end
                     end
 
-                    while mutex.locked do
+                    -- Release the global slot and update completion count
+                    releaseGlobalSlot()
+                    while completionLock do
                         task.wait()
                     end
-                    mutex.locked = true
+                    completionLock = true
                     completed = completed + 1
-                    local remaining = total - completed
-                    log(string.format("  Progress: %d/%d complete, %d remaining", completed, total, remaining))
-                    mutex.locked = false
+                    log(string.format("  Progress: %d/%d complete, %d remaining", completed, total, total - completed))
+                    completionLock = false
                 end)
             end
 
@@ -347,7 +396,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
             end
         end
 
-        -- Process describe blocks in parallel if enabled
+        -- Process describe blocks in parallel if enabled (using global concurrency limit)
         if TestRunner.parallelEnabled and #describeBlocks > 0 then
             log(string.format("Running %d describe blocks in parallel...", #describeBlocks))
             local completed = 0
@@ -454,7 +503,6 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
             local totalDuration = os.clock() - startTime
             log(string.format("Parallel describe block execution complete: %d blocks in %.2fs", total, totalDuration))
         elseif #describeBlocks > 0 then
-            -- Run describe blocks sequentiallyif #describeBlocks > 0 then
             -- Run describe blocks sequentially
             for _, childPlanNode in ipairs(describeBlocks) do
                 log(string.format("Entering describe block: %s", childPlanNode.phrase))
