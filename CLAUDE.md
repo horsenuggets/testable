@@ -46,6 +46,10 @@ Every Luau file should have this at the top:
 - Surround strings of interest in quotation marks `"`
 - Use `[Usage]` instead of `Usage:` for usage messages
 
+## Versioning
+
+- Version tags should NOT have a "v" prefix (use `0.0.1`, not `v0.0.1`)
+
 ## Lune Documentation
 
 You can read Lune documentation as needed to understand the Lune code you're writing:

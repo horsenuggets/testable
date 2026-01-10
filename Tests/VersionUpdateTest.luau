@@ -132,7 +132,7 @@ local function commitVersion(repoPath: string, version: string, message: string?
 end
 
 local function createTag(repoPath: string, version: string)
-    process.exec("git", { "tag", `v{version}` }, { cwd = repoPath })
+    process.exec("git", { "tag", version }, { cwd = repoPath })
 end
 
 local function commitAndTagVersion(repoPath: string, version: string, message: string?)
@@ -365,7 +365,7 @@ return function()
             fs.writeFile(`{tempDir}/VERSION`, "not-a-version")
             process.exec("git", { "add", "VERSION" }, { cwd = tempDir })
             process.exec("git", { "commit", "-m", "Bad version" }, { cwd = tempDir })
-            process.exec("git", { "tag", "v0.0.1" }, { cwd = tempDir })
+            process.exec("git", { "tag", "0.0.1" }, { cwd = tempDir })
 
             -- Now set a valid version
             setWorkingVersion(tempDir, "1.0.0")
