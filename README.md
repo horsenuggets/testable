@@ -1,6 +1,6 @@
 # Testable
 
-A Luau testing framework based off of [TestEZ](https://roblox.github.io/testez/).
+A Luau testing framework based off of [TestEZ](https://roblox.github.io/testez/). Testable extends TestEZ with parallel test execution and support for [Lune](https://lune-org.github.io/docs), allowing you to run tests outside of the Roblox environment.
 
 ## Installation
 
@@ -30,8 +30,4 @@ if not passed then
 end
 ```
 
-See the [TestEZ API documentation](https://roblox.github.io/testez/api-reference/) for details on writing tests.
-
-## License
-
-MIT
+See the [TestEZ documentation](https://roblox.github.io/testez/api-reference/) for details on writing tests.
