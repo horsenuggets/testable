@@ -1,6 +1,6 @@
 --[[
 
-ConfigTest
+ConfigTest.spec
 
 Tests for the Testable configuration system including setting and resetting options.
 
