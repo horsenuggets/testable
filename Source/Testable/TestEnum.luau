@@ -1,6 +1,11 @@
 --[[
-    Constants used throughout the testing framework.
-]]
+
+TestEnum
+
+Constants used throughout the testing framework including test status values, node types,
+and node modifiers.
+
+--]]
 
 local TestEnum = {}
 

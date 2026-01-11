@@ -11,6 +11,7 @@
 - Every file should end in a single newline
 - Text should be LF normalized
 - Prefer Luau string interpolation using backticks, like `` `Here is a string with an interpolated {value}.` ``
+- Prefer double quotes over single quotes
 - Always read through existing code to match style
 
 ## Luau File Headers
@@ -26,6 +27,8 @@ Every Luau file should have this at the top:
 
 --]]
 ```
+
+For `init.luau` files, use the parent folder name instead of "init".
 
 ## Comments
 
@@ -49,6 +52,57 @@ Every Luau file should have this at the top:
 ## Versioning
 
 - Version tags should NOT have a "v" prefix (use `0.0.1`, not `v0.0.1`)
+
+## Changelog Format
+
+CHANGELOG.md should follow this format:
+
+```md
+# Changelog
+
+## 0.0.2
+
+### Added
+
+- This is an example addition
+- This is another example addition
+
+### Changed
+
+- This is an example change
+- This is another example change
+
+### Fixed
+
+- This is an example fix
+- This is another example fix
+
+## 0.0.1
+
+### Added
+
+- This is an example addition
+- This is another example addition
+
+### Changed
+
+- This is an example change
+- This is another example change
+
+### Fixed
+
+- This is an example fix
+- This is another example fix
+```
+
+## Ordering
+
+- When things can be sorted alphabetically, definitely do that (e.g., imports, table keys, function parameters)
+
+## Tests
+
+- For TestEZ-style tests, do not wrap everything in a describe block with just the file name
+- The file name is already used as the test name, so a wrapping describe block is redundant
 
 ## Lune Documentation
 

@@ -1,13 +1,14 @@
 --[[
-    Contains the logic to run a test plan and gather test results from it.
 
-    TestRunner accepts a TestPlan object, executes the planned tests, and
-    produces a TestResults object. While the tests are running, the system's
-    state is contained inside a TestSession object.
+TestRunner
 
-    Modified to support parallel test execution via task.spawn.
-]]
+Contains the logic to run a test plan and gather test results from it. TestRunner accepts
+a TestPlan object, executes the planned tests, and produces a TestResults object. Supports
+parallel test execution via task.spawn.
 
+--]]
+
+local Config = require("./Config")
 local LifecycleHooks = require("./LifecycleHooks")
 local task = if task then task else require("@lune/task")
 local TestEnum = require("./TestEnum")
@@ -22,9 +23,6 @@ local globalSemaphore = { activeCount = 0, lock = false }
 
 local TestRunner = {
     environment = {},
-    parallelEnabled = true, -- Set to false to disable parallel execution
-    verbose = false, -- Set to true to enable detailed logging
-    maxConcurrency = 4, -- Maximum number of tests running in parallel
 }
 
 -- Helper to acquire a global semaphore slot
@@ -34,7 +32,7 @@ local function acquireGlobalSlot()
             task.wait()
         end
         globalSemaphore.lock = true
-        if globalSemaphore.activeCount < TestRunner.maxConcurrency then
+        if globalSemaphore.activeCount < Config.MaxConcurrency then
             globalSemaphore.activeCount = globalSemaphore.activeCount + 1
             globalSemaphore.lock = false
             return
@@ -60,7 +58,7 @@ end
     @param ... - Messages to log
 ]]
 local function log(...: any): ()
-    if TestRunner.verbose then
+    if Config.Verbose then
         print("[Testable]", ...)
     end
 end
@@ -128,7 +126,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
         @param messagePrefix - Optional prefix for error messages
         @return success: boolean, errorMessage: string?
     ]]
-    local function runCallback(callback: (any) -> (), messagePrefix: string?): (boolean, string?)
+    local function runCallback(callback: (any) -> (), inputMessagePrefix: string?): (boolean, string?)
         local success = true
         local errorMessage
         -- Any code can check RUNNING_GLOBAL to fork behavior based on
@@ -138,7 +136,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
         _G[RUNNING_COUNT_GLOBAL] = (_G[RUNNING_COUNT_GLOBAL] or 0) + 1
         _G[RUNNING_GLOBAL] = true
 
-        messagePrefix = messagePrefix or ""
+        local messagePrefix: string = inputMessagePrefix or ""
 
         local testEnvironment = getfenv(callback)
 
@@ -240,14 +238,8 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
         end
 
         -- Run "it" tests in parallel if enabled
-        if TestRunner.parallelEnabled and #itTests > 0 then
-            log(
-                string.format(
-                    "Running %d tests in parallel (max %d concurrent)...",
-                    #itTests,
-                    TestRunner.maxConcurrency
-                )
-            )
+        if Config.Parallel and #itTests > 0 then
+            log(string.format("Running %d tests in parallel (max %d concurrent)...", #itTests, Config.MaxConcurrency))
             local completed = 0
             local total = #itTests
             local startTime = os.clock()
@@ -323,7 +315,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
                                     testDuration
                                 )
                             )
-                            if TestRunner.verbose then
+                            if Config.Verbose then
                                 print("    Error:", errorMessage)
                             end
                         end
@@ -350,7 +342,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
             log(string.format("Parallel execution complete: %d tests in %.2fs", total, totalDuration))
         elseif #itTests > 0 then
             -- Run tests sequentially
-            if not TestRunner.parallelEnabled then
+            if not Config.Parallel then
                 log(string.format("Running %d tests sequentially (parallel disabled)...", #itTests))
             else
                 log(string.format("Running %d tests sequentially...", #itTests))
@@ -397,12 +389,12 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
         end
 
         -- Process describe blocks in parallel if enabled (using global concurrency limit)
-        if TestRunner.parallelEnabled and #describeBlocks > 0 then
+        if Config.Parallel and #describeBlocks > 0 then
             log(string.format("Running %d describe blocks in parallel...", #describeBlocks))
             local completed = 0
             local total = #describeBlocks
             local startTime = os.clock()
-            local mutex = {}
+            local mutex: { locked: boolean? } = {}
 
             -- Pre-create result nodes for all describe blocks in the correct order
             local describeNodes = {}

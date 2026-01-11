@@ -1,9 +1,11 @@
 --[[
-    Represents a tree of tests that have been loaded but not necessarily
-    executed yet.
 
-    TestPlan objects are produced by TestPlanner.
-]]
+TestPlan
+
+Represents a tree of tests that have been loaded but not necessarily executed yet.
+TestPlan objects are produced by TestPlanner.
+
+--]]
 
 local Expectation = require("./Expectation")
 local TestEnum = require("./TestEnum")

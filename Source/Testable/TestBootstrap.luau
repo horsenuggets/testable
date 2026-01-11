@@ -1,6 +1,10 @@
 --[[
-    Provides an interface to quickly run and report tests from a given object.
-]]
+
+TestBootstrap
+
+Provides an interface to quickly run and report tests from a given object.
+
+--]]
 
 local IS_ROBLOX = game ~= nil
 local IS_LUNE = pcall(function()
@@ -89,8 +93,8 @@ end
     @param modules - Array to accumulate found modules
     @param current - Current instance being checked (defaults to root)
 ]]
-local function getModulesImplRoblox(root: any, modules: { any }?, current: any?): ()
-    modules = modules or {}
+local function getModulesImplRoblox(root: any, inputModules: { any }?, current: any?): ()
+    local modules: { any } = inputModules or {}
     current = current or root
 
     if isSpecScript(current) then
@@ -112,11 +116,12 @@ end
     @param root - The root instance to search from (or a module function for Lune)
     @return Array of module descriptors with method, path, and pathStringForSorting fields
 ]]
-function TestBootstrap:getModules(root: Instance | { Name: string, Func: () -> () }): { any }
+function TestBootstrap:getModules(root: any): { any }
     local modules = {}
 
     if IS_ROBLOX then
-        assert(typeof(root) == "Instance", "Expected root to be an Instance.")
+        local rootType = typeof(root)
+        assert(rootType == "Instance", "Expected root to be an Instance.")
 
         getModulesImplRoblox(root, modules)
 
@@ -179,10 +184,10 @@ end
     @param otherOptions - Optional table of options: showTimingInfo, testNamePattern, extraEnvironment
     @return TestResults object and boolean indicating if all tests passed
 ]]
-function TestBootstrap:run(roots: { any }, reporter: any?, otherOptions: { [string]: any }?): (any, boolean)
+function TestBootstrap:run(roots: { any }, reporter: any?, inputOtherOptions: { [string]: any }?): (any, boolean)
     reporter = reporter or TextReporter
 
-    otherOptions = otherOptions or {}
+    local otherOptions: { [string]: any } = inputOtherOptions or {}
     local showTimingInfo = otherOptions["showTimingInfo"] or false
     local testNamePattern = otherOptions["testNamePattern"]
     local extraEnvironment = otherOptions["extraEnvironment"] or {}

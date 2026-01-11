@@ -1,3 +1,11 @@
+--[[
+
+ExampleTest
+
+A simple example test demonstrating basic Testable usage.
+
+--]]
+
 return function()
     describe("Example Test Suite", function()
         it("should pass this example test", function()

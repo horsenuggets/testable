@@ -1,3 +1,11 @@
+--[[
+
+SyncVersion
+
+Synchronizes the version from the VERSION file to wally.toml.
+
+--]]
+
 local fs = require("@lune/fs")
 
 local function syncVersion()

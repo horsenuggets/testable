@@ -1,3 +1,11 @@
+--[[
+
+CheckFormatting
+
+Verifies that all code is properly formatted using stylua.
+
+--]]
+
 local process = require("@lune/process")
 
 local function checkFormatting()

@@ -1,11 +1,12 @@
 --[[
-    Represents the state relevant while executing a test plan.
 
-    Used by TestRunner to produce a TestResults object.
+TestSession
 
-    Uses the same tree building structure as TestPlanBuilder; TestSession keeps
-    track of a stack of nodes that represent the current path through the tree.
-]]
+Represents the state relevant while executing a test plan. Used by TestRunner to produce
+a TestResults object. Uses the same tree building structure as TestPlanBuilder and keeps
+track of a stack of nodes that represent the current path through the tree.
+
+--]]
 
 local Context = require("./Context")
 local ExpectationContext = require("./ExpectationContext")
