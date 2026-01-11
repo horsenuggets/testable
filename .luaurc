@@ -1,12 +1,43 @@
 {
     "aliases": {
-        "lune": "~/.lune/.typedefs/0.10.4+horse.0.2/"
+        "lune": "~/.lune/.typedefs/0.10.5/"
     },
     "globals": [
+        "afterAll",
         "afterEach",
+        "beforeAll",
         "beforeEach",
+        "DebuggerManager",
+        "delay",
         "describe",
+        "elapsedTime",
+        "Enum",
         "expect",
-        "it"
+        "fail",
+        "fdescribe",
+        "fit",
+        "game",
+        "getfenv",
+        "it",
+        "plugin",
+        "PluginManager",
+        "printidentity",
+        "script",
+        "settings",
+        "shared",
+        "spawn",
+        "stats",
+        "task",
+        "tick",
+        "time",
+        "typeof",
+        "UserSettings",
+        "version",
+        "wait",
+        "warn",
+        "workspace",
+        "xdescribe",
+        "xit",
+        "ypcall"
     ]
 }

@@ -1,4 +1,5 @@
 [tools]
+luau-lsp = "johnnymorganz/luau-lsp@1.60.0"
 lune = "horsenuggets/lune@0.10.5"
 rojo = "rojo-rbx/rojo@7.6.0"
 stylua = "johnnymorganz/stylua@2.3.1"

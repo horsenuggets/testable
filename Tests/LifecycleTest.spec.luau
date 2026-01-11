@@ -38,14 +38,14 @@ return function()
 
     describe("beforeAll and afterAll", function()
         local setupValue = nil
-        local teardownCalled = false
+        local _teardownCalled = false
 
         beforeAll(function()
             setupValue = "initialized"
         end)
 
         afterAll(function()
-            teardownCalled = true
+            _teardownCalled = true
         end)
 
         it("should have run beforeAll before any test", function()

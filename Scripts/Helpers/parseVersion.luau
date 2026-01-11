@@ -10,11 +10,11 @@ Version numbers must be between 0 and 99999.
 
 local MAX_VERSION_NUMBER = 99999
 
-local function parseVersion(versionString: string): (number?, number?, number?)
-    assert(typeof(versionString) == "string", "Expected a string.")
+local function parseVersion(inputVersionString: string): (number?, number?, number?)
+    assert(typeof(inputVersionString) == "string", "Expected a string.")
 
     -- Trim whitespace
-    versionString = string.match(versionString, "^%s*(.-)%s*$")
+    local versionString: string = string.match(inputVersionString, "^%s*(.-)%s*$") or ""
 
     -- Parse MAJOR.MINOR.PATCH format
     local major, minor, patch = string.match(versionString, "^(%d+)%.(%d+)%.(%d+)$")

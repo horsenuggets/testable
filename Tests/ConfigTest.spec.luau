@@ -108,7 +108,7 @@ return function()
 
         it("should error if options is not a table", function()
             expect(function()
-                Testable.configure("invalid")
+                Testable.configure("invalid" :: any)
             end).to.throw("options must be a table")
         end)
 
@@ -150,7 +150,7 @@ return function()
 
         it("should error if Verbose is not a boolean", function()
             expect(function()
-                Testable.configure({ Verbose = {} })
+                Testable.configure({ Verbose = {} } :: any)
             end).to.throw("Verbose must be a boolean")
         end)
     end)

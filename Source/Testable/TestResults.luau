@@ -81,9 +81,9 @@ end
     @param level - Current indentation level (defaults to 0)
     @return String representation of the test results tree
 ]]
-function TestResults:visualize(root: any?, level: number?): string
+function TestResults:visualize(root: any?, inputLevel: number?): string
     root = root or self
-    level = level or 0
+    local level: number = inputLevel or 0
 
     local buffer = {}
 

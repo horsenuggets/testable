@@ -109,19 +109,22 @@ local function getOrCreateTemplate(): string
     end
 
     if templateDir and fs.isDir(templateDir) then
-        return templateDir
+        local result: string = templateDir
+        return result
     end
 
     templateLock.locked = true
     -- Double-check after acquiring lock
     if templateDir and fs.isDir(templateDir) then
         templateLock.locked = false
-        return templateDir
+        local result: string = templateDir
+        return result
     end
 
-    templateDir = setupRokitTemplate()
+    local newTemplate = setupRokitTemplate()
+    templateDir = newTemplate
     templateLock.locked = false
-    return templateDir
+    return newTemplate
 end
 
 local function setupRokit(repoPath: string)

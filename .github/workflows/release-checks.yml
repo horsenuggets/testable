@@ -35,6 +35,19 @@ jobs:
       - name: Check formatting
         run: lune run ./Scripts/CheckFormatting.luau
 
+  analyze:
+    name: Static analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rokit
+        uses: CompeyDev/setup-rokit@v0.1.2
+
+      - name: Run static analysis
+        run: luau-lsp analyze --ignore "Source/Testable/init.luau" --platform standard .
+
   version:
     name: Validate version
     runs-on: ubuntu-latest

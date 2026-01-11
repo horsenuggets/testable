@@ -126,7 +126,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
         @param messagePrefix - Optional prefix for error messages
         @return success: boolean, errorMessage: string?
     ]]
-    local function runCallback(callback: (any) -> (), messagePrefix: string?): (boolean, string?)
+    local function runCallback(callback: (any) -> (), inputMessagePrefix: string?): (boolean, string?)
         local success = true
         local errorMessage
         -- Any code can check RUNNING_GLOBAL to fork behavior based on
@@ -136,7 +136,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
         _G[RUNNING_COUNT_GLOBAL] = (_G[RUNNING_COUNT_GLOBAL] or 0) + 1
         _G[RUNNING_GLOBAL] = true
 
-        messagePrefix = messagePrefix or ""
+        local messagePrefix: string = inputMessagePrefix or ""
 
         local testEnvironment = getfenv(callback)
 
@@ -394,7 +394,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
             local completed = 0
             local total = #describeBlocks
             local startTime = os.clock()
-            local mutex = {}
+            local mutex: { locked: boolean? } = {}
 
             -- Pre-create result nodes for all describe blocks in the correct order
             local describeNodes = {}
