@@ -9,12 +9,10 @@ Uses the results from a completed test to output text to standard output and Tes
 local TestService = game and game:GetService("TestService")
 
 local Ansi = require("../Ansi")
+local Config = require("../Config")
 local TestEnum = require("../TestEnum")
 
-local INDENT = (" "):rep(3)
-local ALPHABETICAL_SORT = false -- Set to true to sort tests alphabetically instead of definition order
-local INDIVIDUAL_PRINTS = true -- Set to false to print all results as one big message
-local PRINT_SKIPPED = false
+local INDIVIDUAL_PRINTS = true
 
 local IS_LUNE = Ansi.isLune()
 
@@ -49,7 +47,7 @@ local function reportNode(node, buffer, level)
 
     if node.status then
         local symbol = STATUS_SYMBOLS[node.status] or UNKNOWN_STATUS_SYMBOL
-        local indent = INDENT:rep(level)
+        local indent = Config.Indent:rep(level)
         local fullLine = `[{symbol}] {node.planNode.phrase}`
 
         -- Apply ANSI colors in Lune environment
@@ -67,12 +65,12 @@ local function reportNode(node, buffer, level)
             line = indent .. fullLine
         end
     else
-        line = ("%s%s"):format(INDENT:rep(level), node.planNode.phrase)
+        line = ("%s%s"):format(Config.Indent:rep(level), node.planNode.phrase)
     end
 
     table.insert(buffer, line)
 
-    if ALPHABETICAL_SORT then
+    if Config.AlphabeticalSort then
         table.sort(node.children, compareNodes)
     end
 
@@ -86,7 +84,7 @@ end
 local function reportRoot(node)
     local buffer = {}
 
-    if ALPHABETICAL_SORT then
+    if Config.AlphabeticalSort then
         table.sort(node.children, compareNodes)
     end
 
@@ -117,14 +115,14 @@ function TextReporter.report(results)
         if IS_LUNE then
             local passedPart = Ansi.brightGreen(`{results.successCount} passed`)
             local failedPart = Ansi.brightRed(`{results.failureCount} failed`)
-            if PRINT_SKIPPED and results.skippedCount > 0 then
+            if Config.PrintSkipped and results.skippedCount > 0 then
                 local skippedPart = Ansi.brightYellow(`{results.skippedCount} skipped`)
                 summaryLine = passedPart .. ", " .. failedPart .. ", " .. skippedPart .. "."
             else
                 summaryLine = passedPart .. ", " .. failedPart .. "."
             end
         else
-            if PRINT_SKIPPED and results.skippedCount > 0 then
+            if Config.PrintSkipped and results.skippedCount > 0 then
                 summaryLine =
                     `{results.successCount} passed, {results.failureCount} failed, {results.skippedCount} skipped.`
             else
@@ -138,14 +136,14 @@ function TextReporter.report(results)
         if IS_LUNE then
             local passedPart = Ansi.brightGreen(`{results.successCount} passed`)
             local failedPart = Ansi.brightRed(`{results.failureCount} failed`)
-            if PRINT_SKIPPED and results.skippedCount > 0 then
+            if Config.PrintSkipped and results.skippedCount > 0 then
                 local skippedPart = Ansi.brightYellow(`{results.skippedCount} skipped`)
                 summaryLine = passedPart .. ", " .. failedPart .. ", " .. skippedPart .. "."
             else
                 summaryLine = passedPart .. ", " .. failedPart .. "."
             end
         else
-            if PRINT_SKIPPED and results.skippedCount > 0 then
+            if Config.PrintSkipped and results.skippedCount > 0 then
                 summaryLine =
                     `{results.successCount} passed, {results.failureCount} failed, {results.skippedCount} skipped.`
             else

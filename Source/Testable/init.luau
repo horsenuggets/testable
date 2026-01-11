@@ -7,6 +7,7 @@ matchers, lifecycle hooks, and parallel test execution support.
 
 --]]
 
+local Config = require("@self/Config")
 local Expectation = require("@self/Expectation")
 local TestBootstrap = require("@self/TestBootstrap")
 local TestEnum = require("@self/TestEnum")
@@ -41,9 +42,15 @@ local function run(testRoots: { any }): (any, boolean)
 end
 
 local Testable = {
+    configure = Config.set,
+    resetConfig = Config.reset,
     run = run,
 
+    Config = Config,
     Expectation = Expectation,
+    Reporters = {
+        TextReporter = TextReporter,
+    },
     TestBootstrap = TestBootstrap,
     TestEnum = TestEnum,
     TestPlan = TestPlan,
@@ -51,10 +58,6 @@ local Testable = {
     TestResults = TestResults,
     TestRunner = TestRunner,
     TestSession = TestSession,
-
-    Reporters = {
-        TextReporter = TextReporter,
-    },
 }
 
 return Testable
