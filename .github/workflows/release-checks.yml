@@ -45,6 +45,9 @@ jobs:
       - name: Setup Rokit
         uses: CompeyDev/setup-rokit@v0.1.2
 
+      - name: Setup Lune typedefs
+        run: lune setup --no-update-luaurc
+
       - name: Run static analysis
         run: luau-lsp analyze --ignore "Source/Testable/init.luau" --platform standard .
 
