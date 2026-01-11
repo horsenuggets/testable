@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.0.5
+
+### Added
+
+- `Testable.configure()` function for runtime configuration of test behavior
+  - `AlphabeticalSort`: Sort test output alphabetically
+  - `Indent`: Custom indentation string
+  - `MaxConcurrency`: Maximum concurrent tests in parallel mode
+  - `Parallel`: Enable/disable parallel test execution
+  - `PrintSkipped`: Show skipped tests in output
+  - `Verbose`: Enable verbose logging
+- Static analysis with luau-lsp added to release checks workflow
+- All Roblox and TestEZ globals added to `.luaurc`
+
+### Changed
+
+- Improved documentation with better README examples
+- Standardized Luau file headers
+
 ## 0.0.4
 
 ### Changed
