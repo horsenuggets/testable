@@ -8,7 +8,7 @@ Add Testable to your `wally.toml`:
 
 ```toml
 [dev-dependencies]
-testable = "cxmeel/testable@0.0.4"
+testable = "horsenuggets/testable@0.0.4"
 ```
 
 Then run:
