@@ -1,6 +1,10 @@
 --[[
-    Provides an interface to quickly run and report tests from a given object.
-]]
+
+TestBootstrap
+
+Provides an interface to quickly run and report tests from a given object.
+
+--]]
 
 local IS_ROBLOX = game ~= nil
 local IS_LUNE = pcall(function()

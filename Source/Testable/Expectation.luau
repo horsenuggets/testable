@@ -1,20 +1,13 @@
 --!nocheck
 --[[
-    Allows creation of expectation statements designed for behavior-driven
-    testing (BDD). See Chai (JS) or RSpec (Ruby) for examples of other BDD
-    frameworks.
 
-    The Expectation class is exposed to tests as a function called `expect`:
+Expectation
 
-	    expect(5).to.equal(5)
-	    expect(foo()).to.be.ok()
+Allows creation of expectation statements designed for behavior-driven testing (BDD).
+The Expectation class is exposed to tests as a function called `expect`. Expectations
+can be negated using `.never` and throw errors when their conditions are not met.
 
-    Expectations can be negated using .never:
-
-	    expect(true).never.to.equal(false)
-
-    Expectations throw errors when their conditions are not met.
-]]
+--]]
 
 local Expectation = {}
 

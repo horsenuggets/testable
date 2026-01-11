@@ -1,8 +1,11 @@
 --[[
-    Turns a series of specification functions into a test plan.
 
-    Uses a TestPlanBuilder to keep track of the state of the tree being built.
-]]
+TestPlanner
+
+Turns a series of specification functions into a test plan. Uses a TestPlanBuilder to
+keep track of the state of the tree being built.
+
+--]]
 local TestPlan = require("./TestPlan")
 
 local TestPlanner = {}

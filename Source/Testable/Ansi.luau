@@ -1,7 +1,10 @@
 --[[
-    Simple ANSI color module for terminal output.
-    Only used when running in Lune (CLI environment).
-]]
+
+Ansi
+
+Simple ANSI color module for terminal output. Only used when running in Lune.
+
+--]]
 
 local Ansi = {}
 

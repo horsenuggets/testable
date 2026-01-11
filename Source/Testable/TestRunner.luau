@@ -1,12 +1,12 @@
 --[[
-    Contains the logic to run a test plan and gather test results from it.
 
-    TestRunner accepts a TestPlan object, executes the planned tests, and
-    produces a TestResults object. While the tests are running, the system's
-    state is contained inside a TestSession object.
+TestRunner
 
-    Modified to support parallel test execution via task.spawn.
-]]
+Contains the logic to run a test plan and gather test results from it. TestRunner accepts
+a TestPlan object, executes the planned tests, and produces a TestResults object. Supports
+parallel test execution via task.spawn.
+
+--]]
 
 local LifecycleHooks = require("./LifecycleHooks")
 local task = if task then task else require("@lune/task")

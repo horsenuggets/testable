@@ -1,11 +1,12 @@
 --[[
-    Represents a tree of test results.
 
-    Each node in the tree corresponds directly to a node in a corresponding
-    TestPlan, accessible via the 'planNode' field.
+TestResults
 
-    TestResults objects are produced by TestRunner using TestSession as state.
-]]
+Represents a tree of test results. Each node in the tree corresponds directly to a node
+in a corresponding TestPlan. TestResults objects are produced by TestRunner using
+TestSession as state.
+
+--]]
 
 local TestEnum = require("./TestEnum")
 

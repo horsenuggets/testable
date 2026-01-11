@@ -1,7 +1,10 @@
 --[[
-    The TextReporter uses the results from a completed test to output text to
-    standard output and TestService.
-]]
+
+TextReporter
+
+Uses the results from a completed test to output text to standard output and TestService.
+
+--]]
 
 local TestService = game and game:GetService("TestService")
 
