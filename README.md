@@ -36,7 +36,7 @@ end)
 Run tests using the Testable API:
 
 ```luau
-local Testable = require("@packages/testable")
+local Testable = require("@devpackages/testable")
 local testRoot = script.Parent.Tests
 
 local results, passed = Testable.run({ testRoot })
