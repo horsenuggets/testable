@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - name: Setup Rokit
         uses: CompeyDev/setup-rokit@v0.1.2
@@ -28,12 +30,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - name: Setup Rokit
         uses: CompeyDev/setup-rokit@v0.1.2
 
       - name: Check formatting
-        run: lune run ./Scripts/CheckFormatting.luau
+        run: lune run ./Submodules/luau-cicd/Scripts/CheckFormatting.luau
 
   analyze:
     name: Static analysis
@@ -41,6 +45,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - name: Setup Rokit
         uses: CompeyDev/setup-rokit@v0.1.2
@@ -59,15 +65,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          submodules: true
 
       - name: Setup Rokit
         uses: CompeyDev/setup-rokit@v0.1.2
 
       - name: Check version update
-        run: lune run ./Scripts/EnsureProperVersionUpdate.luau
+        run: lune run ./Submodules/luau-cicd/Scripts/EnsureProperVersionUpdate.luau
 
       - name: Check version match
-        run: lune run ./Scripts/CheckVersionMatch.luau
+        run: lune run ./Submodules/luau-cicd/Scripts/CheckVersionMatch.luau
 
       - name: Check changelog entry
-        run: lune run ./Scripts/CheckChangelogVersion.luau
+        run: lune run ./Submodules/luau-cicd/Scripts/CheckChangelogVersion.luau

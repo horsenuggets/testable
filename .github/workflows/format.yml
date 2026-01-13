@@ -13,9 +13,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - name: Setup Rokit
         uses: CompeyDev/setup-rokit@v0.1.2
 
       - name: Check formatting
-        run: lune run ./Scripts/CheckFormatting.luau
+        run: lune run ./Submodules/luau-cicd/Scripts/CheckFormatting.luau
