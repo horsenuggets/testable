@@ -82,4 +82,4 @@ jobs:
         run: lune setup --no-update-luaurc
 
       - name: Run static analysis
-        run: luau-lsp analyze --ignore "Source/Testable/init.luau" --platform standard .
+        run: luau-lsp analyze --ignore "Source/Testable/init.luau" --ignore "Submodules/**" --platform standard .
