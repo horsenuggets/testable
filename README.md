@@ -1,4 +1,4 @@
-# Testable
+# testable
 
 A Luau testing framework based off of TestEZ. Testable extends TestEZ with parallel test execution and support for [Lune](https://lune-org.github.io/docs), allowing you to run tests outside of the Roblox environment.
 

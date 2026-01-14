@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0
+
+### Changed
+
+- Use luau-cicd submodule for CI/CD scripts instead of local copies
+
 ## 0.0.5
 
 ### Added
