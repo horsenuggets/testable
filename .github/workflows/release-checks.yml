@@ -23,6 +23,32 @@ jobs:
 
           echo "PR title is valid."
 
+  diff-check:
+    name: Verify diff matches main
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Check diff with main
+        run: |
+          git fetch origin main
+
+          # Get the diff between the PR branch and main
+          DIFF=$(git diff origin/main..HEAD)
+
+          if [ -n "$DIFF" ]; then
+            echo "::error::PR branch has changes that differ from main. The release branch must contain exactly what is in main."
+            echo "Diff:"
+            echo "$DIFF"
+            exit 1
+          fi
+
+          echo "PR branch matches main exactly."
+
   format:
     name: Check formatting
     runs-on: ubuntu-latest
