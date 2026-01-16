@@ -1,6 +1,6 @@
 --[[
 
-ExpectationTest.spec
+ExpectationTest
 
 Tests for all expectation matchers in the Testable framework, including equality checks,
 type assertions, nil checks, numeric comparisons, error throwing, and negation.

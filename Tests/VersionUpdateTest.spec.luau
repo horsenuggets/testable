@@ -1,6 +1,6 @@
 --[[
 
-VersionUpdateTest.spec
+VersionUpdateTest
 
 Tests for the EnsureProperVersionUpdate script. Validates semantic versioning enforcement,
 version bump validation, and edge cases for version format handling.

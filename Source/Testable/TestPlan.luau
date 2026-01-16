@@ -93,9 +93,9 @@ local function newEnvironment(currentNode, extraEnvironment)
     end
 
     --[[
-	    This function is deprecated. Calling it is a no-op beyond generating a
-	    warning.
-	]]
+        This function is deprecated. Calling it is a no-op beyond generating a
+        warning.
+    ]]
     function env.HACK_NO_XPCALL()
         warn(
             "HACK_NO_XPCALL is deprecated. It is now safe to yield in an "
