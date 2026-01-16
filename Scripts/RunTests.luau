@@ -1,3 +1,5 @@
+#!/usr/bin/env -S lune run
+
 --[[
 
 RunTests
