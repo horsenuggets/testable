@@ -82,4 +82,94 @@ jobs:
         run: lune setup --no-update-luaurc
 
       - name: Run static analysis
-        run: luau-lsp analyze --ignore "Source/Testable/init.luau" --ignore "Submodules/**" --platform standard .
+        run: lune run ./Submodules/luau-cicd/Scripts/RunStaticAnalysis.luau
+
+  changelog:
+    name: Check changelog format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup Rokit
+        uses: CompeyDev/setup-rokit@v0.1.2
+
+      - name: Check changelog format
+        run: lune run ./Submodules/luau-cicd/Scripts/CheckChangelogFormat.luau
+
+  rokit-format:
+    name: Check rokit.toml format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup Rokit
+        uses: CompeyDev/setup-rokit@v0.1.2
+
+      - name: Check rokit.toml format
+        run: lune run ./Submodules/luau-cicd/Scripts/CheckRokitFormat.luau
+
+  wally-format:
+    name: Check wally.toml format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup Rokit
+        uses: CompeyDev/setup-rokit@v0.1.2
+
+      - name: Check wally.toml format
+        run: lune run ./Submodules/luau-cicd/Scripts/CheckWallyFormat.luau
+
+  file-headers:
+    name: Check file headers
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup Rokit
+        uses: CompeyDev/setup-rokit@v0.1.2
+
+      - name: Check file headers
+        run: lune run ./Submodules/luau-cicd/Scripts/CheckFileHeaders.luau
+
+  luaurc-format:
+    name: Check .luaurc format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup Rokit
+        uses: CompeyDev/setup-rokit@v0.1.2
+
+      - name: Check .luaurc format
+        run: lune run ./Submodules/luau-cicd/Scripts/CheckLuaurcFormat.luau
+
+  no-tabs:
+    name: Check for tabs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup Rokit
+        uses: CompeyDev/setup-rokit@v0.1.2
+
+      - name: Check for tabs
+        run: lune run ./Submodules/luau-cicd/Scripts/CheckNoTabs.luau

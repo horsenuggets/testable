@@ -1,6 +1,6 @@
 --[[
 
-LifecycleTest.spec
+LifecycleTest
 
 Tests for lifecycle hooks in the Testable framework including beforeEach, afterEach,
 beforeAll, and afterAll hooks.

@@ -1,6 +1,6 @@
 --[[
 
-ExampleTest.spec
+ExampleTest
 
 A simple example test demonstrating basic Testable usage.
 
