@@ -63,7 +63,7 @@ end
 local function initGitRepo(repoPath: string)
     local result = process.exec("git", { "init" }, { cwd = repoPath })
     if not result.ok then
-        error(`Failed to init git repo at {repoPath}: {result.stderr}`)
+        error(`Failed to init Git repo at {repoPath}: {result.stderr}`)
     end
     process.exec("git", { "config", "user.email", "test@test.com" }, { cwd = repoPath })
     process.exec("git", { "config", "user.name", "Test User" }, { cwd = repoPath })
@@ -224,7 +224,7 @@ return function()
             cleanupTempDir(tempDir)
         end)
 
-        it("should accept valid version format with no git history", function()
+        it("should accept valid version format with no Git history", function()
             local tempDir = setupTestRepo()
             setWorkingVersion(tempDir, "1.0.0")
             local success, output = runVersionCheck(tempDir)
