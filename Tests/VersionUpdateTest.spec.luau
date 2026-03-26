@@ -104,7 +104,6 @@ end
 local function getOrCreateTemplate(): string
     -- Simple spinlock to ensure only one thread creates the template
     while templateLock.locked do
-        local task = require("@lune/task")
         task.wait()
     end
 
