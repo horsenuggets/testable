@@ -45,10 +45,10 @@ export type CoverageReport = {
 local Coverage = {}
 
 --[[
-	Checks if a module name should be excluded based on its suffix.
+    Checks if a module name should be excluded based on its suffix.
 
-	@param name - The module name to check
-	@return True if the name matches an excluded suffix
+    @param name - The module name to check
+    @return True if the name matches an excluded suffix
 ]]
 local function isExcluded(name: string): boolean
     for _, suffix in EXCLUDED_SUFFIXES do
@@ -60,10 +60,10 @@ local function isExcluded(name: string): boolean
 end
 
 --[[
-	Checks if a value is a script Instance (Roblox or Lune filesystem).
+    Checks if a value is a script Instance (Roblox or Lune filesystem).
 
-	@param value - The value to check
-	@return True if the value is a script-like Instance
+    @param value - The value to check
+    @return True if the value is a script-like Instance
 ]]
 local function isInstance(value: any): boolean
     if IS_ROBLOX then
@@ -77,10 +77,10 @@ local function isInstance(value: any): boolean
 end
 
 --[[
-	Gets the name of a module without the .luau extension.
+    Gets the name of a module without the .luau extension.
 
-	@param instance - The script instance
-	@return The cleaned module name
+    @param instance - The script instance
+    @return The cleaned module name
 ]]
 local function getModuleName(instance: any): string
     local name = instance.Name
@@ -88,13 +88,13 @@ local function getModuleName(instance: any): string
 end
 
 --[[
-	Recursively discovers all requirable modules from a script Instance
-	root. Filters out excluded suffixes and caches by identity to avoid
-	duplicates.
+    Recursively discovers all requirable modules from a script Instance
+    root. Filters out excluded suffixes and caches by identity to avoid
+    duplicates.
 
-	@param root - The script instance to search from
-	@param results - Array to accumulate { Name, Module } entries
-	@param seen - Set of already-processed instances for deduplication
+    @param root - The script instance to search from
+    @param results - Array to accumulate { Name, Module } entries
+    @param seen - Set of already-processed instances for deduplication
 ]]
 local function discoverFromInstance(
     root: any,
@@ -164,11 +164,11 @@ local function discoverFromInstance(
 end
 
 --[[
-	Collects coverage data for a single function.
+    Collects coverage data for a single function.
 
-	@param fn - The function to collect coverage for
-	@return hitLines - Number of lines that were executed
-	@return executableLines - Number of executable lines
+    @param fn - The function to collect coverage for
+    @return hitLines - Number of lines that were executed
+    @return executableLines - Number of executable lines
 ]]
 local function collectFunctionCoverage(fn: (...any) -> ...any): (number, number)
     local coverage = debug.getcoverage(fn)
@@ -190,10 +190,10 @@ local function collectFunctionCoverage(fn: (...any) -> ...any): (number, number)
 end
 
 --[[
-	Extracts all functions from a module table, sorted alphabetically.
+    Extracts all functions from a module table, sorted alphabetically.
 
-	@param mod - The module table to extract functions from
-	@return functions - Array of { name, fn } pairs
+    @param mod - The module table to extract functions from
+    @return functions - Array of { name, fn } pairs
 ]]
 local function getFunctionsFromModule(mod: { [string]: any }): { { name: string, fn: (...any) -> ...any } }
     local result = {}
@@ -212,13 +212,13 @@ local function getFunctionsFromModule(mod: { [string]: any }): { { name: string,
 end
 
 --[[
-	Resolves CoverageRoots into a flat list of { Name, Module } entries.
-	CoverageRoots uses dictionary syntax: { Name = root, ... } where each
-	root is either a script instance (recursively discovered) or a require
-	result (module table used directly).
+    Resolves CoverageRoots into a flat list of { Name, Module } entries.
+    CoverageRoots uses dictionary syntax: { Name = root, ... } where each
+    root is either a script instance (recursively discovered) or a require
+    result (module table used directly).
 
-	@param roots - Dictionary of { name = root } entries
-	@return modules - Array of { Name, Module } entries
+    @param roots - Dictionary of { name = root } entries
+    @return modules - Array of { Name, Module } entries
 ]]
 function Coverage.resolveRoots(roots: { [string]: any }): { { Name: string, Module: { [string]: any } } }
     local results = {}
@@ -251,11 +251,11 @@ function Coverage.resolveRoots(roots: { [string]: any }): { { Name: string, Modu
 end
 
 --[[
-	Collects coverage data for all resolved modules. Returns nil when
-	coverage is not enabled (LUNE_COVERAGE=0).
+    Collects coverage data for all resolved modules. Returns nil when
+    coverage is not enabled (LUNE_COVERAGE=0).
 
-	@param roots - CoverageRoots value from config
-	@return report - The coverage report, or nil if coverage is disabled
+    @param roots - CoverageRoots value from config
+    @return report - The coverage report, or nil if coverage is disabled
 ]]
 function Coverage.collect(roots: any): CoverageReport?
     if not debug.iscoverageenabled() then

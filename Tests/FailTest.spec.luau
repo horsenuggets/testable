@@ -1,6 +1,6 @@
 --[[
 
-FailTest
+FailTest.spec
 
 Tests for the fail() function in the Testable framework. Uses subprocess execution to
 verify that fail() actually causes tests to fail with the expected exit codes.

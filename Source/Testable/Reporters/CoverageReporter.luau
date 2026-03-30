@@ -38,10 +38,10 @@ local function formatPercentage(pct: number, threshold: number): string
 end
 
 --[[
-	Reports coverage results to standard output.
+    Reports coverage results to standard output.
 
-	@param report - The coverage report from Coverage.collect
-	@param threshold - The minimum coverage percentage to pass
+    @param report - The coverage report from Coverage.collect
+    @param threshold - The minimum coverage percentage to pass
 ]]
 function CoverageReporter.report(report: Coverage.CoverageReport, threshold: number)
     print("")
