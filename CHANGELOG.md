@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1
+- Added code coverage support via `debug.getcoverage` (requires lune 0.10.4-horse.14.2+)
+- Added `Coverage`, `CoverageRoots`, and `CoverageThreshold` configuration options
+- Added `CoverageReporter` for formatted coverage output with ANSI colors
+- Added dictionary syntax for test roots (`{ TestName = func }` alongside `{ { Name, Func } }`)
+- Added `DictSyntaxTest` test suite
+
 ## 0.1.0
 - Changed to use luau-cicd submodule for CI/CD scripts instead of local copies
 

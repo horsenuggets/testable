@@ -145,19 +145,56 @@ function TestBootstrap:getModules(root: any): { any }
 end
 
 --[[
-    Gathers test modules from multiple root locations.
+    Gathers test modules from multiple root locations. Supports both
+    array format and dictionary format:
 
-    @param roots - Array of root instances to search
+    Array: { { Name = "Test", Func = fn }, ... }
+    Dict:  { Test = fn, Other = fn, ... }
+
+    @param roots - Array or dictionary of test roots
     @return Combined array of all module descriptors found
 ]]
 function TestBootstrap:getModulesFromMultipleRoots(roots: { any }): { any }
     local modules = {}
 
-    for _, root in ipairs(roots) do
-        local newModules = self:getModules(root)
+    -- Detect if roots is a dictionary (string keys) or array (integer keys)
+    local isDictionary = false
+    if #roots == 0 then
+        for key in roots do
+            if type(key) == "string" then
+                isDictionary = true
+                break
+            end
+        end
+    end
 
-        for _, newModule in ipairs(newModules) do
-            table.insert(modules, newModule)
+    if isDictionary then
+        -- Dictionary format: { TestName = requireResult, ... }
+        local entries = {}
+        for name, func in roots do
+            assert(
+                type(name) == "string" and type(func) == "function",
+                `Expected dictionary entries to be string = function, got {type(name)} = {type(func)}`
+            )
+            table.insert(entries, { Name = name, Func = func })
+        end
+        -- Sort alphabetically for deterministic order
+        table.sort(entries, function(a, b)
+            return a.Name < b.Name
+        end)
+        for _, entry in entries do
+            local newModules = self:getModules(entry)
+            for _, newModule in newModules do
+                table.insert(modules, newModule)
+            end
+        end
+    else
+        -- Array format: { { Name = "Test", Func = fn }, Instance, ... }
+        for _, root in ipairs(roots) do
+            local newModules = self:getModules(root)
+            for _, newModule in newModules do
+                table.insert(modules, newModule)
+            end
         end
     end
 
