@@ -87,6 +87,7 @@ jobs:
             --platform=lune \
             --no-flags-enabled \
             --definitions="Definitions/Coverage.d.luau" \
+            --ignore="Definitions/**" \
             --ignore="DevPackages/**" \
             --ignore="Packages/**" \
             --ignore="Submodules/**" \
