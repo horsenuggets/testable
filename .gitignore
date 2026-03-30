@@ -1,7 +1,3 @@
-.DS_Store
-.env
-.local
-.vscode
 *.bak
 *.gen.*
 *.lock
@@ -9,7 +5,12 @@
 *.rbxlx
 *.rbxm
 *.rbxmx
+.DS_Store
+.env
+.local
+.vscode
 Build
 Packages
 sourcemap.json
+/TODO.md
 Tools

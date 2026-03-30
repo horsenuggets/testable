@@ -1,4 +1,5 @@
 --!nocheck
+
 --[[
 
 Expectation
@@ -139,9 +140,9 @@ end
 
     This makes chains like:
 
-	    expect(5)
-			.never.to.equal(6)
-			.to.equal(5)
+        expect(5)
+            .never.to.equal(6)
+            .to.equal(5)
 
     Work as expected.
 ]]

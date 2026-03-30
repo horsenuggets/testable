@@ -119,4 +119,6 @@ function TestResults:visualize(root: any?, inputLevel: number?): string
     return table.concat(buffer, "\n")
 end
 
+TestResults.STATUS_SYMBOLS = STATUS_SYMBOLS
+
 return TestResults

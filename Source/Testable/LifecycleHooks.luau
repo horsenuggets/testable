@@ -3,7 +3,8 @@
 LifecycleHooks
 
 Manages lifecycle hooks (beforeAll, afterAll, beforeEach, afterEach) for test execution.
-Maintains a stack of hooks that can be pushed and popped as test nodes are entered and exited.
+Maintains a stack of hooks that can be pushed and popped as test nodes are entered and
+exited.
 
 --]]
 

@@ -11,6 +11,7 @@ local TestService = game and game:GetService("TestService")
 local Ansi = require("../Ansi")
 local Config = require("../Config")
 local TestEnum = require("../TestEnum")
+local TestResults = require("../TestResults")
 
 local INDIVIDUAL_PRINTS = true
 
@@ -22,11 +23,7 @@ local STATUS_SYMBOLS = if IS_LUNE
         [TestEnum.TestStatus.Failure] = "-",
         [TestEnum.TestStatus.Skipped] = "~",
     }
-    else {
-        [TestEnum.TestStatus.Success] = "✅",
-        [TestEnum.TestStatus.Failure] = "❌",
-        [TestEnum.TestStatus.Skipped] = "🕐",
-    }
+    else TestResults.STATUS_SYMBOLS
 local UNKNOWN_STATUS_SYMBOL = "?"
 
 local TextReporter = {}
@@ -101,6 +98,25 @@ local function report(root)
     return buffer
 end
 
+local function buildSummaryLine(results)
+    if IS_LUNE then
+        local passedPart = Ansi.brightGreen(`{results.successCount} passed`)
+        local failedPart = Ansi.brightRed(`{results.failureCount} failed`)
+        if Config.PrintSkipped and results.skippedCount > 0 then
+            local skippedPart = Ansi.brightYellow(`{results.skippedCount} skipped`)
+            return passedPart .. ", " .. failedPart .. ", " .. skippedPart .. "."
+        else
+            return passedPart .. ", " .. failedPart .. "."
+        end
+    else
+        if Config.PrintSkipped and results.skippedCount > 0 then
+            return `{results.successCount} passed, {results.failureCount} failed, {results.skippedCount} skipped.`
+        else
+            return `{results.successCount} passed, {results.failureCount} failed.`
+        end
+    end
+end
+
 function TextReporter.report(results)
     if INDIVIDUAL_PRINTS then
         -- Print each line separately
@@ -111,50 +127,13 @@ function TextReporter.report(results)
             print(line)
         end
 
-        local summaryLine
-        if IS_LUNE then
-            local passedPart = Ansi.brightGreen(`{results.successCount} passed`)
-            local failedPart = Ansi.brightRed(`{results.failureCount} failed`)
-            if Config.PrintSkipped and results.skippedCount > 0 then
-                local skippedPart = Ansi.brightYellow(`{results.skippedCount} skipped`)
-                summaryLine = passedPart .. ", " .. failedPart .. ", " .. skippedPart .. "."
-            else
-                summaryLine = passedPart .. ", " .. failedPart .. "."
-            end
-        else
-            if Config.PrintSkipped and results.skippedCount > 0 then
-                summaryLine =
-                    `{results.successCount} passed, {results.failureCount} failed, {results.skippedCount} skipped.`
-            else
-                summaryLine = `{results.successCount} passed, {results.failureCount} failed.`
-            end
-        end
-        print(summaryLine)
+        print(buildSummaryLine(results))
     else
         -- Print all as one big message
-        local summaryLine
-        if IS_LUNE then
-            local passedPart = Ansi.brightGreen(`{results.successCount} passed`)
-            local failedPart = Ansi.brightRed(`{results.failureCount} failed`)
-            if Config.PrintSkipped and results.skippedCount > 0 then
-                local skippedPart = Ansi.brightYellow(`{results.skippedCount} skipped`)
-                summaryLine = passedPart .. ", " .. failedPart .. ", " .. skippedPart .. "."
-            else
-                summaryLine = passedPart .. ", " .. failedPart .. "."
-            end
-        else
-            if Config.PrintSkipped and results.skippedCount > 0 then
-                summaryLine =
-                    `{results.successCount} passed, {results.failureCount} failed, {results.skippedCount} skipped.`
-            else
-                summaryLine = `{results.successCount} passed, {results.failureCount} failed.`
-            end
-        end
-
         local resultBuffer = {
             "The tests have completed.",
             table.concat(report(results), "\n"),
-            summaryLine,
+            buildSummaryLine(results),
         }
 
         print(table.concat(resultBuffer, "\n"))

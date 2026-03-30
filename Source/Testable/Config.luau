@@ -9,6 +9,9 @@ default values.
 
 export type ConfigOptions = {
     AlphabeticalSort: boolean?,
+    Coverage: boolean?,
+    CoverageRoots: any?,
+    CoverageThreshold: number?,
     Indent: string?,
     MaxConcurrency: number?,
     Parallel: boolean?,
@@ -18,6 +21,9 @@ export type ConfigOptions = {
 
 local Config = {
     AlphabeticalSort = false,
+    Coverage = false,
+    CoverageRoots = nil :: any?,
+    CoverageThreshold = 0,
     Indent = "   ",
     MaxConcurrency = 4,
     Parallel = true,
@@ -36,6 +42,31 @@ function Config.set(options: ConfigOptions)
     if options.AlphabeticalSort ~= nil then
         assert(type(options.AlphabeticalSort) == "boolean", "AlphabeticalSort must be a boolean")
         Config.AlphabeticalSort = options.AlphabeticalSort
+    end
+
+    if options.Coverage ~= nil then
+        assert(type(options.Coverage) == "boolean", "Coverage must be a boolean")
+        if options.Coverage and not debug.iscoverageenabled() then
+            error(
+                "Cannot enable coverage because LUNE_COVERAGE is disabled. "
+                    .. "Coverage is enabled by default. Set LUNE_COVERAGE=1 or "
+                    .. "remove LUNE_COVERAGE=0 from your environment."
+            )
+        end
+        Config.Coverage = options.Coverage
+    end
+
+    if options.CoverageRoots ~= nil then
+        Config.CoverageRoots = options.CoverageRoots
+    end
+
+    if options.CoverageThreshold ~= nil then
+        assert(type(options.CoverageThreshold) == "number", "CoverageThreshold must be a number")
+        assert(
+            options.CoverageThreshold >= 0 and options.CoverageThreshold <= 100,
+            "CoverageThreshold must be between 0 and 100"
+        )
+        Config.CoverageThreshold = options.CoverageThreshold
     end
 
     if options.Indent ~= nil then
@@ -70,6 +101,9 @@ end
 ]]
 function Config.reset()
     Config.AlphabeticalSort = false
+    Config.Coverage = false
+    Config.CoverageRoots = nil
+    Config.CoverageThreshold = 0
     Config.Indent = "   "
     Config.MaxConcurrency = 4
     Config.Parallel = true
