@@ -82,7 +82,15 @@ jobs:
         run: lune setup --no-update-luaurc
 
       - name: Run static analysis
-        run: ./Submodules/luau-cicd/Scripts/RunStaticAnalysis.luau lune
+        run: |
+          luau-lsp analyze \
+            --platform=lune \
+            --no-flags-enabled \
+            --definitions="Definitions/Coverage.d.luau" \
+            --ignore="DevPackages/**" \
+            --ignore="Packages/**" \
+            --ignore="Submodules/**" \
+            .
 
   changelog:
     name: Check changelog format
