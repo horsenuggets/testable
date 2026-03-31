@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.0
+- Added code coverage support via `debug.getcoverage` with `CoverageRoots` dictionary config
+- Added `Coverage`, `CoverageRoots`, and `CoverageThreshold` configuration options
+- Added `CoverageReporter` for formatted coverage output with ANSI colors and threshold checking
+- Added dictionary syntax for test roots (`{ TestName = func }` alongside `{ { Name, Func } }`)
+- Added Roblox cloud E2E tests via Open Cloud Luau Execution API (7 remote tests)
+- Added coverage unit tests (14 tests for resolveRoots, collect, Config, and integration)
+- Fixed TestBootstrap to support dict and array syntax in Roblox (not just Lune)
+- Fixed coverage to gracefully degrade when `debug.iscoverageenabled` doesn't exist (Roblox VM)
+
 ## 0.1.2
 - Added Roblox cloud E2E tests via Open Cloud Luau Execution API
 - Added PublishE2EPlace script and E2E Rojo project
