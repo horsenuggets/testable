@@ -13,6 +13,7 @@ local process = require("@lune/process")
 
 local TESTS = {
     { Name = "ConfigTest", Func = require("../Tests/ConfigTest.spec") },
+    { Name = "CoverageTest", Func = require("../Tests/CoverageTest.spec") },
     { Name = "DictSyntaxTest", Func = require("../Tests/DictSyntaxTest.spec") },
     { Name = "ExampleTest", Func = require("../Tests/ExampleTest.spec") },
     { Name = "ExpectationTest", Func = require("../Tests/ExpectationTest.spec") },
