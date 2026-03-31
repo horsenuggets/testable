@@ -198,7 +198,7 @@ end
 local function getFunctionsFromModule(mod: { [string]: any }): { { name: string, fn: (...any) -> ...any } }
     local result = {}
 
-    for name, value in mod do
+    for name, value in pairs(mod) do
         if type(value) == "function" then
             table.insert(result, { name = name, fn = value })
         end
@@ -226,7 +226,7 @@ function Coverage.resolveRoots(roots: { [string]: any }): { { Name: string, Modu
 
     -- Sort keys alphabetically for deterministic order
     local keys = {}
-    for key in roots do
+    for key in pairs(roots) do
         table.insert(keys, key)
     end
     table.sort(keys)
