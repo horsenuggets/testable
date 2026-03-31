@@ -157,7 +157,7 @@ function TestBootstrap:getModulesFromMultipleRoots(roots: { any }): { any }
     -- Detect if roots is a dictionary (string keys) or array (integer keys)
     local isDictionary = false
     if #roots == 0 then
-        for key in roots do
+        for key in pairs(roots) do
             if type(key) == "string" then
                 isDictionary = true
                 break
@@ -168,7 +168,7 @@ function TestBootstrap:getModulesFromMultipleRoots(roots: { any }): { any }
     if isDictionary then
         -- Dictionary format: { TestName = requireResult, ... }
         local entries = {}
-        for name, func in roots do
+        for name, func in pairs(roots) do
             assert(
                 type(name) == "string" and type(func) == "function",
                 `Expected dictionary entries to be string = function, got {type(name)} = {type(func)}`
