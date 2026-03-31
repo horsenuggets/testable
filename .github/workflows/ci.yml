@@ -60,8 +60,16 @@ jobs:
       - name: Install dependencies
         run: wally install
 
+      - name: Publish E2E place
+        if: env.ROBLOX_E2E_API_KEY != ''
+        run: ./Scripts/PublishE2EPlace.luau
+        env:
+          ROBLOX_E2E_API_KEY: ${{ secrets.ROBLOX_E2E_API_KEY }}
+
       - name: Run tests
         run: ./Scripts/RunTests.luau
+        env:
+          ROBLOX_E2E_API_KEY: ${{ secrets.ROBLOX_E2E_API_KEY }}
 
   analyze:
     name: Static analysis
