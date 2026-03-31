@@ -46,12 +46,22 @@ function Config.set(options: ConfigOptions)
 
     if options.Coverage ~= nil then
         assert(type(options.Coverage) == "boolean", "Coverage must be a boolean")
-        if options.Coverage and not debug.iscoverageenabled() then
-            error(
-                "Cannot enable coverage because LUNE_COVERAGE is disabled. "
-                    .. "Coverage is enabled by default. Set LUNE_COVERAGE=1 or "
-                    .. "remove LUNE_COVERAGE=0 from your environment."
-            )
+        if options.Coverage then
+            local hasApi = type(debug.iscoverageenabled) == "function"
+            if not hasApi then
+                error(
+                    "Cannot enable coverage because debug.iscoverageenabled "
+                        .. "is not available. Coverage requires Lune "
+                        .. "0.10.4-horse.14.2 or later."
+                )
+            end
+            if not debug.iscoverageenabled() then
+                error(
+                    "Cannot enable coverage because LUNE_COVERAGE is disabled. "
+                        .. "Coverage is enabled by default. Set LUNE_COVERAGE=1 or "
+                        .. "remove LUNE_COVERAGE=0 from your environment."
+                )
+            end
         end
         Config.Coverage = options.Coverage
     end

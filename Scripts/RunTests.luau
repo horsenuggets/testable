@@ -18,6 +18,7 @@ local TESTS = {
     { Name = "ExpectationTest", Func = require("../Tests/ExpectationTest.spec") },
     { Name = "FailTest", Func = require("../Tests/FailTest.spec") },
     { Name = "LifecycleTest", Func = require("../Tests/LifecycleTest.spec") },
+    { Name = "RobloxCloudTest", Func = require("../Tests/RobloxCloudTest.spec") },
     { Name = "VersionUpdateTest", Func = require("../Tests/VersionUpdateTest.spec") },
 }
 

@@ -258,7 +258,8 @@ end
     @return report - The coverage report, or nil if coverage is disabled
 ]]
 function Coverage.collect(roots: any): CoverageReport?
-    if not debug.iscoverageenabled() then
+    local hasApi = type(debug.iscoverageenabled) == "function"
+    if not hasApi or not debug.iscoverageenabled() then
         return nil
     end
 

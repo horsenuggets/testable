@@ -119,26 +119,23 @@ end
 function TestBootstrap:getModules(root: any): { any }
     local modules = {}
 
-    if IS_ROBLOX then
-        local rootType = typeof(root)
-        assert(rootType == "Instance", "Expected root to be an Instance.")
-
-        getModulesImplRoblox(root, modules)
-
-        for _, child in ipairs(root:GetDescendants()) do
-            getModulesImplRoblox(root, modules, child)
-        end
-    elseif IS_LUNE then
-        assert(
-            typeof(root) == "table" and typeof(root.Name) == "string" and typeof(root.Func) == "function",
-            "Expected root to be a module descriptor table."
-        )
-
+    if typeof(root) == "table" and typeof(root.Name) == "string" and typeof(root.Func) == "function" then
+        -- Module descriptor table: { Name = "Test", Func = fn }
+        -- Works in both Roblox and Lune
         table.insert(modules, {
             method = root.Func,
             path = { root.Name },
             pathStringForSorting = root.Name:lower(),
         })
+    elseif IS_ROBLOX and typeof(root) == "Instance" then
+        -- Roblox Instance: recursively find .spec ModuleScripts
+        getModulesImplRoblox(root, modules)
+
+        for _, child in ipairs(root:GetDescendants()) do
+            getModulesImplRoblox(root, modules, child)
+        end
+    else
+        error(`Unsupported test root type: {typeof(root)}`)
     end
 
     return modules
