@@ -6,4 +6,4 @@
 	url = git@github.com:horsenuggets/luau-cicd.git
 [submodule "Submodules/claude-md"]
 	path = Submodules/claude-md
-	url = https://github.com/horsenuggets/claude-md.git
+	url = git@github.com:horsenuggets/claude-md.git
