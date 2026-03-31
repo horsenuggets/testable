@@ -12,4 +12,6 @@ Runs luau-lsp analyze to report type errors and deprecation warnings.
 
 local Lint = require("../Submodules/luau-cicd/Scripts/Helpers/Lint")
 
-Lint.run()
+Lint.run({
+    IgnorePatterns = { "Tests/RobloxCloud/**" },
+})

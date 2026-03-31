@@ -67,7 +67,7 @@ end
 ]]
 local function isInstance(value: any): boolean
     if IS_ROBLOX then
-        return typeof(value) == "Instance"
+        return (typeof(value) :: string) == "Instance"
     end
     return typeof(value) == "userdata"
         and pcall(function()

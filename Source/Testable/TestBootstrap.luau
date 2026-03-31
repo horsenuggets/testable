@@ -127,7 +127,7 @@ function TestBootstrap:getModules(root: any): { any }
             path = { root.Name },
             pathStringForSorting = root.Name:lower(),
         })
-    elseif IS_ROBLOX and typeof(root) == "Instance" then
+    elseif IS_ROBLOX and (typeof(root) :: string) == "Instance" then
         -- Roblox Instance: recursively find .spec ModuleScripts
         getModulesImplRoblox(root, modules)
 
