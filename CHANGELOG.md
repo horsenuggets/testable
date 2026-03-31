@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.0.1
+- Fixed infinite loop when collecting coverage on modules with `__call` metatables (e.g., chalk-luau)
+
 ## 1.0.0
 - Added code coverage support via `debug.getcoverage` with `CoverageRoots` dictionary config
 - Added `Coverage`, `CoverageRoots`, and `CoverageThreshold` configuration options
