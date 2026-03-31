@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+- Added Roblox cloud E2E tests via Open Cloud Luau Execution API
+- Added PublishE2EPlace script and E2E Rojo project
+- Fixed TestBootstrap to support dict and array syntax in Roblox (not just Lune)
+- Fixed coverage to gracefully degrade when debug.iscoverageenabled doesn't exist (Roblox VM)
+
 ## 0.1.1
 - Added code coverage support via `debug.getcoverage` (requires lune 0.10.4-horse.14.2+)
 - Added `Coverage`, `CoverageRoots`, and `CoverageThreshold` configuration options
