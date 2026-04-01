@@ -8,14 +8,11 @@
         "beforeAll",
         "beforeEach",
         "describe",
-        "elapsedTime",
         "expect",
         "fail",
         "fdescribe",
         "fit",
-        "game",
         "it",
-        "tick",
         "xdescribe",
         "xit"
     ]
