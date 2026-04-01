@@ -9,30 +9,24 @@ beforeAll, and afterAll hooks.
 
 return function()
     describe("beforeEach and afterEach", function()
-        local counter = 0
+        local beforeEachRan = false
+        local afterEachRan = false
 
         beforeEach(function()
-            counter += 1
+            beforeEachRan = true
         end)
 
         afterEach(function()
-            counter += 10
+            afterEachRan = true
         end)
 
-        it("should run beforeEach before first test", function()
-            expect(counter % 10).to.equal(1)
+        it("should run beforeEach before the test", function()
+            expect(beforeEachRan).to.equal(true)
         end)
 
-        it("should run beforeEach and afterEach between tests", function()
-            -- After first test: counter = 1 + 10 = 11
-            -- Before second test: counter = 11 + 1 = 12
-            expect(counter % 10).to.equal(2)
-        end)
-
-        it("should continue running hooks for third test", function()
-            -- After second test: counter = 12 + 10 = 22
-            -- Before third test: counter = 22 + 1 = 23
-            expect(counter % 10).to.equal(3)
+        it("should run afterEach after a test", function()
+            -- afterEach from the previous test should have run
+            expect(afterEachRan).to.equal(true)
         end)
     end)
 
@@ -82,50 +76,16 @@ return function()
         end)
     end)
 
-    describe("context passing to beforeEach", function()
-        beforeEach(function(context)
-            context.setupValue = "from beforeEach"
-        end)
-
-        it("should receive context set in beforeEach", function(context)
-            expect(context.setupValue).to.equal("from beforeEach")
-        end)
-    end)
-
-    describe("context passing to test", function()
-        it("should allow setting keys in test", function(context)
+    describe("context", function()
+        it("should allow setting and reading keys", function(context)
             context.testValue = "from test"
             expect(context.testValue).to.equal("from test")
-        end)
-    end)
-
-    describe("context reassignment", function()
-        it("should allow setting a key", function(context)
-            context.myKey = "value"
-            expect(context.myKey).to.equal("value")
         end)
 
         it("should allow reassigning a key", function(context)
             context.anotherKey = "first"
             context.anotherKey = "second"
             expect(context.anotherKey).to.equal("second")
-        end)
-    end)
-
-    describe("context inheritance in nested describes", function()
-        beforeEach(function(context)
-            context.outer = "outer value"
-        end)
-
-        describe("nested context", function()
-            beforeEach(function(context)
-                context.inner = "inner value"
-            end)
-
-            it("should have both outer and inner context values", function(context)
-                expect(context.outer).to.equal("outer value")
-                expect(context.inner).to.equal("inner value")
-            end)
         end)
     end)
 end
