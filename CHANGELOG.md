@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1
+- Changed `CoverageRoots` to accept a single script instance instead of a dictionary
+- Fixed coverage discovery of `init.luau` modules (directories with init.luau were skipped)
+- Added exclusion of `.story` and `.storybook` files from coverage
+
 ## 1.1.0
 - Changed `CoverageRoots` to accept script instances instead of module tables for full-file coverage
 - Added file-level coverage that includes local/unexported functions via `debug.getcoverage(script)`
