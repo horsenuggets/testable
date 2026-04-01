@@ -30,11 +30,11 @@ local TextReporter = require("@self/Reporters/TextReporter")
     @return results - The test results object
     @return passed - Boolean indicating if all tests passed
 ]]
-local function run(testRoots: { any }): (any, boolean)
+local function run(testRoots: any): (any, boolean)
     if not testRoots then
-        error("testRoots must be a non-empty table")
+        error("testRoots must be provided")
     end
-    if #testRoots == 0 and next(testRoots) == nil then
+    if type(testRoots) == "table" and #testRoots == 0 and next(testRoots) == nil then
         error("testRoots must be a non-empty table")
     end
 
