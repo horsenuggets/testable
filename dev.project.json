@@ -3,10 +3,19 @@
     "tree": {
         "$path": "Source/Testable",
         "DevPackages": {
-            "$path": "DevPackages"
+            "$path": {
+                "optional": "DevPackages"
+            }
         },
         "Packages": {
-            "$path": "Packages"
+            "$path": {
+                "optional": "Packages"
+            }
+        },
+        "ServerPackages": {
+            "$path": {
+                "optional": "ServerPackages"
+            }
         }
     }
 }
