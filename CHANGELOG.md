@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.2
+- Added script instance support for test roots (`Testable.run(script.Parent.Tests)`)
+- Added automatic `.spec.luau` file discovery from directory script instances
+- Added support for both single script and dictionary syntax in `CoverageRoots`
+
 ## 1.1.1
 - Changed `CoverageRoots` to accept a single script instance instead of a dictionary
 - Fixed coverage discovery of `init.luau` modules (directories with init.luau were skipped)
