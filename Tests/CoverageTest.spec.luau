@@ -15,36 +15,14 @@ local Testable = require("../Source/Testable")
 -- Require the fixture module so it has coverage data
 local SampleModule = require("./CoverageFixtures/SampleModule")
 
--- Script reference to the fixtures directory
+-- Script references
 local fixturesDir = script.Parent.CoverageFixtures
 local sampleScript = fixturesDir.SampleModule
 
 return function()
     describe("Coverage.resolveRoots", function()
-        it("should resolve a dictionary of script instances", function()
-            local roots = {
-                Sample = sampleScript,
-            }
-            local resolved = Coverage.resolveRoots(roots)
-            expect(#resolved).to.equal(1)
-            expect(resolved[1].Name).to.equal("SampleModule")
-        end)
-
-        it("should sort keys alphabetically", function()
-            local roots = {
-                Zebra = sampleScript,
-                Alpha = sampleScript,
-            }
-            local resolved = Coverage.resolveRoots(roots)
-            -- Same script deduplicates to 1 entry
-            expect(#resolved).to.equal(1)
-        end)
-
-        it("should discover scripts from a directory root", function()
-            local roots = {
-                Fixtures = fixturesDir,
-            }
-            local resolved = Coverage.resolveRoots(roots)
+        it("should discover modules from a directory", function()
+            local resolved = Coverage.resolveRoots(fixturesDir)
             expect(#resolved >= 1).to.equal(true)
 
             local foundSample = false
@@ -56,9 +34,18 @@ return function()
             expect(foundSample).to.equal(true)
         end)
 
-        it("should handle empty dictionary", function()
-            local resolved = Coverage.resolveRoots({})
-            expect(#resolved).to.equal(0)
+        it("should resolve a single file script", function()
+            local resolved = Coverage.resolveRoots(sampleScript)
+            expect(#resolved).to.equal(1)
+            expect(resolved[1].Name).to.equal("SampleModule")
+        end)
+
+        it("should exclude .spec files", function()
+            local testsDir = script.Parent
+            local resolved = Coverage.resolveRoots(testsDir)
+            for _, entry in resolved do
+                expect(entry.Name:match("%.spec$")).to.equal(nil)
+            end
         end)
     end)
 
@@ -66,9 +53,7 @@ return function()
         it("should return a report with correct structure", function()
             SampleModule.add(1, 2)
 
-            local report = Coverage.collect({
-                Fixtures = fixturesDir,
-            })
+            local report = Coverage.collect(fixturesDir)
 
             if report == nil then
                 return
@@ -84,40 +69,28 @@ return function()
             SampleModule.add(1, 2)
             SampleModule.subtract(3, 1)
 
-            local report = Coverage.collect({
-                Fixtures = fixturesDir,
-            })
+            local report = Coverage.collect(sampleScript)
 
             if report == nil then
                 return
             end
 
-            expect(#report.Files >= 1).to.equal(true)
-            local sampleFile = nil
-            for _, file in report.Files do
-                if file.Name == "SampleModule" then
-                    sampleFile = file
-                end
-            end
-            expect(sampleFile).to.be.ok()
-            expect(sampleFile.ExecutableLines).to.be.a("number")
-            expect(sampleFile.HitLines).to.be.a("number")
-            expect(sampleFile.Percentage).to.be.a("number")
+            expect(#report.Files).to.equal(1)
+            expect(report.Files[1].Name).to.equal("SampleModule")
+            expect(report.Files[1].ExecutableLines).to.be.a("number")
+            expect(report.Files[1].HitLines).to.be.a("number")
+            expect(report.Files[1].Percentage).to.be.a("number")
         end)
 
         it("should include local functions in coverage", function()
-            -- Call double() which internally calls local helper()
             SampleModule.double(5)
 
-            local report = Coverage.collect({
-                Sample = sampleScript,
-            })
+            local report = Coverage.collect(sampleScript)
 
             if report == nil then
                 return
             end
 
-            -- File-level coverage should include the local helper function
             local file = report.Files[1]
             local foundHelper = false
             for _, fn in file.Functions do
@@ -132,9 +105,7 @@ return function()
         it("should return nil when coverage is disabled", function()
             local hasApi = type(debug.iscoverageenabled) == "function"
             if hasApi and debug.iscoverageenabled() then
-                local report = Coverage.collect({
-                    Sample = sampleScript,
-                })
+                local report = Coverage.collect(sampleScript)
                 expect(report).to.be.ok()
             end
         end)
@@ -143,9 +114,7 @@ return function()
             SampleModule.add(1, 2)
             SampleModule.subtract(3, 1)
 
-            local report = Coverage.collect({
-                Sample = sampleScript,
-            })
+            local report = Coverage.collect(sampleScript)
 
             if report == nil then
                 return
@@ -189,9 +158,8 @@ return function()
         end)
 
         it("should set CoverageRoots", function()
-            local roots = { Foo = script }
-            Config.set({ CoverageRoots = roots })
-            expect(Config.CoverageRoots).to.equal(roots)
+            Config.set({ CoverageRoots = script })
+            expect(Config.CoverageRoots).to.equal(script)
         end)
 
         it("should set CoverageThreshold", function()
@@ -220,7 +188,7 @@ return function()
                 Config.set({ Coverage = true })
             end
             Config.set({ CoverageThreshold = 90 })
-            Config.set({ CoverageRoots = { Foo = script } })
+            Config.set({ CoverageRoots = script })
             Config.reset()
             expect(Config.Coverage).to.equal(false)
             expect(Config.CoverageRoots).to.equal(nil)
@@ -242,7 +210,7 @@ return function()
             Testable.configure({
                 Coverage = true,
                 CoverageThreshold = 0,
-                CoverageRoots = { Sample = sampleScript },
+                CoverageRoots = sampleScript,
             })
 
             local _, passed = Testable.run({
@@ -260,7 +228,7 @@ return function()
         it("should not run coverage when Coverage is false", function()
             Testable.configure({
                 Coverage = false,
-                CoverageRoots = { Sample = sampleScript },
+                CoverageRoots = sampleScript,
             })
 
             local _, passed = Testable.run({

@@ -3,10 +3,11 @@
 Coverage
 
 Collects code coverage data from instrumented Luau files using
-debug.getcoverage. Accepts script instances in CoverageRoots and passes
-them directly to debug.getcoverage for full-file coverage, including
-local functions not visible from the module table. Coverage is enabled
-by default in Lune; set LUNE_COVERAGE=0 to disable.
+debug.getcoverage. Accepts a script instance pointing to a source
+directory and recursively discovers all modules, passing each to
+debug.getcoverage for full-file coverage including local functions.
+Coverage is enabled by default in Lune; set LUNE_COVERAGE=0 to
+disable.
 
 --]]
 
@@ -20,6 +21,8 @@ local EXCLUDED_SUFFIXES = {
     "%.client$",
     "%.plugin$",
     "%.spec$",
+    "%.story$",
+    "%.storybook$",
 }
 
 export type FunctionCoverage = {
@@ -74,58 +77,68 @@ local function getDisplayName(scriptInstance: any): string
 end
 
 --[[
-    Discovers all Luau files under a directory using the filesystem API.
-    Only available in Lune. Returns an array of child script references.
+    Recursively discovers all Luau modules under a directory using the
+    filesystem API. Handles both regular .luau files and directories
+    with init.luau (which represent a single module). Only available
+    in Lune.
 
     @param dirScript - The script instance representing a directory
-    @return Array of child script references
+    @param results - Array to accumulate { Name, Script } entries
+    @param seen - Set of already-processed paths for deduplication
 ]]
-local function discoverFromDirectory(dirScript: any): { any }
+local function discoverModules(dirScript: any, results: { { Name: string, Script: any } }, seen: { [string]: boolean })
     if not IS_LUNE then
-        return {}
+        return
     end
 
     local fs = require("@lune/fs")
-    local results = {}
     local dirPath = tostring(dirScript)
 
-    local function walk(currentPath: string, parentScript: any)
-        local ok, entries = pcall(fs.readDir, currentPath)
-        if not ok then
-            return
-        end
+    local ok, entries = pcall(fs.readDir, dirPath)
+    if not ok then
+        return
+    end
 
-        for _, entry in entries do
-            local fullPath = currentPath .. "/" .. entry
-            local isDir = fs.isDir(fullPath)
+    for _, entry in entries do
+        local fullPath = dirPath .. "/" .. entry
+        local isDir = fs.isDir(fullPath)
 
-            if isDir then
-                -- Check for init.luau inside directory
-                local initPath = fullPath .. "/init.luau"
-                if fs.isFile(initPath) then
-                    local childScript = parentScript[entry]
-                    local name = getDisplayName(childScript)
-                    if not isExcluded(name) then
-                        table.insert(results, childScript)
-                    end
+        if isDir then
+            local initPath = fullPath .. "/init.luau"
+            if fs.isFile(initPath) then
+                -- Directory with init.luau is a module
+                local childScript = dirScript[entry]
+                local scriptPath = tostring(childScript)
+                if not seen[scriptPath] and not isExcluded(entry) then
+                    seen[scriptPath] = true
+                    table.insert(results, {
+                        Name = entry,
+                        Script = childScript,
+                    })
                 end
-                -- Recurse into subdirectory
-                walk(fullPath, parentScript[entry])
-            elseif entry:match("%.luau$") or entry:match("%.lua$") then
-                local baseName = entry:gsub("%.luau$", ""):gsub("%.lua$", "")
-                if baseName == "init" then
-                    continue
-                end
-                if not isExcluded(baseName) then
-                    local childScript = parentScript[baseName]
-                    table.insert(results, childScript)
+            end
+            -- Recurse into subdirectory regardless (may contain
+            -- more modules alongside or inside the init module)
+            discoverModules(dirScript[entry], results, seen)
+        elseif entry:match("%.luau$") or entry:match("%.lua$") then
+            local baseName = entry:gsub("%.luau$", ""):gsub("%.lua$", "")
+            -- Skip init files (handled as directory modules above)
+            if baseName == "init" then
+                continue
+            end
+            if not isExcluded(baseName) then
+                local childScript = dirScript[baseName]
+                local scriptPath = tostring(childScript)
+                if not seen[scriptPath] then
+                    seen[scriptPath] = true
+                    table.insert(results, {
+                        Name = baseName,
+                        Script = childScript,
+                    })
                 end
             end
         end
     end
-
-    walk(dirPath, dirScript)
-    return results
 end
 
 --[[
@@ -183,70 +196,48 @@ local function collectFileCoverage(scriptInstance: any): ({ FunctionCoverage }, 
 end
 
 --[[
-    Checks if a script instance points to a directory by trying to
-    read it as a directory with the filesystem API.
+    Resolves a CoverageRoots script instance into a flat list of
+    modules. CoverageRoots is a single script instance pointing to a
+    source directory (e.g., script.Parent.Source). All .luau modules
+    under the directory are discovered recursively.
 
-    @param scriptInstance - The script instance to check
-    @return True if the script points to a directory
-]]
-local function isDirectory(scriptInstance: any): boolean
-    if not IS_LUNE then
-        return false
-    end
-    local fs = require("@lune/fs")
-    local path = tostring(scriptInstance)
-    return fs.isDir(path)
-end
-
---[[
-    Resolves CoverageRoots into a flat list of script instances.
-    CoverageRoots uses dictionary syntax: { Name = scriptInstance, ... }
-    where each root is a script instance pointing to either a file or
-    a directory.
-
-    For directory roots, recursively discovers all .luau files using the
-    filesystem API. For file roots, uses the script directly.
-
-    @param roots - Dictionary of { Name = scriptInstance } entries
+    @param root - Script instance pointing to the source directory
     @return scripts - Array of { Name, Script } entries
 ]]
-function Coverage.resolveRoots(roots: { [string]: any }): { { Name: string, Script: any } }
+function Coverage.resolveRoots(root: any): { { Name: string, Script: any } }
     local results: { { Name: string, Script: any } } = {}
     local seen: { [string]: boolean } = {}
+    local rootPath = tostring(root)
 
-    -- Sort keys alphabetically for deterministic order
-    local keys = {}
-    for key in pairs(roots) do
-        table.insert(keys, key)
+    if not IS_LUNE then
+        return results
     end
-    table.sort(keys)
 
-    for _, name in keys do
-        local root = roots[name]
-        local rootPath = tostring(root)
+    local fs = require("@lune/fs")
 
-        if isDirectory(root) then
-            -- Directory: recursively discover all .luau files
-            local scripts = discoverFromDirectory(root)
-            for _, scriptInstance in scripts do
-                local scriptPath = tostring(scriptInstance)
-                if not seen[scriptPath] then
-                    seen[scriptPath] = true
-                    table.insert(results, {
-                        Name = getDisplayName(scriptInstance),
-                        Script = scriptInstance,
-                    })
-                end
-            end
-        else
-            -- Individual file
-            if not seen[rootPath] and not isExcluded(getDisplayName(root)) then
+    if fs.isDir(rootPath) then
+        -- Check if the root itself is a module (has init.luau)
+        local initPath = rootPath .. "/init.luau"
+        if fs.isFile(initPath) then
+            if not isExcluded(getDisplayName(root)) then
                 seen[rootPath] = true
                 table.insert(results, {
                     Name = getDisplayName(root),
                     Script = root,
                 })
             end
+        end
+
+        -- Discover child modules
+        discoverModules(root, results, seen)
+    elseif fs.isFile(rootPath) or fs.isFile(rootPath .. ".luau") or fs.isFile(rootPath .. ".lua") then
+        -- Individual file
+        if not isExcluded(getDisplayName(root)) then
+            seen[rootPath] = true
+            table.insert(results, {
+                Name = getDisplayName(root),
+                Script = root,
+            })
         end
     end
 
@@ -257,16 +248,16 @@ end
     Collects coverage data for all resolved modules. Returns nil when
     coverage is not enabled (LUNE_COVERAGE=0).
 
-    @param roots - CoverageRoots value from config
+    @param root - CoverageRoots script instance from config
     @return report - The coverage report, or nil if coverage is disabled
 ]]
-function Coverage.collect(roots: any): CoverageReport?
+function Coverage.collect(root: any): CoverageReport?
     local hasApi = type(debug.iscoverageenabled) == "function"
     if not hasApi or not debug.iscoverageenabled() then
         return nil
     end
 
-    local scripts = Coverage.resolveRoots(roots)
+    local scripts = Coverage.resolveRoots(root)
     local files: { FileCoverage } = {}
     local grandTotalHit = 0
     local grandTotalExecutable = 0
