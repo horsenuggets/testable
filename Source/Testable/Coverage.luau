@@ -196,49 +196,84 @@ local function collectFileCoverage(scriptInstance: any): ({ FunctionCoverage }, 
 end
 
 --[[
-    Resolves a CoverageRoots script instance into a flat list of
-    modules. CoverageRoots is a single script instance pointing to a
-    source directory (e.g., script.Parent.Source). All .luau modules
-    under the directory are discovered recursively.
+    Resolves a single script instance into discovered modules. Handles
+    directories (recursively discovers .luau files), directories with
+    init.luau (treated as a module), and individual file scripts.
 
-    @param root - Script instance pointing to the source directory
-    @return scripts - Array of { Name, Script } entries
+    @param scriptInstance - Script instance to resolve
+    @param results - Array to accumulate { Name, Script } entries
+    @param seen - Set of already-processed paths for deduplication
 ]]
-function Coverage.resolveRoots(root: any): { { Name: string, Script: any } }
-    local results: { { Name: string, Script: any } } = {}
-    local seen: { [string]: boolean } = {}
-    local rootPath = tostring(root)
-
+local function resolveScript(
+    scriptInstance: any,
+    name: string,
+    results: { { Name: string, Script: any } },
+    seen: { [string]: boolean }
+)
     if not IS_LUNE then
-        return results
+        return
     end
 
     local fs = require("@lune/fs")
+    local scriptPath = tostring(scriptInstance)
 
-    if fs.isDir(rootPath) then
-        -- Check if the root itself is a module (has init.luau)
-        local initPath = rootPath .. "/init.luau"
+    if fs.isDir(scriptPath) then
+        -- Check if the directory itself is a module (has init.luau)
+        local initPath = scriptPath .. "/init.luau"
         if fs.isFile(initPath) then
-            if not isExcluded(getDisplayName(root)) then
-                seen[rootPath] = true
+            if not seen[scriptPath] and not isExcluded(name) then
+                seen[scriptPath] = true
                 table.insert(results, {
-                    Name = getDisplayName(root),
-                    Script = root,
+                    Name = name,
+                    Script = scriptInstance,
                 })
             end
         end
 
         -- Discover child modules
-        discoverModules(root, results, seen)
-    elseif fs.isFile(rootPath) or fs.isFile(rootPath .. ".luau") or fs.isFile(rootPath .. ".lua") then
+        discoverModules(scriptInstance, results, seen)
+    elseif fs.isFile(scriptPath) or fs.isFile(scriptPath .. ".luau") or fs.isFile(scriptPath .. ".lua") then
         -- Individual file
-        if not isExcluded(getDisplayName(root)) then
-            seen[rootPath] = true
+        if not seen[scriptPath] and not isExcluded(name) then
+            seen[scriptPath] = true
             table.insert(results, {
-                Name = getDisplayName(root),
-                Script = root,
+                Name = name,
+                Script = scriptInstance,
             })
         end
+    end
+end
+
+--[[
+    Resolves CoverageRoots into a flat list of modules. Accepts either
+    a single script instance or a dictionary of script instances.
+
+    Single script: script.Parent.Source
+    Dictionary:    { Chalk = script.Parent.Source.Chalk, Utils = ... }
+
+    @param roots - Script instance or dictionary of script instances
+    @return scripts - Array of { Name, Script } entries
+]]
+function Coverage.resolveRoots(roots: any): { { Name: string, Script: any } }
+    local results: { { Name: string, Script: any } } = {}
+    local seen: { [string]: boolean } = {}
+
+    -- Detect if roots is a dictionary (table with string keys) or
+    -- a single script instance (userdata with Name/Parent)
+    if type(roots) == "table" then
+        -- Dictionary format: { Name = scriptInstance, ... }
+        local keys = {}
+        for key in pairs(roots) do
+            table.insert(keys, key)
+        end
+        table.sort(keys)
+
+        for _, name in keys do
+            resolveScript(roots[name], name, results, seen)
+        end
+    else
+        -- Single script instance
+        resolveScript(roots, getDisplayName(roots), results, seen)
     end
 
     return results
@@ -248,16 +283,16 @@ end
     Collects coverage data for all resolved modules. Returns nil when
     coverage is not enabled (LUNE_COVERAGE=0).
 
-    @param root - CoverageRoots script instance from config
+    @param roots - Script instance or dictionary of script instances
     @return report - The coverage report, or nil if coverage is disabled
 ]]
-function Coverage.collect(root: any): CoverageReport?
+function Coverage.collect(roots: any): CoverageReport?
     local hasApi = type(debug.iscoverageenabled) == "function"
     if not hasApi or not debug.iscoverageenabled() then
         return nil
     end
 
-    local scripts = Coverage.resolveRoots(root)
+    local scripts = Coverage.resolveRoots(roots)
     local files: { FileCoverage } = {}
     local grandTotalHit = 0
     local grandTotalExecutable = 0
