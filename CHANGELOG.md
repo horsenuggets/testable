@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.0
+- Changed `CoverageRoots` to accept script instances instead of module tables for full-file coverage
+- Added file-level coverage that includes local/unexported functions via `debug.getcoverage(script)`
+- Added directory discovery for CoverageRoots using the filesystem API
+- Added coverage test fixtures with `CoverageFixtures/SampleModule.luau`
+- Changed Context from write-once to allow reassignment for beforeEach compatibility
+- Fixed lifecycle tests that relied on sequential execution order
+
 ## 1.0.1
 - Fixed infinite loop when collecting coverage on modules with `__call` metatables (e.g., chalk-luau)
 

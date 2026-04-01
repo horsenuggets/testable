@@ -1,16 +1,31 @@
-*.bak
-*.gen.*
-*.lock
+# Build artifacts
 *.rbxl
 *.rbxlx
 *.rbxm
 *.rbxmx
+/Build
+
+# Dependencies
+/DevPackages
+/Packages
+/ServerPackages
+
+# Editor and environment
+.claude
 .DS_Store
 .env
 .local
+.mcp.json
 .vscode
-Build
-Packages
-sourcemap.json
+
+# Generated files
+*.bak
+*.gen.*
+*.lock
+/*sourcemap.json
+
+# Legacy
+aftman.toml
+
+# Project
 /TODO.md
-Tools
