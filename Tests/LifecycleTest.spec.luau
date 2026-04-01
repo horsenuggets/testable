@@ -99,17 +99,16 @@ return function()
         end)
     end)
 
-    describe("context write-once behavior", function()
-        it("should allow setting a key once", function(context)
+    describe("context reassignment", function()
+        it("should allow setting a key", function(context)
             context.myKey = "value"
             expect(context.myKey).to.equal("value")
         end)
 
-        it("should error when reassigning a key", function(context)
+        it("should allow reassigning a key", function(context)
             context.anotherKey = "first"
-            expect(function()
-                context.anotherKey = "second"
-            end).to.throw("Cannot reassign")
+            context.anotherKey = "second"
+            expect(context.anotherKey).to.equal("second")
         end)
     end)
 
