@@ -142,17 +142,79 @@ function TestBootstrap:getModules(root: any): { any }
 end
 
 --[[
-    Gathers test modules from multiple root locations. Supports both
-    array format and dictionary format:
+    Checks if a filename is a spec file (.spec.luau, .spec.lua,
+    .Spec.luau, .Spec.lua).
 
-    Array: { { Name = "Test", Func = fn }, ... }
-    Dict:  { Test = fn, Other = fn, ... }
+    @param filename - The filename to check
+    @return True if this is a spec file
+]]
+local function isSpecFile(filename: string): boolean
+    return filename:match("%.[sS]pec%.luau$") ~= nil or filename:match("%.[sS]pec%.lua$") ~= nil
+end
 
-    @param roots - Array or dictionary of test roots
+--[[
+    Discovers all spec files from a script instance directory and
+    returns them as dictionary entries { Name = requireResult }.
+    Only available in Lune.
+
+    @param dirScript - Script instance pointing to a tests directory
+    @return Dictionary of { SpecName = requireResult }
+]]
+local function discoverSpecsFromDirectory(dirScript: any): { [string]: any }
+    if not IS_LUNE then
+        return {}
+    end
+
+    local fs = require("@lune/fs")
+    local dirPath = tostring(dirScript)
+    local specs = {}
+
+    local function walk(currentPath: string, parentScript: any)
+        local ok, entries = pcall(fs.readDir, currentPath)
+        if not ok then
+            return
+        end
+
+        for _, entry in entries do
+            local fullPath = currentPath .. "/" .. entry
+
+            if fs.isDir(fullPath) then
+                walk(fullPath, parentScript[entry])
+            elseif isSpecFile(entry) then
+                local baseName = entry:gsub("%.[sS]pec%.luau$", ""):gsub("%.[sS]pec%.lua$", "")
+                local specName = baseName
+                local childScript = parentScript[baseName .. ".spec"]
+                local requireOk, result = pcall(require, childScript)
+                if requireOk and type(result) == "function" then
+                    specs[specName] = result
+                end
+            end
+        end
+    end
+
+    walk(dirPath, dirScript)
+    return specs
+end
+
+--[[
+    Gathers test modules from multiple root locations. Supports
+    script instances, array format, and dictionary format:
+
+    Script: script.Parent.Tests (discovers .spec.luau files)
+    Array:  { { Name = "Test", Func = fn }, ... }
+    Dict:   { Test = fn, Other = fn, ... }
+
+    @param roots - Script instance, array, or dictionary of test roots
     @return Combined array of all module descriptors found
 ]]
-function TestBootstrap:getModulesFromMultipleRoots(roots: { any }): { any }
+function TestBootstrap:getModulesFromMultipleRoots(roots: any): { any }
     local modules = {}
+
+    -- If roots is a script instance (userdata), discover specs from it
+    if type(roots) ~= "table" then
+        local specs = discoverSpecsFromDirectory(roots)
+        roots = specs
+    end
 
     -- Detect if roots is a dictionary (string keys) or array (integer keys)
     local isDictionary = false
