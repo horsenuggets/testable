@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.3
+- Included `.luaurc` in Wally package for proper alias resolution
+
 ## 1.1.2
 - Added script instance support for test roots (`Testable.run(script.Parent.Tests)`)
 - Added automatic `.spec.luau` file discovery from directory script instances
