@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.4
+- Remove .luaurc from Wally package to fix transitive dependency resolution
+- Bump dependencies and update submodules
+
 ## 1.1.3
 - Included `.luaurc` in Wally package for proper alias resolution
 
