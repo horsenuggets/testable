@@ -1,7 +1,7 @@
 {
-    "name": "testable",
+    "name": "testable-dev",
     "tree": {
-        "$path": "Source/Testable",
+        "$className": "Folder",
         "DevPackages": {
             "$path": {
                 "optional": "DevPackages"
@@ -12,10 +12,19 @@
                 "optional": "Packages"
             }
         },
+        "Scripts": {
+            "$path": "Scripts"
+        },
         "ServerPackages": {
             "$path": {
                 "optional": "ServerPackages"
             }
+        },
+        "Source": {
+            "$path": "Source"
+        },
+        "Tests": {
+            "$path": "Tests"
         }
     }
 }

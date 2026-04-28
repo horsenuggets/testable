@@ -34,6 +34,7 @@ export type FunctionCoverage = {
 
 export type FileCoverage = {
     Name: string,
+    Path: string,
     Functions: { FunctionCoverage },
     ExecutableLines: number,
     HitLines: number,
@@ -75,6 +76,7 @@ local function getDisplayName(scriptInstance: any): string
     local name = scriptInstance.Name
     return name:gsub("%.luau$", ""):gsub("%.lua$", "")
 end
+
 
 --[[
     Recursively discovers all Luau modules under a directory using the
@@ -177,7 +179,7 @@ local function collectFileCoverage(scriptInstance: any): ({ FunctionCoverage }, 
         fileHit += funcHit
         fileExecutable += funcExecutable
 
-        local pct = if funcExecutable > 0 then math.floor((funcHit / funcExecutable) * 100) else 0
+        local pct = if funcExecutable > 0 then math.floor((funcHit / funcExecutable) * 1000) / 10 else 0
 
         local funcName = entry.Function
         if funcName == "" then
@@ -303,10 +305,11 @@ function Coverage.collect(roots: any): CoverageReport?
         grandTotalHit += fileHit
         grandTotalExecutable += fileExecutable
 
-        local filePct = if fileExecutable > 0 then math.floor((fileHit / fileExecutable) * 100) else 0
+        local filePct = if fileExecutable > 0 then math.floor((fileHit / fileExecutable) * 1000) / 10 else 0
 
         table.insert(files, {
             Name = entry.Name,
+            Path = tostring(entry.Script),
             Functions = fileFunctions,
             ExecutableLines = fileExecutable,
             HitLines = fileHit,
@@ -314,7 +317,7 @@ function Coverage.collect(roots: any): CoverageReport?
         })
     end
 
-    local totalPct = if grandTotalExecutable > 0 then math.floor((grandTotalHit / grandTotalExecutable) * 100) else 0
+    local totalPct = if grandTotalExecutable > 0 then math.floor((grandTotalHit / grandTotalExecutable) * 1000) / 10 else 0
 
     return {
         Files = files,

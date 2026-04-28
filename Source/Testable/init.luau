@@ -7,10 +7,18 @@ matchers, lifecycle hooks, and parallel test execution support.
 
 --]]
 
+local Base64 = require("@self/Base64")
 local Config = require("@self/Config")
 local Coverage = require("@self/Coverage")
 local CoverageReporter = require("@self/Reporters/CoverageReporter")
 local Expectation = require("@self/Expectation")
+local ResultSerializer = require("@self/ResultSerializer")
+
+-- PublishPlace uses Lune-only APIs, so require it lazily
+local IS_LUNE = pcall(function()
+    require("@lune/fs")
+end)
+local PublishPlace = if IS_LUNE then require("@self/PublishPlace") else nil
 local TestBootstrap = require("@self/TestBootstrap")
 local TestEnum = require("@self/TestEnum")
 local TestPlan = require("@self/TestPlan")
@@ -52,16 +60,23 @@ local function run(testRoots: any): (any, boolean)
 
     local passed = results.failureCount == 0
 
+    local hasCoverage = false
+
     if coverageEnabled and coverageRoots ~= nil then
         local coverageReport = Coverage.collect(coverageRoots)
 
         if coverageReport ~= nil then
+            hasCoverage = true
             CoverageReporter.report(coverageReport, coverageThreshold)
 
             if coverageReport.TotalPercentage < coverageThreshold then
                 passed = false
             end
         end
+    end
+
+    if not hasCoverage then
+        TextReporter.separator()
     end
 
     return results, passed
@@ -72,13 +87,16 @@ local Testable = {
     resetConfig = Config.reset,
     run = run,
 
+    Base64 = Base64,
     Config = Config,
     Coverage = Coverage,
     Expectation = Expectation,
+    PublishPlace = PublishPlace,
     Reporters = {
         CoverageReporter = CoverageReporter,
         TextReporter = TextReporter,
     },
+    ResultSerializer = ResultSerializer,
     TestBootstrap = TestBootstrap,
     TestEnum = TestEnum,
     TestPlan = TestPlan,

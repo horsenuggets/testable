@@ -179,7 +179,20 @@ local function discoverSpecsFromDirectory(dirScript: any): { [string]: any }
             local fullPath = currentPath .. "/" .. entry
 
             if fs.isDir(fullPath) then
-                walk(fullPath, parentScript[entry])
+                -- Check if this directory is a .spec folder (e.g., RobloxCloudTest.spec/)
+                if entry:match("%.[sS]pec$") then
+                    local initPath = fullPath .. "/init.luau"
+                    if fs.isFile(initPath) then
+                        local specName = entry:gsub("%.[sS]pec$", "")
+                        local childScript = parentScript[entry]
+                        local requireOk, result = pcall(require, childScript)
+                        if requireOk and type(result) == "function" then
+                            specs[specName] = result
+                        end
+                    end
+                else
+                    walk(fullPath, parentScript[entry])
+                end
             elseif isSpecFile(entry) then
                 local baseName = entry:gsub("%.[sS]pec%.luau$", ""):gsub("%.[sS]pec%.lua$", "")
                 local specName = baseName
