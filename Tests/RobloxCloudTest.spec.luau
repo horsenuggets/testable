@@ -20,8 +20,8 @@ local process = require("@lune/process")
 local serde = require("@lune/serde")
 local task = require("@lune/task")
 
-local UNIVERSE_ID = "9873131552"
-local PLACE_ID = "93713502617477"
+local UNIVERSE_ID = "10772475667"
+local PLACE_ID = "114852968773810"
 local BASE_URL = "https://apis.roblox.com/cloud/v2"
 local POLL_INTERVAL = 3
 local MAX_POLL_ATTEMPTS = 60
