@@ -21,8 +21,8 @@ local UNIVERSE_ID = "9873131552"
 local PLACE_ID = "93713502617477"
 
 local function publishE2EPlace()
-    local apiKey = process.env.ROBLOX_E2E_API_KEY
-    assert(apiKey ~= nil and apiKey ~= "", "ROBLOX_E2E_API_KEY not found in environment.")
+    local apiKey = process.env.TESTABLE_E2E_ROBLOX_API_KEY
+    assert(apiKey ~= nil and apiKey ~= "", "TESTABLE_E2E_ROBLOX_API_KEY not found in environment.")
 
     if not fs.isDir("Build") then
         fs.writeDir("Build")
