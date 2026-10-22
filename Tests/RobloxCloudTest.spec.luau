@@ -6,7 +6,7 @@ Runs Testable's test suite in a real Roblox cloud environment using
 the Open Cloud Luau Execution API. Submits a test script to a
 published place and maps each remote result to a Testable it() block.
 
-Requires TESTABLE_E2E_ROBLOX_API_KEY in the environment. Skips gracefully when
+Requires TESTABLE_CICD_ROBLOX_API_KEY in the environment. Skips gracefully when
 the key is not available.
 
 The place must have Testable published in ReplicatedStorage. Use
@@ -34,7 +34,7 @@ type TestResult = {
 }
 
 local function _loadApiKey(): string?
-    local key = process.env.TESTABLE_E2E_ROBLOX_API_KEY
+    local key = process.env.TESTABLE_CICD_ROBLOX_API_KEY
     if key == nil or key == "" then
         return nil
     end
@@ -187,7 +187,7 @@ return function()
     local apiKey = _loadApiKey()
 
     if apiKey == nil then
-        print("  TESTABLE_E2E_ROBLOX_API_KEY not found, Roblox cloud tests will be skipped.")
+        print("  TESTABLE_CICD_ROBLOX_API_KEY not found, Roblox cloud tests will be skipped.")
         describe("Roblox Cloud", function()
             it("skipped (no API key)", function() end)
         end)
