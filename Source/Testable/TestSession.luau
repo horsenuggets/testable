@@ -41,7 +41,9 @@ end
 
 --[[
     Calculate success, failure, and skipped test counts in the tree at the
-    current point in the execution.
+    current point in the execution. A describe node whose body errored during
+    planning also counts as a failure, since the error is recorded on the describe
+    node itself rather than on any of its it nodes.
 ]]
 function TestSession:calculateTotals(): ()
     local results = self.results
@@ -56,12 +58,18 @@ function TestSession:calculateTotals(): ()
 
         if nodeType == TestEnum.NodeType.It then
             if status == TestEnum.TestStatus.Success then
-                results.successCount = results.successCount + 1
+                results.successCount += 1
             elseif status == TestEnum.TestStatus.Failure then
-                results.failureCount = results.failureCount + 1
+                results.failureCount += 1
             elseif status == TestEnum.TestStatus.Skipped then
-                results.skippedCount = results.skippedCount + 1
+                results.skippedCount += 1
             end
+        elseif
+            nodeType == TestEnum.NodeType.Describe
+            and node.planNode.loadError ~= nil
+            and status == TestEnum.TestStatus.Failure
+        then
+            results.failureCount += 1
         end
     end)
 end
