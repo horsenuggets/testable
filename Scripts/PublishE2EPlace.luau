@@ -17,12 +17,12 @@ local net = require("@lune/net")
 local process = require("@lune/process")
 local serde = require("@lune/serde")
 
-local UNIVERSE_ID = "9873131552"
-local PLACE_ID = "93713502617477"
+local UNIVERSE_ID = "10772475667"
+local PLACE_ID = "114852968773810"
 
 local function publishE2EPlace()
-    local apiKey = process.env.ROBLOX_E2E_API_KEY
-    assert(apiKey ~= nil and apiKey ~= "", "ROBLOX_E2E_API_KEY not found in environment.")
+    local apiKey = process.env.TESTABLE_CICD_ROBLOX_API_KEY
+    assert(apiKey ~= nil and apiKey ~= "", "TESTABLE_CICD_ROBLOX_API_KEY not found in environment.")
 
     if not fs.isDir("Build") then
         fs.writeDir("Build")
