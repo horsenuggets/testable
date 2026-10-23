@@ -7,38 +7,9 @@ verify that fail() actually causes tests to fail with the expected exit codes.
 
 --]]
 
-local fs = require("@lune/fs")
-local process = require("@lune/process")
+local Subprocess = require("./Helpers/Subprocess")
 
-local testCounter = 0
-
-local function createTempScript(): string
-    testCounter += 1
-    local timestamp = os.time()
-    local random = math.random(100000, 999999)
-    local scriptName = `_temp_fail_test_{timestamp}_{testCounter}_{random}.luau`
-    return scriptName
-end
-
-local function runTestScript(scriptContent: string): (boolean, string)
-    local scriptName = createTempScript()
-    local projectRoot = process.cwd
-
-    -- Write the test script to the project root (where lune is available)
-    fs.writeFile(`{projectRoot}/{scriptName}`, scriptContent)
-
-    -- Run the test script with lune from the project root
-    local result = process.exec("lune", { "run", scriptName }, {
-        cwd = projectRoot,
-    })
-
-    local output = (result.stdout or "") .. (result.stderr or "")
-
-    -- Clean up the temp script
-    fs.removeFile(`{projectRoot}/{scriptName}`)
-
-    return result.ok, output
-end
+local runTestScript = Subprocess.runScript
 
 return function()
     describe("fail() function", function()
