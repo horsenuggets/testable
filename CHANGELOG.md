@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.5
+- Fixed planning errors (a test module or `describe` body that throws) not counting as failures, so `Testable.run` now returns `passed = false` for them
+- Added regression tests for root-level and nested planning errors in both parallel and sequential execution
+
 ## 1.1.4
 - Remove .luaurc from Wally package to fix transitive dependency resolution
 - Bump dependencies and update submodules
