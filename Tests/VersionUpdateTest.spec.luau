@@ -76,7 +76,7 @@ local function setupRokitTemplate(): string
 
     local rokitToml = [[
         [tools]
-        lune = "horsenuggets/lune@0.10.5"
+        lune = "horsenuggets/lune@0.11.1-horse.16.1"
     ]]
     -- Strip leading whitespace from each line for proper TOML format
     rokitToml = string.gsub(rokitToml, "\n%s+", "\n")
@@ -156,7 +156,7 @@ local function setWorkingVersion(repoPath: string, version: string)
 end
 
 local function runVersionCheck(repoPath: string): (boolean, string)
-    local result = process.exec("lune", { "run", "Scripts/EnsureProperVersionUpdate" }, {
+    local result = process.exec("lune", { "run", "Scripts/EnsureProperVersionUpdate.exec.luau" }, {
         cwd = repoPath,
         stdio = {
             stdout = "default",
@@ -171,8 +171,8 @@ end
 local function copyScriptsToRepo(repoPath: string)
     fs.writeDir(`{repoPath}/Scripts`)
     fs.writeDir(`{repoPath}/Scripts/Helpers`)
-    local scriptContent = fs.readFile("Submodules/luau-cicd/Scripts/EnsureProperVersionUpdate.luau")
-    fs.writeFile(`{repoPath}/Scripts/EnsureProperVersionUpdate.luau`, scriptContent)
+    local scriptContent = fs.readFile("Submodules/luau-cicd/Scripts/EnsureProperVersionUpdate.exec.luau")
+    fs.writeFile(`{repoPath}/Scripts/EnsureProperVersionUpdate.exec.luau`, scriptContent)
     local helperContent = fs.readFile("Submodules/luau-cicd/Scripts/Helpers/parseVersion.luau")
     fs.writeFile(`{repoPath}/Scripts/Helpers/parseVersion.luau`, helperContent)
 end
