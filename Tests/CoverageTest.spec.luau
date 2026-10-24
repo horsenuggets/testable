@@ -8,21 +8,21 @@ true, which is the default in Lune 0.10.4-horse.14.2+.
 
 --]]
 
-local Config = require("../Source/Testable/Config")
-local Coverage = require("../Source/Testable/Coverage")
-local Testable = require("../Source/Testable")
+const Config = require("../Source/Testable/Config")
+const Coverage = require("../Source/Testable/Coverage")
+const Testable = require("../Source/Testable")
 
 -- Require the fixture module so it has coverage data
-local SampleModule = require("./CoverageFixtures/SampleModule")
+const SampleModule = require("./CoverageFixtures/SampleModule")
 
 -- Script references
-local fixturesDir = script.Parent.CoverageFixtures
-local sampleScript = fixturesDir.SampleModule
+const fixturesDir = script.Parent.CoverageFixtures
+const sampleScript = fixturesDir.SampleModule
 
 return function()
     describe("Coverage.resolveRoots", function()
         it("should discover modules from a directory", function()
-            local resolved = Coverage.resolveRoots(fixturesDir)
+            const resolved = Coverage.resolveRoots(fixturesDir)
             expect(#resolved >= 1).to.equal(true)
 
             local foundSample = false
@@ -35,14 +35,14 @@ return function()
         end)
 
         it("should resolve a single file script", function()
-            local resolved = Coverage.resolveRoots(sampleScript)
+            const resolved = Coverage.resolveRoots(sampleScript)
             expect(#resolved).to.equal(1)
             expect(resolved[1].Name).to.equal("SampleModule")
         end)
 
         it("should exclude .spec files", function()
-            local testsDir = script.Parent
-            local resolved = Coverage.resolveRoots(testsDir)
+            const testsDir = script.Parent
+            const resolved = Coverage.resolveRoots(testsDir)
             for _, entry in resolved do
                 expect(entry.Name:match("%.spec$")).to.equal(nil)
             end
@@ -53,7 +53,7 @@ return function()
         it("should return a report with correct structure", function()
             SampleModule.add(1, 2)
 
-            local report = Coverage.collect(fixturesDir)
+            const report = Coverage.collect(fixturesDir)
 
             if report == nil then
                 return
@@ -69,7 +69,7 @@ return function()
             SampleModule.add(1, 2)
             SampleModule.subtract(3, 1)
 
-            local report = Coverage.collect(sampleScript)
+            const report = Coverage.collect(sampleScript)
 
             if report == nil then
                 return
@@ -85,13 +85,13 @@ return function()
         it("should include local functions in coverage", function()
             SampleModule.double(5)
 
-            local report = Coverage.collect(sampleScript)
+            const report = Coverage.collect(sampleScript)
 
             if report == nil then
                 return
             end
 
-            local file = report.Files[1]
+            const file = report.Files[1]
             local foundHelper = false
             for _, fn in file.Functions do
                 if fn.Name == "helper" then
@@ -103,9 +103,9 @@ return function()
         end)
 
         it("should return nil when coverage is disabled", function()
-            local hasApi = type(debug.iscoverageenabled) == "function"
+            const hasApi = type(debug.iscoverageenabled) == "function"
             if hasApi and debug.iscoverageenabled() then
-                local report = Coverage.collect(sampleScript)
+                const report = Coverage.collect(sampleScript)
                 expect(report).to.be.ok()
             end
         end)
@@ -114,7 +114,7 @@ return function()
             SampleModule.add(1, 2)
             SampleModule.subtract(3, 1)
 
-            local report = Coverage.collect(sampleScript)
+            const report = Coverage.collect(sampleScript)
 
             if report == nil then
                 return
@@ -124,7 +124,7 @@ return function()
             expect(report.TotalPercentage <= 100).to.equal(true)
 
             if report.TotalExecutableLines > 0 then
-                local expected = math.floor((report.TotalHitLines / report.TotalExecutableLines) * 100)
+                const expected = math.floor((report.TotalHitLines / report.TotalExecutableLines) * 100)
                 expect(report.TotalPercentage).to.equal(expected)
             end
         end)
@@ -148,7 +148,7 @@ return function()
         end)
 
         it("should set Coverage to true when coverage is available", function()
-            local hasApi = type(debug.iscoverageenabled) == "function"
+            const hasApi = type(debug.iscoverageenabled) == "function"
             if not hasApi then
                 return
             end
@@ -183,7 +183,7 @@ return function()
         end)
 
         it("should reset coverage options", function()
-            local hasApi = type(debug.iscoverageenabled) == "function"
+            const hasApi = type(debug.iscoverageenabled) == "function"
             if hasApi then
                 Config.set({ Coverage = true })
             end
@@ -202,7 +202,7 @@ return function()
         end)
 
         it("should pass when coverage meets threshold", function()
-            local hasApi = type(debug.iscoverageenabled) == "function"
+            const hasApi = type(debug.iscoverageenabled) == "function"
             if not hasApi or not debug.iscoverageenabled() then
                 return
             end
@@ -213,7 +213,7 @@ return function()
                 CoverageRoots = sampleScript,
             })
 
-            local _, passed = Testable.run({
+            const _, passed = Testable.run({
                 MiniTest = function()
                     describe("Mini", function()
                         it("calls sample", function()
@@ -231,7 +231,7 @@ return function()
                 CoverageRoots = sampleScript,
             })
 
-            local _, passed = Testable.run({
+            const _, passed = Testable.run({
                 MiniTest = function()
                     describe("Mini", function()
                         it("passes", function()

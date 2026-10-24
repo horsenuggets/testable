@@ -23,7 +23,7 @@ return function()
         end)
 
         it("should handle table references", function()
-            local t = { 1, 2, 3 }
+            const t = { 1, 2, 3 }
             expect(t).to.equal(t)
         end)
 

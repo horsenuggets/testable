@@ -7,13 +7,13 @@ alongside the existing array syntax.
 
 --]]
 
-local Testable = require("../Source/Testable")
+const Testable = require("../Source/Testable")
 
 return function()
     describe("Dictionary syntax for test roots", function()
         it("should run tests passed as dictionary entries", function()
             local ran = false
-            local miniTests = {
+            const miniTests = {
                 {
                     Name = "MiniTest",
                     Func = function()
@@ -27,14 +27,14 @@ return function()
                 },
             }
 
-            local _, passed = Testable.run(miniTests)
+            const _, passed = Testable.run(miniTests)
             expect(passed).to.equal(true)
             expect(ran).to.equal(true)
         end)
 
         it("should accept dictionary format { Name = func }", function()
             local ran = false
-            local dictTests = {
+            const dictTests = {
                 InlineTest = function()
                     describe("Inline", function()
                         it("runs from dict", function()
@@ -45,14 +45,14 @@ return function()
                 end,
             }
 
-            local _, passed = Testable.run(dictTests)
+            const _, passed = Testable.run(dictTests)
             expect(passed).to.equal(true)
             expect(ran).to.equal(true)
         end)
 
         it("should sort dictionary entries alphabetically", function()
-            local order = {}
-            local dictTests = {
+            const order = {}
+            const dictTests = {
                 ZTest = function()
                     describe("ZTest", function()
                         it("runs", function()

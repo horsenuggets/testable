@@ -6,9 +6,9 @@ Turns a series of specification functions into a test plan. Uses a TestPlanBuild
 keep track of the state of the tree being built.
 
 --]]
-local TestPlan = require("./TestPlan")
+const TestPlan = require("./TestPlan")
 
-local TestPlanner = {}
+const TestPlanner = {}
 
 --[[
     Create a new TestPlan from a list of specification functions.
@@ -32,7 +32,7 @@ function TestPlanner.createPlan(
     testNamePattern: string?,
     extraEnvironment: { [string]: any }?
 ): any
-    local plan = TestPlan.new(testNamePattern, extraEnvironment)
+    const plan = TestPlan.new(testNamePattern, extraEnvironment)
 
     table.sort(modulesList, function(a, b)
         return a.pathStringForSorting < b.pathStringForSorting

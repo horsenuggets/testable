@@ -7,9 +7,9 @@ verify that fail() actually causes tests to fail with the expected exit codes.
 
 --]]
 
-local Subprocess = require("./Helpers/Subprocess")
+const Subprocess = require("./Helpers/Subprocess")
 
-local runTestScript = Subprocess.runScript
+const runTestScript = Subprocess.runScript
 
 return function()
     describe("fail() function", function()
@@ -22,10 +22,10 @@ return function()
         it("should cause tests to fail correctly (subprocess tests)", function()
             -- Test 1: fail without message
             do
-                local scriptContent = [[
-                    local Testable = require("./Source/Testable")
+                const scriptContent = [[
+                    const Testable = require("./Source/Testable")
 
-                    local tests = {
+                    const tests = {
                         {
                             Name = "FailingTest",
                             Func = function()
@@ -38,21 +38,21 @@ return function()
                         },
                     }
 
-                    local _, passed = Testable.run(tests)
-                    local process = require("@lune/process")
+                    const _, passed = Testable.run(tests)
+                    const process = require("@lune/process")
                     process.exit(if passed then 0 else 1)
                 ]]
-                local success, output = runTestScript(scriptContent)
+                const success, output = runTestScript(scriptContent)
                 expect(success).to.equal(false)
                 expect(string.find(output, "fail() was called", 1, true)).to.be.ok()
             end
 
             -- Test 2: fail with custom message
             do
-                local scriptContent = [[
-                    local Testable = require("./Source/Testable")
+                const scriptContent = [[
+                    const Testable = require("./Source/Testable")
 
-                    local tests = {
+                    const tests = {
                         {
                             Name = "FailingTest",
                             Func = function()
@@ -65,21 +65,21 @@ return function()
                         },
                     }
 
-                    local _, passed = Testable.run(tests)
-                    local process = require("@lune/process")
+                    const _, passed = Testable.run(tests)
+                    const process = require("@lune/process")
                     process.exit(if passed then 0 else 1)
                 ]]
-                local success, output = runTestScript(scriptContent)
+                const success, output = runTestScript(scriptContent)
                 expect(success).to.equal(false)
                 expect(string.find(output, "custom failure message", 1, true)).to.be.ok()
             end
 
             -- Test 3: fail should not affect other passing tests
             do
-                local scriptContent = [[
-                    local Testable = require("./Source/Testable")
+                const scriptContent = [[
+                    const Testable = require("./Source/Testable")
 
-                    local tests = {
+                    const tests = {
                         {
                             Name = "MixedTest",
                             Func = function()
@@ -100,13 +100,13 @@ return function()
                         },
                     }
 
-                    local results, passed = Testable.run(tests)
+                    const results, passed = Testable.run(tests)
                     print("PASS_COUNT:" .. results.successCount)
                     print("FAIL_COUNT:" .. results.failureCount)
-                    local process = require("@lune/process")
+                    const process = require("@lune/process")
                     process.exit(if passed then 0 else 1)
                 ]]
-                local success, output = runTestScript(scriptContent)
+                const success, output = runTestScript(scriptContent)
                 expect(success).to.equal(false)
                 expect(string.find(output, "PASS_COUNT:2", 1, true)).to.be.ok()
                 expect(string.find(output, "FAIL_COUNT:1", 1, true)).to.be.ok()
@@ -114,16 +114,16 @@ return function()
 
             -- Test 4: fail should work when called conditionally
             do
-                local scriptContent = [[
-                    local Testable = require("./Source/Testable")
+                const scriptContent = [[
+                    const Testable = require("./Source/Testable")
 
-                    local tests = {
+                    const tests = {
                         {
                             Name = "ConditionalFailTest",
                             Func = function()
                                 describe("conditional fail", function()
                                     it("should fail when condition is met", function()
-                                        local shouldFail = true
+                                        const shouldFail = true
                                         if shouldFail then
                                             fail("condition was met")
                                         end
@@ -133,11 +133,11 @@ return function()
                         },
                     }
 
-                    local _, passed = Testable.run(tests)
-                    local process = require("@lune/process")
+                    const _, passed = Testable.run(tests)
+                    const process = require("@lune/process")
                     process.exit(if passed then 0 else 1)
                 ]]
-                local success, output = runTestScript(scriptContent)
+                const success, output = runTestScript(scriptContent)
                 expect(success).to.equal(false)
                 expect(string.find(output, "condition was met", 1, true)).to.be.ok()
             end

@@ -7,7 +7,7 @@ and tests. It also allows for a new Context object to inherit the entries from a
 one.
 
 --]]
-local Context = {}
+const Context = {}
 
 --[[
     Creates a new Context, optionally inheriting from a parent Context.
@@ -16,8 +16,8 @@ local Context = {}
     @return A new Context object
 ]]
 function Context.new(parent: any?): any
-    local meta = {}
-    local index = {}
+    const meta = {}
+    const index = {}
     meta.__index = index
 
     if parent then

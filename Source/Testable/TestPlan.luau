@@ -7,11 +7,11 @@ TestPlan objects are produced by TestPlanner.
 
 --]]
 
-local Expectation = require("./Expectation")
-local TestEnum = require("./TestEnum")
+const Expectation = require("./Expectation")
+const TestEnum = require("./TestEnum")
 
-local function newEnvironment(currentNode, extraEnvironment)
-    local env = {}
+const function newEnvironment(currentNode, extraEnvironment)
+    const env = {}
 
     if extraEnvironment then
         if type(extraEnvironment) ~= "table" then
@@ -23,8 +23,8 @@ local function newEnvironment(currentNode, extraEnvironment)
         end
     end
 
-    local function addChild(phrase, callback, nodeType, nodeModifier)
-        local node = currentNode:addChild(phrase, nodeType, nodeModifier)
+    const function addChild(phrase, callback, nodeType, nodeModifier)
+        const node = currentNode:addChild(phrase, nodeType, nodeModifier)
         node.callback = callback
         if nodeType == TestEnum.NodeType.Describe then
             node:expand()
@@ -53,7 +53,7 @@ local function newEnvironment(currentNode, extraEnvironment)
     end
 
     function env.itFIXME(phrase, callback)
-        local node = addChild(phrase, callback, TestEnum.NodeType.It, TestEnum.NodeModifier.Skip)
+        const node = addChild(phrase, callback, TestEnum.NodeType.It, TestEnum.NodeModifier.Skip)
         warn("FIXME: broken test", node:getFullName())
     end
 
@@ -64,7 +64,7 @@ local function newEnvironment(currentNode, extraEnvironment)
     -- Incrementing counter used to ensure that beforeAll, afterAll, beforeEach, afterEach have unique phrases
     local lifecyclePhaseId = 0
 
-    local lifecycleHooks = {
+    const lifecycleHooks = {
         [TestEnum.NodeType.BeforeAll] = "beforeAll",
         [TestEnum.NodeType.AfterAll] = "afterAll",
         [TestEnum.NodeType.BeforeEach] = "beforeEach",
@@ -121,7 +121,7 @@ local function newEnvironment(currentNode, extraEnvironment)
     return env
 end
 
-local TestNode = {}
+const TestNode = {}
 TestNode.__index = TestNode
 
 --[[
@@ -132,7 +132,7 @@ TestNode.__index = TestNode
 function TestNode.new(plan, phrase, nodeType, nodeModifier)
     nodeModifier = nodeModifier or TestEnum.NodeModifier.None
 
-    local node = {
+    const node = {
         plan = plan,
         phrase = phrase,
         type = nodeType,
@@ -146,7 +146,7 @@ function TestNode.new(plan, phrase, nodeType, nodeModifier)
     return setmetatable(node, TestNode)
 end
 
-local function getModifier(name, pattern, modifier)
+const function getModifier(name, pattern, modifier)
     if pattern and (modifier == nil or modifier == TestEnum.NodeModifier.None) then
         if name:match(pattern) then
             return TestEnum.NodeModifier.Focus
@@ -166,9 +166,9 @@ function TestNode:addChild(phrase, nodeType, nodeModifier)
         end
     end
 
-    local childName = self:getFullName() .. " " .. phrase
+    const childName = self:getFullName() .. " " .. phrase
     nodeModifier = getModifier(childName, self.plan.testNamePattern, nodeModifier)
-    local child = TestNode.new(self.plan, phrase, nodeType, nodeModifier)
+    const child = TestNode.new(self.plan, phrase, nodeType, nodeModifier)
     child.parent = self
     table.insert(self.children, child)
     return child
@@ -179,7 +179,7 @@ end
 ]]
 function TestNode:getFullName()
     if self.parent then
-        local parentPhrase = self.parent:getFullName()
+        const parentPhrase = self.parent:getFullName()
         if parentPhrase then
             return parentPhrase .. " " .. self.phrase
         end
@@ -192,8 +192,8 @@ end
     further it and describe calls within the callback will be added to the tree.
 ]]
 function TestNode:expand()
-    local originalEnv = getfenv(self.callback)
-    local callbackEnv = setmetatable({}, { __index = originalEnv })
+    const originalEnv = getfenv(self.callback)
+    const callbackEnv = setmetatable({}, { __index = originalEnv })
     for key, value in pairs(self.environment) do
         callbackEnv[key] = value
     end
@@ -202,7 +202,7 @@ function TestNode:expand()
     callbackEnv.script = originalEnv.script
     setfenv(self.callback, callbackEnv)
 
-    local success, result = xpcall(self.callback, function(message)
+    const success, result = xpcall(self.callback, function(message)
         return debug.traceback(tostring(message), 2)
     end)
 
@@ -211,14 +211,14 @@ function TestNode:expand()
     end
 end
 
-local TestPlan = {}
+const TestPlan = {}
 TestPlan.__index = TestPlan
 
 --[[
     Create a new, empty TestPlan.
 ]]
 function TestPlan.new(testNamePattern, extraEnvironment)
-    local plan = {
+    const plan = {
         children = {},
         testNamePattern = testNamePattern,
         extraEnvironment = extraEnvironment,
@@ -232,7 +232,7 @@ end
 ]]
 function TestPlan:addChild(phrase, nodeType, nodeModifier)
     nodeModifier = getModifier(phrase, self.testNamePattern, nodeModifier)
-    local child = TestNode.new(self, phrase, nodeType, nodeModifier)
+    const child = TestNode.new(self, phrase, nodeType, nodeModifier)
     table.insert(self.children, child)
     return child
 end
@@ -283,7 +283,7 @@ end
     plan's structure.
 ]]
 function TestPlan:visualize()
-    local buffer = {}
+    const buffer = {}
     self:visitAllNodes(function(node, level)
         table.insert(buffer, (" "):rep(3 * level) .. node.phrase)
     end)
@@ -295,7 +295,7 @@ end
     true.
 ]]
 function TestPlan:findNodes(callback)
-    local results = {}
+    const results = {}
     self:visitAllNodes(function(node)
         if callback(node) then
             table.insert(results, node)

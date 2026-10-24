@@ -10,10 +10,10 @@ Executes all test suites and exits with appropriate status code.
 
 --]]
 
-local Testable = require("../Source/Testable")
-local process = require("@lune/process")
+const Testable = require("../Source/Testable")
+const process = require("@lune/process")
 
-local TESTS = {
+const TESTS = {
     { Name = "ConfigTest", Func = require("../Tests/ConfigTest.spec") },
     { Name = "CoverageTest", Func = require("../Tests/CoverageTest.spec") },
     { Name = "DictSyntaxTest", Func = require("../Tests/DictSyntaxTest.spec") },
@@ -29,7 +29,7 @@ local TESTS = {
 const RunTests = {}
 
 function RunTests.exec()
-    local _, passed = Testable.run(TESTS)
+    const _, passed = Testable.run(TESTS)
     process.exit(if passed then 0 else 1)
 end
 

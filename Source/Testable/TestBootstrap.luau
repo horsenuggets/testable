@@ -6,18 +6,18 @@ Provides an interface to quickly run and report tests from a given object.
 
 --]]
 
-local IS_ROBLOX = game ~= nil
-local IS_LUNE = pcall(function()
+const IS_ROBLOX = game ~= nil
+const IS_LUNE = pcall(function()
     require("@lune/fs")
 end)
 
-local TestPlanner = require("./TestPlanner")
-local TestRunner = require("./TestRunner")
-local TextReporter = require("./Reporters/TextReporter")
+const TestPlanner = require("./TestPlanner")
+const TestRunner = require("./TestRunner")
+const TextReporter = require("./Reporters/TextReporter")
 
-local tick = if IS_LUNE then os.clock else tick
+const tick = if IS_LUNE then os.clock else tick
 
-local TestBootstrap = {}
+const TestBootstrap = {}
 
 --[[
     Removes the ".spec" suffix from a module name.
@@ -25,7 +25,7 @@ local TestBootstrap = {}
     @param name - The module name to process
     @return The name without the ".spec" suffix
 ]]
-local function stripSpecSuffix(name: string): string
+const function stripSpecSuffix(name: string): string
     return (name:gsub("%.spec$", ""))
 end
 
@@ -35,7 +35,7 @@ end
     @param aScript - The script instance to check
     @return True if the script is a ModuleScript with a ".spec" suffix
 ]]
-local function isSpecScript(aScript: any): boolean
+const function isSpecScript(aScript: any): boolean
     return aScript:IsA("ModuleScript") and aScript.Name:match("%.spec$")
 end
 
@@ -46,10 +46,10 @@ end
     @param root - The root instance to stop at (defaults to game)
     @return Array of path elements from root to module
 ]]
-local function getPath(module: any, root: any?): { string }
+const function getPath(module: any, root: any?): { string }
     root = root or game
 
-    local path = {}
+    const path = {}
     local last = module
 
     if last.Name == "init.spec" then
@@ -72,7 +72,7 @@ end
     @param tablePath - Array of path elements
     @return Space-separated string of path elements in reverse order
 ]]
-local function toStringPath(tablePath: { string }): string
+const function toStringPath(tablePath: { string }): string
     local stringPath = ""
     local first = true
     for _, element in ipairs(tablePath) do
@@ -93,14 +93,14 @@ end
     @param modules - Array to accumulate found modules
     @param current - Current instance being checked (defaults to root)
 ]]
-local function getModulesImplRoblox(root: any, inputModules: { any }?, current: any?): ()
-    local modules: { any } = inputModules or {}
+const function getModulesImplRoblox(root: any, inputModules: { any }?, current: any?): ()
+    const modules: { any } = inputModules or {}
     current = current or root
 
     if isSpecScript(current) then
-        local method = require(current)
-        local path = getPath(current, root)
-        local pathString = toStringPath(path)
+        const method = require(current)
+        const path = getPath(current, root)
+        const pathString = toStringPath(path)
 
         table.insert(modules, {
             method = method,
@@ -117,7 +117,7 @@ end
     @return Array of module descriptors with method, path, and pathStringForSorting fields
 ]]
 function TestBootstrap:getModules(root: any): { any }
-    local modules = {}
+    const modules = {}
 
     if typeof(root) == "table" and typeof(root.Name) == "string" and typeof(root.Func) == "function" then
         -- Module descriptor table: { Name = "Test", Func = fn }
@@ -148,7 +148,7 @@ end
     @param filename - The filename to check
     @return True if this is a spec file
 ]]
-local function isSpecFile(filename: string): boolean
+const function isSpecFile(filename: string): boolean
     return filename:match("%.[sS]pec%.luau$") ~= nil or filename:match("%.[sS]pec%.lua$") ~= nil
 end
 
@@ -160,31 +160,31 @@ end
     @param dirScript - Script instance pointing to a tests directory
     @return Dictionary of { SpecName = requireResult }
 ]]
-local function discoverSpecsFromDirectory(dirScript: any): { [string]: any }
+const function discoverSpecsFromDirectory(dirScript: any): { [string]: any }
     if not IS_LUNE then
         return {}
     end
 
-    local fs = require("@lune/fs")
-    local dirPath = tostring(dirScript)
-    local specs = {}
+    const fs = require("@lune/fs")
+    const dirPath = tostring(dirScript)
+    const specs = {}
 
-    local function walk(currentPath: string, parentScript: any)
-        local ok, entries = pcall(fs.readDir, currentPath)
+    const function walk(currentPath: string, parentScript: any)
+        const ok, entries = pcall(fs.readDir, currentPath)
         if not ok then
             return
         end
 
         for _, entry in entries do
-            local fullPath = currentPath .. "/" .. entry
+            const fullPath = currentPath .. "/" .. entry
 
             if fs.isDir(fullPath) then
                 walk(fullPath, parentScript[entry])
             elseif isSpecFile(entry) then
-                local baseName = entry:gsub("%.[sS]pec%.luau$", ""):gsub("%.[sS]pec%.lua$", "")
-                local specName = baseName
-                local childScript = parentScript[baseName .. ".spec"]
-                local requireOk, result = pcall(require, childScript)
+                const baseName = entry:gsub("%.[sS]pec%.luau$", ""):gsub("%.[sS]pec%.lua$", "")
+                const specName = baseName
+                const childScript = parentScript[baseName .. ".spec"]
+                const requireOk, result = pcall(require, childScript)
                 if requireOk and type(result) == "function" then
                     specs[specName] = result
                 end
@@ -208,11 +208,11 @@ end
     @return Combined array of all module descriptors found
 ]]
 function TestBootstrap:getModulesFromMultipleRoots(roots: any): { any }
-    local modules = {}
+    const modules = {}
 
     -- If roots is a script instance (userdata), discover specs from it
     if type(roots) ~= "table" then
-        local specs = discoverSpecsFromDirectory(roots)
+        const specs = discoverSpecsFromDirectory(roots)
         roots = specs
     end
 
@@ -229,7 +229,7 @@ function TestBootstrap:getModulesFromMultipleRoots(roots: any): { any }
 
     if isDictionary then
         -- Dictionary format: { TestName = requireResult, ... }
-        local entries = {}
+        const entries = {}
         for name, func in pairs(roots) do
             assert(
                 type(name) == "string" and type(func) == "function",
@@ -242,7 +242,7 @@ function TestBootstrap:getModulesFromMultipleRoots(roots: any): { any }
             return a.Name < b.Name
         end)
         for _, entry in entries do
-            local newModules = self:getModules(entry)
+            const newModules = self:getModules(entry)
             for _, newModule in newModules do
                 table.insert(modules, newModule)
             end
@@ -250,7 +250,7 @@ function TestBootstrap:getModulesFromMultipleRoots(roots: any): { any }
     else
         -- Array format: { { Name = "Test", Func = fn }, Instance, ... }
         for _, root in ipairs(roots) do
-            local newModules = self:getModules(root)
+            const newModules = self:getModules(root)
             for _, newModule in newModules do
                 table.insert(modules, newModule)
             end
@@ -283,30 +283,30 @@ end
 function TestBootstrap:run(roots: { any }, reporter: any?, inputOtherOptions: { [string]: any }?): (any, boolean)
     reporter = reporter or TextReporter
 
-    local otherOptions: { [string]: any } = inputOtherOptions or {}
-    local showTimingInfo = otherOptions["showTimingInfo"] or false
-    local testNamePattern = otherOptions["testNamePattern"]
-    local extraEnvironment = otherOptions["extraEnvironment"] or {}
+    const otherOptions: { [string]: any } = inputOtherOptions or {}
+    const showTimingInfo = otherOptions["showTimingInfo"] or false
+    const testNamePattern = otherOptions["testNamePattern"]
+    const extraEnvironment = otherOptions["extraEnvironment"] or {}
 
     if type(roots) ~= "table" then
         error(("Bad argument #1 to TestBootstrap:run. Expected table, got %s"):format(typeof(roots)), 2)
     end
 
-    local startTime = tick()
-    local modules = self:getModulesFromMultipleRoots(roots)
-    local afterModules = tick()
+    const startTime = tick()
+    const modules = self:getModulesFromMultipleRoots(roots)
+    const afterModules = tick()
 
-    local plan = TestPlanner.createPlan(modules, testNamePattern, extraEnvironment)
-    local afterPlan = tick()
+    const plan = TestPlanner.createPlan(modules, testNamePattern, extraEnvironment)
+    const afterPlan = tick()
 
-    local results = TestRunner.runPlan(plan)
-    local afterRun = tick()
+    const results = TestRunner.runPlan(plan)
+    const afterRun = tick()
 
     reporter.report(results)
-    local afterReport = tick()
+    const afterReport = tick()
 
     if showTimingInfo then
-        local timing = {
+        const timing = {
             ("Took %f seconds to locate test modules"):format(afterModules - startTime),
             ("Took %f seconds to create test plan"):format(afterPlan - afterModules),
             ("Took %f seconds to run tests"):format(afterRun - afterPlan),

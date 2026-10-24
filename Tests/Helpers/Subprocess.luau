@@ -8,10 +8,10 @@ affecting the outer test run.
 
 --]]
 
-local fs = require("@lune/fs")
-local process = require("@lune/process")
+const fs = require("@lune/fs")
+const process = require("@lune/process")
 
-local Subprocess = {}
+const Subprocess = {}
 
 local scriptCounter = 0
 
@@ -27,14 +27,14 @@ function Subprocess.runScript(scriptContent: string): (boolean, string)
     assert(type(scriptContent) == "string", "scriptContent must be a string")
 
     scriptCounter += 1
-    local projectRoot = process.cwd
-    local random = math.random(100000, 999999)
-    local scriptName = `_temp_test_{os.time()}_{scriptCounter}_{random}.luau`
-    local scriptPath = `{projectRoot}/{scriptName}`
+    const projectRoot = process.cwd
+    const random = math.random(100000, 999999)
+    const scriptName = `_temp_test_{os.time()}_{scriptCounter}_{random}.luau`
+    const scriptPath = `{projectRoot}/{scriptName}`
 
     fs.writeFile(scriptPath, scriptContent)
 
-    local result = process.exec("lune", { "run", scriptName }, {
+    const result = process.exec("lune", { "run", scriptName }, {
         cwd = projectRoot,
     })
 

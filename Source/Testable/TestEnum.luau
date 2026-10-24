@@ -7,7 +7,7 @@ and node modifiers.
 
 --]]
 
-local TestEnum = {}
+const TestEnum = {}
 
 TestEnum.TestStatus = {
     Success = "Success",

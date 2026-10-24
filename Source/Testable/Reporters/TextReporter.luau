@@ -6,33 +6,33 @@ Uses the results from a completed test to output text to standard output and Tes
 
 --]]
 
-local TestService = game and game:GetService("TestService")
+const TestService = game and game:GetService("TestService")
 
-local Ansi = require("../Ansi")
-local Config = require("../Config")
-local TestEnum = require("../TestEnum")
-local TestResults = require("../TestResults")
+const Ansi = require("../Ansi")
+const Config = require("../Config")
+const TestEnum = require("../TestEnum")
+const TestResults = require("../TestResults")
 
-local INDIVIDUAL_PRINTS = true
+const INDIVIDUAL_PRINTS = true
 
-local IS_LUNE = Ansi.isLune()
+const IS_LUNE = Ansi.isLune()
 
-local STATUS_SYMBOLS = if IS_LUNE
+const STATUS_SYMBOLS = if IS_LUNE
     then {
         [TestEnum.TestStatus.Success] = "+",
         [TestEnum.TestStatus.Failure] = "-",
         [TestEnum.TestStatus.Skipped] = "~",
     }
     else TestResults.STATUS_SYMBOLS
-local UNKNOWN_STATUS_SYMBOL = "?"
+const UNKNOWN_STATUS_SYMBOL = "?"
 
-local TextReporter = {}
+const TextReporter = {}
 
-local function compareNodes(a, b)
+const function compareNodes(a, b)
     return a.planNode.phrase:lower() < b.planNode.phrase:lower()
 end
 
-local function reportNode(node, buffer, level)
+const function reportNode(node, buffer, level)
     buffer = buffer or {}
     level = level or 0
 
@@ -43,9 +43,9 @@ local function reportNode(node, buffer, level)
     local line
 
     if node.status then
-        local symbol = STATUS_SYMBOLS[node.status] or UNKNOWN_STATUS_SYMBOL
-        local indent = Config.Indent:rep(level)
-        local fullLine = `[{symbol}] {node.planNode.phrase}`
+        const symbol = STATUS_SYMBOLS[node.status] or UNKNOWN_STATUS_SYMBOL
+        const indent = Config.Indent:rep(level)
+        const fullLine = `[{symbol}] {node.planNode.phrase}`
 
         -- Apply ANSI colors in Lune environment
         if IS_LUNE then
@@ -78,8 +78,8 @@ local function reportNode(node, buffer, level)
     return buffer
 end
 
-local function reportRoot(node)
-    local buffer = {}
+const function reportRoot(node)
+    const buffer = {}
 
     if Config.AlphabeticalSort then
         table.sort(node.children, compareNodes)
@@ -92,18 +92,18 @@ local function reportRoot(node)
     return buffer
 end
 
-local function report(root)
-    local buffer = reportRoot(root)
+const function report(root)
+    const buffer = reportRoot(root)
 
     return buffer
 end
 
-local function buildSummaryLine(results)
+const function buildSummaryLine(results)
     if IS_LUNE then
-        local passedPart = Ansi.brightGreen(`{results.successCount} passed`)
-        local failedPart = Ansi.brightRed(`{results.failureCount} failed`)
+        const passedPart = Ansi.brightGreen(`{results.successCount} passed`)
+        const failedPart = Ansi.brightRed(`{results.failureCount} failed`)
         if Config.PrintSkipped and results.skippedCount > 0 then
-            local skippedPart = Ansi.brightYellow(`{results.skippedCount} skipped`)
+            const skippedPart = Ansi.brightYellow(`{results.skippedCount} skipped`)
             return passedPart .. ", " .. failedPart .. ", " .. skippedPart .. "."
         else
             return passedPart .. ", " .. failedPart .. "."
@@ -122,7 +122,7 @@ function TextReporter.report(results)
         -- Print each line separately
         print("The tests have completed.")
 
-        local reportBuffer = report(results)
+        const reportBuffer = report(results)
         for _, line in ipairs(reportBuffer) do
             print(line)
         end
@@ -130,7 +130,7 @@ function TextReporter.report(results)
         print(buildSummaryLine(results))
     else
         -- Print all as one big message
-        local resultBuffer = {
+        const resultBuffer = {
             "The tests have completed.",
             table.concat(report(results), "\n"),
             buildSummaryLine(results),
