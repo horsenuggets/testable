@@ -2,13 +2,13 @@
 
 --[[
 
-PublishE2EPlace
+PublishE2EPlace.exec
 
 Builds and publishes the Testable E2E test place to Roblox. This
 place contains the Testable source in ReplicatedStorage so remote
 test scripts can require it.
 
-[Usage] ./Scripts/PublishE2EPlace.luau
+[Usage] ./Scripts/PublishE2EPlace.exec.luau
 
 --]]
 
@@ -20,7 +20,9 @@ local serde = require("@lune/serde")
 local UNIVERSE_ID = "10772475667"
 local PLACE_ID = "114852968773810"
 
-local function publishE2EPlace()
+const PublishE2EPlace = {}
+
+function PublishE2EPlace.exec()
     local apiKey = process.env.TESTABLE_CICD_ROBLOX_API_KEY
     assert(apiKey ~= nil and apiKey ~= "", "TESTABLE_CICD_ROBLOX_API_KEY not found in environment.")
 
@@ -61,4 +63,4 @@ local function publishE2EPlace()
     end
 end
 
-publishE2EPlace()
+PublishE2EPlace.exec()

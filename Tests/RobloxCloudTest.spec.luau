@@ -10,7 +10,7 @@ Requires TESTABLE_CICD_ROBLOX_API_KEY in the environment. Skips gracefully when
 the key is not available.
 
 The place must have Testable published in ReplicatedStorage. Use
-Scripts/PublishE2EPlace.luau to build and publish it.
+Scripts/PublishE2EPlace.exec.luau to build and publish it.
 
 --]]
 

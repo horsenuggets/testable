@@ -95,12 +95,12 @@ jobs:
 
       - name: Publish E2E place
         if: env.TESTABLE_CICD_ROBLOX_API_KEY != ''
-        run: ./Scripts/PublishE2EPlace.luau
+        run: ./Scripts/PublishE2EPlace.exec.luau
         env:
           TESTABLE_CICD_ROBLOX_API_KEY: ${{ secrets.TESTABLE_CICD_ROBLOX_API_KEY }}
 
       - name: Run tests
-        run: ./Scripts/RunTests.luau
+        run: ./Scripts/RunTests.exec.luau
         env:
           TESTABLE_CICD_ROBLOX_API_KEY: ${{ secrets.TESTABLE_CICD_ROBLOX_API_KEY }}
 
