@@ -2,26 +2,28 @@
 
 --[[
 
-PublishE2EPlace
+PublishE2EPlace.exec
 
 Builds and publishes the Testable E2E test place to Roblox. This
 place contains the Testable source in ReplicatedStorage so remote
 test scripts can require it.
 
-[Usage] ./Scripts/PublishE2EPlace.luau
+[Usage] ./Scripts/PublishE2EPlace.exec.luau
 
 --]]
 
-local fs = require("@lune/fs")
-local net = require("@lune/net")
-local process = require("@lune/process")
-local serde = require("@lune/serde")
+const fs = require("@lune/fs")
+const net = require("@lune/net")
+const process = require("@lune/process")
+const serde = require("@lune/serde")
 
-local UNIVERSE_ID = "10772475667"
-local PLACE_ID = "114852968773810"
+const UNIVERSE_ID = "10772475667"
+const PLACE_ID = "114852968773810"
 
-local function publishE2EPlace()
-    local apiKey = process.env.TESTABLE_CICD_ROBLOX_API_KEY
+const PublishE2EPlace = {}
+
+function PublishE2EPlace.exec()
+    const apiKey = process.env.TESTABLE_CICD_ROBLOX_API_KEY
     assert(apiKey ~= nil and apiKey ~= "", "TESTABLE_CICD_ROBLOX_API_KEY not found in environment.")
 
     if not fs.isDir("Build") then
@@ -29,7 +31,7 @@ local function publishE2EPlace()
     end
 
     print("Building E2E place with Rojo...")
-    local result = process.exec("rojo", {
+    const result = process.exec("rojo", {
         "build",
         "E2E.project.json",
         "--output",
@@ -40,10 +42,10 @@ local function publishE2EPlace()
         error(`Rojo build failed: {result.stderr}`)
     end
 
-    local placeData = fs.readFile("Build/E2ETest.rbxl")
+    const placeData = fs.readFile("Build/E2ETest.rbxl")
     print(`Uploading place ({#placeData} bytes)...`)
 
-    local response = net.request({
+    const response = net.request({
         url = `https://apis.roblox.com/universes/v1/{UNIVERSE_ID}/places/{PLACE_ID}/versions?versionType=Published`,
         method = "POST",
         headers = {
@@ -54,11 +56,11 @@ local function publishE2EPlace()
     })
 
     if response.ok then
-        local decoded = serde.decode("json", response.body)
+        const decoded = serde.decode("json", response.body)
         print(`Place published successfully (version {decoded.versionNumber}).`)
     else
         error(`Place upload failed ({response.statusCode}): {response.body}`)
     end
 end
 
-publishE2EPlace()
+PublishE2EPlace.exec()

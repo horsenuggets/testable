@@ -6,14 +6,14 @@ Formats and prints code coverage results to standard output.
 
 --]]
 
-local Ansi = require("../Ansi")
-local Coverage = require("../Coverage")
+const Ansi = require("../Ansi")
+const Coverage = require("../Coverage")
 
-local IS_LUNE = Ansi.isLune()
+const IS_LUNE = Ansi.isLune()
 
-local CoverageReporter = {}
+const CoverageReporter = {}
 
-local function formatStatus(pct: number, threshold: number): string
+const function formatStatus(pct: number, threshold: number): string
     if pct >= threshold then
         return if IS_LUNE then Ansi.brightGreen("PASS") else "PASS"
     elseif pct >= 50 then
@@ -23,8 +23,8 @@ local function formatStatus(pct: number, threshold: number): string
     end
 end
 
-local function formatPercentage(pct: number, threshold: number): string
-    local text = `{pct}%`
+const function formatPercentage(pct: number, threshold: number): string
+    const text = `{pct}%`
     if not IS_LUNE then
         return text
     end
@@ -48,13 +48,13 @@ function CoverageReporter.report(report: Coverage.CoverageReport, threshold: num
     print("Code Coverage Report")
     print(string.rep("-", 60))
 
-    local header = string.format("%-30s %6s %6s %6s   %s", "File", "Lines", "Hit", "Pct", "Status")
+    const header = string.format("%-30s %6s %6s %6s   %s", "File", "Lines", "Hit", "Pct", "Status")
     print(header)
     print(string.rep("-", 60))
 
     for _, file in report.Files do
-        local statusText = formatStatus(file.Percentage, threshold)
-        local pctText = formatPercentage(file.Percentage, threshold)
+        const statusText = formatStatus(file.Percentage, threshold)
+        const pctText = formatPercentage(file.Percentage, threshold)
 
         print(
             string.format("%-30s %6d %6d %6s   %s", file.Name, file.ExecutableLines, file.HitLines, pctText, statusText)
@@ -63,15 +63,15 @@ function CoverageReporter.report(report: Coverage.CoverageReport, threshold: num
 
     print(string.rep("-", 60))
 
-    local totalPctText = formatPercentage(report.TotalPercentage, threshold)
+    const totalPctText = formatPercentage(report.TotalPercentage, threshold)
     print(string.format("%-30s %6d %6d %6s", "TOTAL", report.TotalExecutableLines, report.TotalHitLines, totalPctText))
     print("")
 
     if report.TotalPercentage < threshold then
-        local msg = `Coverage {report.TotalPercentage}% is below threshold of {threshold}%.`
+        const msg = `Coverage {report.TotalPercentage}% is below threshold of {threshold}%.`
         print(if IS_LUNE then Ansi.brightRed(msg) else msg)
     else
-        local msg = `Coverage {report.TotalPercentage}% meets threshold of {threshold}%.`
+        const msg = `Coverage {report.TotalPercentage}% meets threshold of {threshold}%.`
         print(if IS_LUNE then Ansi.brightGreen(msg) else msg)
     end
 end

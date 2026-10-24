@@ -11,14 +11,14 @@ syntax, matchers, lifecycle hooks, and coverage graceful degradation.
 
 --]]
 
-local ok, Testable = pcall(require, game.ReplicatedStorage.Testable)
+const ok, Testable = pcall(require, game.ReplicatedStorage.Testable)
 if not ok then
     print("[FAIL] Module load - " .. tostring(Testable))
     return
 end
 
-local function test(name, fn)
-    local success, err = pcall(fn)
+const function test(name, fn)
+    const success, err = pcall(fn)
     if success then
         print("[PASS] " .. name)
     else
@@ -28,7 +28,7 @@ end
 
 -- Test 1: Basic describe/it/expect
 test("Basic describe/it/expect", function()
-    local _, passed = Testable.run({
+    const _, passed = Testable.run({
         BasicTest = function()
             describe("Basic math", function()
                 it("should add numbers", function()
@@ -47,7 +47,7 @@ end)
 -- Test 2: Dictionary syntax for test roots
 test("Dictionary syntax", function()
     local ran = false
-    local _, passed = Testable.run({
+    const _, passed = Testable.run({
         DictTest = function()
             describe("Dict syntax", function()
                 it("runs from dict", function()
@@ -64,7 +64,7 @@ end)
 -- Test 3: Array syntax (backwards compat)
 test("Array syntax (backwards compat)", function()
     Testable.resetConfig()
-    local _, passed = Testable.run({
+    const _, passed = Testable.run({
         {
             Name = "ArrayTest",
             Func = function()
@@ -82,7 +82,7 @@ end)
 -- Test 4: Expect matchers
 test("Expect matchers", function()
     Testable.resetConfig()
-    local _, passed = Testable.run({
+    const _, passed = Testable.run({
         MatcherTest = function()
             describe("Matchers", function()
                 it("equal", function()
@@ -121,15 +121,15 @@ end)
 
 -- Test 5: Coverage gracefully returns nil in Roblox
 test("Coverage returns nil in Roblox", function()
-    local Coverage = Testable.Coverage
-    local report = Coverage.collect({ game.ReplicatedStorage })
+    const Coverage = Testable.Coverage
+    const report = Coverage.collect({ game.ReplicatedStorage })
     assert(report == nil, "Coverage.collect should return nil in Roblox")
 end)
 
 -- Test 6: Coverage config errors gracefully in Roblox
 test("Coverage config errors in Roblox", function()
     Testable.resetConfig()
-    local configOk, configErr = pcall(function()
+    const configOk, configErr = pcall(function()
         Testable.configure({ Coverage = true })
     end)
     assert(not configOk, "Coverage = true should error in Roblox")
@@ -139,8 +139,8 @@ end)
 -- Test 7: Lifecycle hooks
 test("Lifecycle hooks", function()
     Testable.resetConfig()
-    local hookOrder = {}
-    local _, passed = Testable.run({
+    const hookOrder = {}
+    const _, passed = Testable.run({
         LifecycleTest = function()
             describe("Lifecycle", function()
                 beforeAll(function()

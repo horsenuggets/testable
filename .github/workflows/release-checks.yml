@@ -76,7 +76,7 @@ jobs:
         uses: CompeyDev/setup-rokit@v0.1.2
 
       - name: Check formatting
-        run: ./Submodules/luau-cicd/Scripts/CheckFormatting.luau
+        run: ./Submodules/luau-cicd/Scripts/CheckFormatting.exec.luau
 
   test:
     name: Run tests
@@ -95,12 +95,12 @@ jobs:
 
       - name: Publish E2E place
         if: env.TESTABLE_CICD_ROBLOX_API_KEY != ''
-        run: ./Scripts/PublishE2EPlace.luau
+        run: ./Scripts/PublishE2EPlace.exec.luau
         env:
           TESTABLE_CICD_ROBLOX_API_KEY: ${{ secrets.TESTABLE_CICD_ROBLOX_API_KEY }}
 
       - name: Run tests
-        run: ./Scripts/RunTests.luau
+        run: ./Scripts/RunTests.exec.luau
         env:
           TESTABLE_CICD_ROBLOX_API_KEY: ${{ secrets.TESTABLE_CICD_ROBLOX_API_KEY }}
 
@@ -163,7 +163,7 @@ jobs:
         uses: CompeyDev/setup-rokit@v0.1.2
 
       - name: Check JSON format
-        run: ./Submodules/luau-cicd/Scripts/CheckJsonFormat.luau
+        run: ./Submodules/luau-cicd/Scripts/CheckJsonFormat.exec.luau
 
   version:
     name: Validate version
@@ -179,16 +179,16 @@ jobs:
         uses: CompeyDev/setup-rokit@v0.1.2
 
       - name: Check version update
-        run: ./Submodules/luau-cicd/Scripts/EnsureProperVersionUpdate.luau
+        run: ./Submodules/luau-cicd/Scripts/EnsureProperVersionUpdate.exec.luau
 
       - name: Check version match
-        run: ./Submodules/luau-cicd/Scripts/CheckVersionMatch.luau
+        run: ./Submodules/luau-cicd/Scripts/CheckVersionMatch.exec.luau
 
       - name: Check changelog entry
-        run: ./Submodules/luau-cicd/Scripts/CheckChangelogVersion.luau
+        run: ./Submodules/luau-cicd/Scripts/CheckChangelogVersion.exec.luau
 
       - name: Check changelog format
-        run: ./Submodules/luau-cicd/Scripts/CheckChangelogFormat.luau
+        run: ./Submodules/luau-cicd/Scripts/CheckChangelogFormat.exec.luau
 
       - name: Verify PR title matches VERSION
         env:

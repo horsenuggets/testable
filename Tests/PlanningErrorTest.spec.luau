@@ -9,19 +9,19 @@ sequential describe paths.
 
 --]]
 
-local Subprocess = require("./Helpers/Subprocess")
+const Subprocess = require("./Helpers/Subprocess")
 
-local EXECUTION_MODES = {
+const EXECUTION_MODES = {
     { Name = "parallel", Parallel = true },
     { Name = "sequential", Parallel = false },
 }
-local SCRIPT_TEMPLATE = [[
-    local process = require("@lune/process")
-    local Testable = require("./Source/Testable")
+const SCRIPT_TEMPLATE = [[
+    const process = require("@lune/process")
+    const Testable = require("./Source/Testable")
 
     Testable.configure({ Parallel = %s })
 
-    local tests = {
+    const tests = {
         {
             Name = "PlanningModule",
             Func = function()
@@ -30,7 +30,7 @@ local SCRIPT_TEMPLATE = [[
         },
     }
 
-    local results, passed = Testable.run(tests)
+    const results, passed = Testable.run(tests)
     print("PASSED:" .. tostring(passed))
     print("PASS_COUNT:" .. results.successCount)
     print("FAIL_COUNT:" .. results.failureCount)
@@ -45,11 +45,11 @@ local SCRIPT_TEMPLATE = [[
     @param parallel - Whether to run the module with parallel execution enabled
     @return The full script source
 ]]
-local function buildScript(moduleBody: string, parallel: boolean): string
+const function buildScript(moduleBody: string, parallel: boolean): string
     return string.format(SCRIPT_TEMPLATE, tostring(parallel), moduleBody)
 end
 
-local function contains(output: string, text: string): boolean
+const function contains(output: string, text: string): boolean
     return string.find(output, text, 1, true) ~= nil
 end
 
@@ -57,7 +57,7 @@ return function()
     for _, mode in EXECUTION_MODES do
         describe(`{mode.Name} execution`, function()
             it("should fail the run when a root module errors during planning", function()
-                local ok, output = Subprocess.runScript(buildScript(
+                const ok, output = Subprocess.runScript(buildScript(
                     [[
                         error("root planning failure")
                     ]],
@@ -73,7 +73,7 @@ return function()
             end)
 
             it("should fail the run when a nested describe errors during planning", function()
-                local ok, output = Subprocess.runScript(buildScript(
+                const ok, output = Subprocess.runScript(buildScript(
                     [[
                         describe("outer", function()
                             it("passes", function() end)
@@ -95,7 +95,7 @@ return function()
             end)
 
             it("should count a partially planned describe once alongside its tests", function()
-                local ok, output = Subprocess.runScript(buildScript(
+                const ok, output = Subprocess.runScript(buildScript(
                     [[
                         describe("partial", function()
                             it("passes", function() end)
@@ -115,7 +115,7 @@ return function()
             end)
 
             it("should pass the run when a module plans without errors", function()
-                local ok, output = Subprocess.runScript(buildScript(
+                const ok, output = Subprocess.runScript(buildScript(
                     [[
                         describe("healthy", function()
                             it("passes", function() end)

@@ -9,11 +9,11 @@ providing the expect() API for test assertions.
 
 --]]
 
-local Expectation = require("./Expectation")
-local checkMatcherNameCollisions = Expectation.checkMatcherNameCollisions
+const Expectation = require("./Expectation")
+const checkMatcherNameCollisions = Expectation.checkMatcherNameCollisions
 
-local function copy(t)
-    local result = {}
+const function copy(t)
+    const result = {}
 
     for key, value in pairs(t) do
         result[key] = value
@@ -22,11 +22,11 @@ local function copy(t)
     return result
 end
 
-local ExpectationContext = {}
+const ExpectationContext = {}
 ExpectationContext.__index = ExpectationContext
 
 function ExpectationContext.new(parent)
-    local self = {
+    const self = {
         _extensions = parent and copy(parent._extensions) or {},
     }
 

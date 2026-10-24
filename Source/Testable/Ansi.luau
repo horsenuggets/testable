@@ -6,18 +6,18 @@ Simple ANSI color module for terminal output. Only used when running in Lune.
 
 --]]
 
-local Ansi = {}
+const Ansi = {}
 
-local ESCAPE = "\27["
-local RESET = ESCAPE .. "0m"
+const ESCAPE = "\27["
+const RESET = ESCAPE .. "0m"
 
-local Colors = {
+const Colors = {
     BrightGreen = ESCAPE .. "92m",
     BrightRed = ESCAPE .. "91m",
     BrightYellow = ESCAPE .. "93m",
 }
 
-local IS_LUNE = pcall(function()
+const IS_LUNE = pcall(function()
     require("@lune/fs")
 end)
 

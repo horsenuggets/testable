@@ -8,15 +8,15 @@ TestSession as state.
 
 --]]
 
-local TestEnum = require("./TestEnum")
+const TestEnum = require("./TestEnum")
 
-local STATUS_SYMBOLS = {
+const STATUS_SYMBOLS = {
     [TestEnum.TestStatus.Success] = "✅",
     [TestEnum.TestStatus.Failure] = "❌",
     [TestEnum.TestStatus.Skipped] = "🕐",
 }
 
-local TestResults = {}
+const TestResults = {}
 
 TestResults.__index = TestResults
 
@@ -27,7 +27,7 @@ TestResults.__index = TestResults
     @return A new TestResults object
 ]]
 function TestResults.new(plan: any): any
-    local self = {
+    const self = {
         successCount = 0,
         failureCount = 0,
         skippedCount = 0,
@@ -48,7 +48,7 @@ end
     @return A new result node
 ]]
 function TestResults.createNode(planNode: any): any
-    local node = {
+    const node = {
         planNode = planNode,
         children = {},
         errors = {},
@@ -83,13 +83,13 @@ end
 ]]
 function TestResults:visualize(root: any?, inputLevel: number?): string
     root = root or self
-    local level: number = inputLevel or 0
+    const level: number = inputLevel or 0
 
-    local buffer = {}
+    const buffer = {}
 
     for _, child in ipairs(root.children) do
         if child.planNode.type == TestEnum.NodeType.It then
-            local symbol = STATUS_SYMBOLS[child.status] or "?"
+            const symbol = STATUS_SYMBOLS[child.status] or "?"
             local str = ("%s[%s] %s"):format((" "):rep(3 * level), symbol, child.planNode.phrase)
 
             if child.messages and #child.messages > 0 then
@@ -110,7 +110,7 @@ function TestResults:visualize(root: any?, inputLevel: number?): string
             table.insert(buffer, str)
 
             if #child.children > 0 then
-                local text = self:visualize(child, level + 1)
+                const text = self:visualize(child, level + 1)
                 table.insert(buffer, text)
             end
         end

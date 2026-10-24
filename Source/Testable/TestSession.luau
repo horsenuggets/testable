@@ -8,12 +8,12 @@ track of a stack of nodes that represent the current path through the tree.
 
 --]]
 
-local Context = require("./Context")
-local ExpectationContext = require("./ExpectationContext")
-local TestEnum = require("./TestEnum")
-local TestResults = require("./TestResults")
+const Context = require("./Context")
+const ExpectationContext = require("./ExpectationContext")
+const TestEnum = require("./TestEnum")
+const TestResults = require("./TestResults")
 
-local TestSession = {}
+const TestSession = {}
 
 TestSession.__index = TestSession
 
@@ -26,7 +26,7 @@ TestSession.__index = TestSession
     @return A new TestSession object
 ]]
 function TestSession.new(plan: any): any
-    local self = {
+    const self = {
         results = TestResults.new(plan),
         nodeStack = {},
         contextStack = {},
@@ -46,15 +46,15 @@ end
     node itself rather than on any of its it nodes.
 ]]
 function TestSession:calculateTotals(): ()
-    local results = self.results
+    const results = self.results
 
     results.successCount = 0
     results.failureCount = 0
     results.skippedCount = 0
 
     results:visitAllNodes(function(node)
-        local status = node.status
-        local nodeType = node.planNode.type
+        const status = node.status
+        const nodeType = node.planNode.type
 
         if nodeType == TestEnum.NodeType.It then
             if status == TestEnum.TestStatus.Success then
@@ -79,7 +79,7 @@ end
     of the TestResults object.
 ]]
 function TestSession:gatherErrors(): ()
-    local results = self.results
+    const results = self.results
 
     results.errors = {}
 
@@ -114,17 +114,17 @@ end
     @param planNode - The plan node to create a result for
 ]]
 function TestSession:pushNode(planNode: any): ()
-    local node = TestResults.createNode(planNode)
-    local lastNode = self.nodeStack[#self.nodeStack] or self.results
+    const node = TestResults.createNode(planNode)
+    const lastNode = self.nodeStack[#self.nodeStack] or self.results
     table.insert(lastNode.children, node)
     table.insert(self.nodeStack, node)
 
-    local lastContext = self.contextStack[#self.contextStack]
-    local context = Context.new(lastContext)
+    const lastContext = self.contextStack[#self.contextStack]
+    const context = Context.new(lastContext)
     table.insert(self.contextStack, context)
 
-    local lastExpectationContext = self.expectationContextStack[#self.expectationContextStack]
-    local expectationContext = ExpectationContext.new(lastExpectationContext)
+    const lastExpectationContext = self.expectationContextStack[#self.expectationContextStack]
+    const expectationContext = ExpectationContext.new(lastExpectationContext)
     table.insert(self.expectationContextStack, expectationContext)
 end
 
@@ -167,7 +167,7 @@ function TestSession:shouldSkip(): boolean
     -- If our test tree had any exclusive tests, then normal tests are skipped!
     if self.hasFocusNodes then
         for i = #self.nodeStack, 1, -1 do
-            local node = self.nodeStack[i]
+            const node = self.nodeStack[i]
 
             -- Skipped tests are still skipped
             if node.planNode.modifier == TestEnum.NodeModifier.Skip then
@@ -183,7 +183,7 @@ function TestSession:shouldSkip(): boolean
         return true
     else
         for i = #self.nodeStack, 1, -1 do
-            local node = self.nodeStack[i]
+            const node = self.nodeStack[i]
 
             if node.planNode.modifier == TestEnum.NodeModifier.Skip then
                 return true
@@ -218,7 +218,7 @@ end
 ]]
 function TestSession:setError(message: string): ()
     assert(#self.nodeStack > 0, "Attempting to set error status on empty stack")
-    local last = self.nodeStack[#self.nodeStack]
+    const last = self.nodeStack[#self.nodeStack]
     last.status = TestEnum.TestStatus.Failure
     table.insert(last.errors, message)
 end
@@ -246,7 +246,7 @@ end
 function TestSession:setStatusFromChildren()
     assert(#self.nodeStack > 0, "Attempting to set status from children on empty stack")
 
-    local last = self.nodeStack[#self.nodeStack]
+    const last = self.nodeStack[#self.nodeStack]
     local status = TestEnum.TestStatus.Success
     local skipped = true
 

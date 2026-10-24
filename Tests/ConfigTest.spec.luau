@@ -6,8 +6,8 @@ Tests for the Testable configuration system including setting and resetting opti
 
 --]]
 
-local Testable = require("../Source/Testable")
-local Config = Testable.Config
+const Testable = require("../Source/Testable")
+const Config = Testable.Config
 
 return function()
     describe("Testable.configure()", function()
