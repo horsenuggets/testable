@@ -7,9 +7,7 @@
         "editor.defaultFormatter": "JohnnyMorganz.stylua",
         "editor.formatOnSave": true
     },
-    "githubPullRequests.ignoredPullRequestBranches": [
-        "main"
-    ],
+    "githubPullRequests.ignoredPullRequestBranches": ["main"],
     "luau-lsp.completion.autocompleteEnd": true,
     "luau-lsp.completion.enableFragmentAutocomplete": true,
     "luau-lsp.completion.fillCallArguments": false,
