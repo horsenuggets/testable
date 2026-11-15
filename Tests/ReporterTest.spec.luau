@@ -7,7 +7,9 @@ Regression tests for pure test-tree and coverage-table formatting.
 --]]
 
 const Ansi = require("../Source/Testable/Ansi")
+const Config = require("../Source/Testable/Config")
 const CoverageReporter = require("../Source/Testable/Reporters/CoverageReporter")
+const DisplayWidth = require("../Source/Testable/DisplayWidth")
 const TableRenderer = require("../Source/Testable/TableRenderer")
 const TestEnum = require("../Source/Testable/TestEnum")
 const TextReporter = require("../Source/Testable/Reporters/TextReporter")
@@ -20,7 +22,7 @@ const function node(phrase: string, status: string?, children: { any }?): any
 end
 
 const function options(color: boolean?, skipped: boolean?, sort: boolean?): TextReporter.Options
-    return { AlphabeticalSort = sort == true, Color = color == true, PrintSkipped = skipped == true }
+    return { AlphabeticalSort = sort == true, Color = color == true, Indent = "   ", PrintSkipped = skipped == true }
 end
 
 const function strip(text: string): string
@@ -60,6 +62,35 @@ return function()
             "└── ✓ queues",
         }
         expect(table.concat(TextReporter.formatTree(root, options()), "\n")).to.equal(table.concat(expected, "\n"))
+    end)
+
+    it("uses configured indentation for branches and continuation prefixes", function()
+        const root = node("Root", nil, {
+            node("Suite", nil, {
+                node("First", nil, { node("nested", SUCCESS) }),
+                node("Last", nil, { node("nested", SUCCESS) }),
+            }),
+        })
+        const previous = Config.Indent
+        const ok, message = pcall(function()
+            for _, indent in { "\t", "  ", "" } do
+                Config.set({ Indent = indent })
+                const branch = if indent == "  " then "─ " else indent
+                const expected = table.concat({
+                    "✓ Suite",
+                    `├{branch}✓ First`,
+                    `│{indent}└{branch}✓ nested`,
+                    `└{branch}✓ Last`,
+                    ` {indent}└{branch}✓ nested`,
+                }, "\n")
+                expect(strip(table.concat(TextReporter.formatTree(root), "\n"))).to.equal(expected)
+                const explicit = options()
+                explicit.Indent = indent
+                expect(table.concat(TextReporter.formatTree(root, explicit), "\n")).to.equal(expected)
+            end
+        end)
+        Config.set({ Indent = previous })
+        assert(ok, message)
     end)
 
     it("aggregates every combination of child outcomes", function()
@@ -137,6 +168,35 @@ return function()
         expect(plain[5]:sub(1, #"├")).to.equal("├")
     end)
 
+    it("aligns wide and combining filenames by terminal columns", function()
+        const names = { "界.luau", "e\u{0301}.luau", "Ｚ.luau", "é.luau" }
+        const expectedWidths = { 7, 6, 7, 6 }
+        const rows = {}
+        for index, name in names do
+            expect(DisplayWidth.measure(name)).to.equal(expectedWidths[index])
+            table.insert(rows, { Colored = { Ansi.brightGreen(name), "1" }, Raw = { name, "1" } })
+        end
+        const lines = TableRenderer.format({ "Script", "Hit" }, rows, false)
+        expect(lines[4]).to.equal("│ 界.luau │ 1   │")
+        expect(lines[5]).to.equal("│ e\u{0301}.luau  │ 1   │")
+        for _, line in lines do
+            expect(DisplayWidth.measure(line)).to.equal(DisplayWidth.measure(lines[1]))
+        end
+        const styled = TableRenderer.format({ "Script", "Hit" }, rows, true)
+        expect(strip(table.concat(styled, "\n"))).to.equal(table.concat(lines, "\n"))
+    end)
+
+    it("measures Unicode width boundaries consistently", function()
+        for _, codepoint in { 0x02FF, 0x0370, 0x115F, 0x1160, 0x11FF, 0x1200, 0x303F, 0xFF60, 0xFF61 } do
+            const expected = if codepoint == 0x1160 or codepoint == 0x11FF
+                then 0
+                else if codepoint == 0x115F or codepoint == 0xFF60 then 2 else 1
+            expect(DisplayWidth.measure(utf8.char(codepoint))).to.equal(expected)
+        end
+        expect(DisplayWidth.measure("\u{0300}\u{036F}\u{200D}")).to.equal(0)
+        expect(DisplayWidth.measure("ASCII")).to.equal(5)
+    end)
+
     it("renders empty tables with a header and closing border", function()
         const lines = TableRenderer.format({ "Script" }, {}, false)
         expect(#lines).to.equal(4)
@@ -154,6 +214,15 @@ return function()
             expect(plain:find("Executable Lines", 1, true) ~= nil).to.equal(true)
             expect(strip(table.concat(CoverageReporter.format(report, 70, true), "\n"))).to.equal(plain)
         end
+    end)
+
+    it("truncates coverage paths by display width rather than codepoint count", function()
+        const widePath = `Source/{string.rep("界", 15)}/init.luau`
+        const wide = table.concat(CoverageReporter.format(coverage(widePath, 100), 70, false), "\n")
+        expect(wide:find(".../init.luau", 1, true) ~= nil).to.equal(true)
+        const combiningPath = `Source/{string.rep("e\u{0301}", 16)}/init.luau`
+        const combining = table.concat(CoverageReporter.format(coverage(combiningPath, 100), 70, false), "\n")
+        expect(combining:find(combiningPath, 1, true) ~= nil).to.equal(true)
     end)
 
     it("truncates paths only at folder boundaries and preserves long filenames", function()

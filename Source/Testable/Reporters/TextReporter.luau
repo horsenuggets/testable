@@ -23,6 +23,7 @@ const TextReporter = {}
 export type Options = {
     AlphabeticalSort: boolean,
     Color: boolean,
+    Indent: string,
     PrintSkipped: boolean,
 }
 
@@ -30,6 +31,7 @@ const function getOptions(): Options
     return {
         AlphabeticalSort = Config.AlphabeticalSort,
         Color = IS_LUNE,
+        Indent = Config.Indent,
         PrintSkipped = Config.PrintSkipped,
     }
 end
@@ -85,7 +87,8 @@ const function statusText(status: string?, phrase: string, color: boolean): stri
 end
 
 const function appendNode(node, lines: { string }, prefix: string, isLast: boolean, options: Options)
-    const connector = if isLast then "└── " else "├── "
+    const branchIndent = options.Indent:gsub(" ", "─"):gsub("─$", " ")
+    const connector = `{if isLast then "└" else "├"}{branchIndent}`
     const branch = `{prefix}{connector}`
     table.insert(
         lines,
@@ -96,7 +99,7 @@ const function appendNode(node, lines: { string }, prefix: string, isLast: boole
         )}`
     )
     const children = visibleChildren(node, options)
-    const childPrefix = `{prefix}{if isLast then "    " else "│   "}`
+    const childPrefix = `{prefix}{if isLast then " " else "│"}{options.Indent}`
     for index, child in children do
         appendNode(child, lines, childPrefix, index == #children, options)
     end
@@ -105,11 +108,13 @@ end
 --[[
     Returns tree lines without changing results or emitting output.
 ]]
-function TextReporter.formatTree(results, options: Options): { string }
+function TextReporter.formatTree(results, options: Options?): { string }
     assert(type(results) == "table")
+    options = options or getOptions()
     assert(type(options) == "table")
     assert(type(options.AlphabeticalSort) == "boolean")
     assert(type(options.Color) == "boolean")
+    assert(type(options.Indent) == "string")
     assert(type(options.PrintSkipped) == "boolean")
     const lines = {}
     for index, child in visibleChildren(results, options) do

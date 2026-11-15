@@ -7,6 +7,7 @@ Formats bordered terminal tables with separate raw cell content for ANSI-safe al
 --]]
 
 const Ansi = require("./Ansi")
+const DisplayWidth = require("./DisplayWidth")
 
 const TableRenderer = {}
 
@@ -22,11 +23,11 @@ function TableRenderer.format(headers: { string }, rows: { TableRow }, color: bo
     assert(type(color) == "boolean")
     const widths = {}
     for index, header in headers do
-        widths[index] = utf8.len(header) or #header
+        widths[index] = DisplayWidth.measure(header)
     end
     for _, row in rows do
         for index, cell in row.Raw do
-            widths[index] = math.max(widths[index], utf8.len(cell) or #cell)
+            widths[index] = math.max(widths[index], DisplayWidth.measure(cell))
         end
     end
     const function border(left: string, middle: string, right: string): string
@@ -39,7 +40,7 @@ function TableRenderer.format(headers: { string }, rows: { TableRow }, color: bo
     const function cells(values: { string }, raw: { string }): string
         const parts = {}
         for index, value in values do
-            const padding = string.rep(" ", widths[index] - (utf8.len(raw[index]) or #raw[index]))
+            const padding = string.rep(" ", widths[index] - DisplayWidth.measure(raw[index]))
             table.insert(parts, ` {value}{padding} `)
         end
         return `│{table.concat(parts, "│")}│`

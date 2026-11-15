@@ -8,6 +8,7 @@ Formats coverage as a bordered table followed by a tree-style threshold result.
 
 const Ansi = require("../Ansi")
 const Coverage = require("../Coverage")
+const DisplayWidth = require("../DisplayWidth")
 const TableRenderer = require("../TableRenderer")
 const TestEnum = require("../TestEnum")
 const TextReporter = require("./TextReporter")
@@ -19,12 +20,12 @@ const CoverageReporter = {}
 const function formatPath(path: string, color: boolean): (string, string)
     const normalized = path:gsub("\\", "/")
     local raw = normalized
-    if (utf8.len(raw) or #raw) > MAX_PATH_LENGTH then
+    if DisplayWidth.measure(raw) > MAX_PATH_LENGTH then
         const parts = string.split(raw, "/")
         raw = table.remove(parts) :: string
         for index = #parts, 1, -1 do
             const candidate = `{parts[index]}/{raw}`
-            if (utf8.len(candidate) or #candidate) + 4 > MAX_PATH_LENGTH then
+            if DisplayWidth.measure(candidate) + 4 > MAX_PATH_LENGTH then
                 break
             end
             raw = candidate
@@ -101,7 +102,12 @@ function CoverageReporter.format(report: Coverage.CoverageReport, threshold: num
         },
     }
     table.insert(lines, "")
-    for _, line in TextReporter.formatTree(results, { AlphabeticalSort = false, Color = color, PrintSkipped = false }) do
+    for _, line in
+        TextReporter.formatTree(
+            results,
+            { AlphabeticalSort = false, Color = color, Indent = "   ", PrintSkipped = false }
+        )
+    do
         table.insert(lines, line)
     end
     for _, line in TextReporter.formatSeparator(color) do
