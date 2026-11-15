@@ -1,8 +1,15 @@
 # Changelog
 
 ## 1.1.5
-- Fixed planning errors (a test module or `describe` body that throws) not counting as failures, so `Testable.run` now returns `passed = false` for them
-- Added regression tests for root-level and nested planning errors in both parallel and sequential execution
+- Added tree-style test reports with check and cross symbols, aggregated suite outcomes,
+  section dividers, and configurable indentation.
+- Added bordered coverage tables with folder-aware path truncation, Unicode column
+  alignment, one-decimal percentages, and tree-style threshold results.
+- Fixed planning errors (a test module or `describe` body that throws) not counting as
+  failures, so `Testable.run` now returns `passed = false` for them.
+- Added regression tests for reporter formatting and root-level and nested planning
+  errors in both parallel and sequential execution.
+- Updated the Luau toolchain and shared CI tooling.
 
 ## 1.1.4
 - Remove .luaurc from Wally package to fix transitive dependency resolution
