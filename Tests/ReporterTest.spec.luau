@@ -87,6 +87,20 @@ return function()
                 const explicit = options()
                 explicit.Indent = indent
                 expect(table.concat(TextReporter.formatTree(root, explicit), "\n")).to.equal(expected)
+                for _, value in { 69.9, 70 } do
+                    const report = coverage("Source/Session.luau", value)
+                    const symbol = if value >= 70 then "✓" else "✗"
+                    const outcome = if value >= 70 then "meets" else "is below"
+                    const expectedCoverage = `{symbol} Code Coverage\n└{branch}{symbol} Coverage {string.format(
+                        "%.1f",
+                        value
+                    )}% {outcome} threshold of 70.0%.`
+                    const plain = table.concat(CoverageReporter.format(report, 70, false, Config.Indent), "\n")
+                    expect(plain:find(expectedCoverage, 1, true) ~= nil).to.equal(true)
+                    expect(strip(table.concat(CoverageReporter.format(report, 70, true, Config.Indent), "\n"))).to.equal(
+                        plain
+                    )
+                end
             end
         end)
         Config.set({ Indent = previous })
@@ -206,22 +220,22 @@ return function()
     it("renders one-decimal percentages and exact threshold outcomes", function()
         for _, value in { 69.9, 70, 90.9 } do
             const report = coverage("Source/Session.luau", value)
-            const plain = table.concat(CoverageReporter.format(report, 70, false), "\n")
+            const plain = table.concat(CoverageReporter.format(report, 70, false, "   "), "\n")
             const expected = if value >= 70
                 then `✓ Code Coverage\n└── ✓ Coverage {string.format("%.1f", value)}% meets threshold of 70.0%.`
                 else `✗ Code Coverage\n└── ✗ Coverage 69.9% is below threshold of 70.0%.`
             expect(plain:find(expected, 1, true) ~= nil).to.equal(true)
             expect(plain:find("Executable Lines", 1, true) ~= nil).to.equal(true)
-            expect(strip(table.concat(CoverageReporter.format(report, 70, true), "\n"))).to.equal(plain)
+            expect(strip(table.concat(CoverageReporter.format(report, 70, true, "   "), "\n"))).to.equal(plain)
         end
     end)
 
     it("truncates coverage paths by display width rather than codepoint count", function()
         const widePath = `Source/{string.rep("界", 15)}/init.luau`
-        const wide = table.concat(CoverageReporter.format(coverage(widePath, 100), 70, false), "\n")
+        const wide = table.concat(CoverageReporter.format(coverage(widePath, 100), 70, false, "   "), "\n")
         expect(wide:find(".../init.luau", 1, true) ~= nil).to.equal(true)
         const combiningPath = `Source/{string.rep("e\u{0301}", 16)}/init.luau`
-        const combining = table.concat(CoverageReporter.format(coverage(combiningPath, 100), 70, false), "\n")
+        const combining = table.concat(CoverageReporter.format(coverage(combiningPath, 100), 70, false, "   "), "\n")
         expect(combining:find(combiningPath, 1, true) ~= nil).to.equal(true)
     end)
 
@@ -232,11 +246,11 @@ return function()
                 "C:\\Source\\VeryLongDirectoryName\\LobbySystems\\ShopSystem\\init.luau",
             }
         do
-            const text = table.concat(CoverageReporter.format(coverage(path, 100), 70, false), "\n")
+            const text = table.concat(CoverageReporter.format(coverage(path, 100), 70, false, "   "), "\n")
             expect(text:find(".../LobbySystems/ShopSystem/init.luau", 1, true) ~= nil).to.equal(true)
         end
         const filename = string.rep("a", 50) .. ".luau"
-        const text = table.concat(CoverageReporter.format(coverage(`Source/{filename}`, 0), 70, false), "\n")
+        const text = table.concat(CoverageReporter.format(coverage(`Source/{filename}`, 0), 70, false, "   "), "\n")
         expect(text:find(`.../{filename}`, 1, true) ~= nil).to.equal(true)
     end)
 end

@@ -7,6 +7,7 @@ Formats coverage as a bordered table followed by a tree-style threshold result.
 --]]
 
 const Ansi = require("../Ansi")
+const Config = require("../Config")
 const Coverage = require("../Coverage")
 const DisplayWidth = require("../DisplayWidth")
 const TableRenderer = require("../TableRenderer")
@@ -44,10 +45,16 @@ end
     Returns formatted lines without emitting output. The color argument makes terminal
     and plain output independently testable.
 ]]
-function CoverageReporter.format(report: Coverage.CoverageReport, threshold: number, color: boolean): { string }
+function CoverageReporter.format(
+    report: Coverage.CoverageReport,
+    threshold: number,
+    color: boolean,
+    indent: string
+): { string }
     assert(type(report) == "table")
     assert(type(threshold) == "number")
     assert(type(color) == "boolean")
+    assert(type(indent) == "string")
     const lines = TextReporter.formatSeparator(color)
     table.insert(lines, if color then Ansi.bold("Code Coverage") else "Code Coverage")
     table.insert(lines, "")
@@ -105,7 +112,7 @@ function CoverageReporter.format(report: Coverage.CoverageReport, threshold: num
     for _, line in
         TextReporter.formatTree(
             results,
-            { AlphabeticalSort = false, Color = color, Indent = "   ", PrintSkipped = false }
+            { AlphabeticalSort = false, Color = color, Indent = indent, PrintSkipped = false }
         )
     do
         table.insert(lines, line)
@@ -119,7 +126,7 @@ end
 function CoverageReporter.report(report: Coverage.CoverageReport, threshold: number)
     assert(type(report) == "table")
     assert(type(threshold) == "number")
-    for _, line in CoverageReporter.format(report, threshold, IS_LUNE) do
+    for _, line in CoverageReporter.format(report, threshold, IS_LUNE, Config.Indent) do
         print(line)
     end
 end
