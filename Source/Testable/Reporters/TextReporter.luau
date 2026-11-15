@@ -2,151 +2,190 @@
 
 TextReporter
 
-Uses the results from a completed test to output text to standard output and TestService.
+Formats test results as a status tree and reports failures to stdout or TestService.
 
 --]]
-
-const TestService = game and game:GetService("TestService")
 
 const Ansi = require("../Ansi")
 const Config = require("../Config")
 const TestEnum = require("../TestEnum")
-const TestResults = require("../TestResults")
-
-const INDIVIDUAL_PRINTS = true
-
 const IS_LUNE = Ansi.isLune()
-
-const STATUS_SYMBOLS = if IS_LUNE
-    then {
-        [TestEnum.TestStatus.Success] = "+",
-        [TestEnum.TestStatus.Failure] = "-",
-        [TestEnum.TestStatus.Skipped] = "~",
-    }
-    else TestResults.STATUS_SYMBOLS
-const UNKNOWN_STATUS_SYMBOL = "?"
+const SEPARATOR = string.rep("─", 64)
+const STATUS_SYMBOLS = {
+    [TestEnum.TestStatus.Failure] = "✗",
+    [TestEnum.TestStatus.Skipped] = "○",
+    [TestEnum.TestStatus.Success] = "✓",
+}
+const TestService = game and game:GetService("TestService")
 
 const TextReporter = {}
 
-const function compareNodes(a, b)
-    return a.planNode.phrase:lower() < b.planNode.phrase:lower()
+export type Options = {
+    AlphabeticalSort: boolean,
+    Color: boolean,
+    Indent: string,
+    PrintSkipped: boolean,
+}
+
+const function getOptions(): Options
+    return {
+        AlphabeticalSort = Config.AlphabeticalSort,
+        Color = IS_LUNE,
+        Indent = Config.Indent,
+        PrintSkipped = Config.PrintSkipped,
+    }
 end
 
-const function reportNode(node, buffer, level)
-    buffer = buffer or {}
-    level = level or 0
-
-    if node.status == TestEnum.TestStatus.Skipped then
-        return buffer
+const function visibleChildren(node, options: Options)
+    const children = {}
+    for _, child in node.children do
+        if child.status ~= TestEnum.TestStatus.Skipped or options.PrintSkipped then
+            table.insert(children, child)
+        end
     end
+    if options.AlphabeticalSort then
+        table.sort(children, function(a, b)
+            return a.planNode.phrase:lower() < b.planNode.phrase:lower()
+        end)
+    end
+    return children
+end
 
-    local line
-
+const function aggregateStatus(node): string?
     if node.status then
-        const symbol = STATUS_SYMBOLS[node.status] or UNKNOWN_STATUS_SYMBOL
-        const indent = Config.Indent:rep(level)
-        const fullLine = `[{symbol}] {node.planNode.phrase}`
-
-        -- Apply ANSI colors in Lune environment
-        if IS_LUNE then
-            if node.status == TestEnum.TestStatus.Success then
-                line = indent .. Ansi.brightGreen(fullLine)
-            elseif node.status == TestEnum.TestStatus.Failure then
-                line = indent .. Ansi.brightRed(fullLine)
-            elseif node.status == TestEnum.TestStatus.Skipped then
-                line = indent .. Ansi.brightYellow(fullLine)
-            else
-                line = indent .. fullLine
-            end
-        else
-            line = indent .. fullLine
+        return node.status
+    end
+    local status = nil
+    for _, child in node.children do
+        const childStatus = aggregateStatus(child)
+        if childStatus == TestEnum.TestStatus.Failure then
+            return childStatus
+        elseif childStatus == TestEnum.TestStatus.Success then
+            status = childStatus
+        elseif childStatus == TestEnum.TestStatus.Skipped and status == nil then
+            status = childStatus
         end
-    else
-        line = ("%s%s"):format(Config.Indent:rep(level), node.planNode.phrase)
     end
-
-    table.insert(buffer, line)
-
-    if Config.AlphabeticalSort then
-        table.sort(node.children, compareNodes)
-    end
-
-    for _, child in ipairs(node.children) do
-        reportNode(child, buffer, level + 1)
-    end
-
-    return buffer
+    return status
 end
 
-const function reportRoot(node)
-    const buffer = {}
-
-    if Config.AlphabeticalSort then
-        table.sort(node.children, compareNodes)
+const function statusText(status: string?, phrase: string, color: boolean): string
+    if not status then
+        return phrase
     end
-
-    for _, child in ipairs(node.children) do
-        reportNode(child, buffer, 0)
+    const text = `{STATUS_SYMBOLS[status] or "?"} {phrase}`
+    if not color then
+        return text
+    elseif status == TestEnum.TestStatus.Success then
+        return Ansi.brightGreen(text)
+    elseif status == TestEnum.TestStatus.Failure then
+        return Ansi.brightRed(text)
+    elseif status == TestEnum.TestStatus.Skipped then
+        return Ansi.brightYellow(text)
     end
-
-    return buffer
+    return text
 end
 
-const function report(root)
-    const buffer = reportRoot(root)
-
-    return buffer
+const function appendNode(node, lines: { string }, prefix: string, isLast: boolean, options: Options)
+    const branchIndent = options.Indent:gsub(" ", "─"):gsub("─$", " ")
+    const connector = `{if isLast then "└" else "├"}{branchIndent}`
+    const branch = `{prefix}{connector}`
+    table.insert(
+        lines,
+        `{if options.Color then Ansi.dim(branch) else branch}{statusText(
+            aggregateStatus(node),
+            node.planNode.phrase,
+            options.Color
+        )}`
+    )
+    const children = visibleChildren(node, options)
+    const childPrefix = `{prefix}{if isLast then " " else "│"}{options.Indent}`
+    for index, child in children do
+        appendNode(child, lines, childPrefix, index == #children, options)
+    end
 end
 
-const function buildSummaryLine(results)
-    if IS_LUNE then
-        const passedPart = Ansi.brightGreen(`{results.successCount} passed`)
-        const failedPart = Ansi.brightRed(`{results.failureCount} failed`)
-        if Config.PrintSkipped and results.skippedCount > 0 then
-            const skippedPart = Ansi.brightYellow(`{results.skippedCount} skipped`)
-            return passedPart .. ", " .. failedPart .. ", " .. skippedPart .. "."
-        else
-            return passedPart .. ", " .. failedPart .. "."
+--[[
+    Returns tree lines without changing results or emitting output.
+]]
+function TextReporter.formatTree(results, options: Options?): { string }
+    assert(type(results) == "table")
+    options = options or getOptions()
+    assert(type(options) == "table")
+    assert(type(options.AlphabeticalSort) == "boolean")
+    assert(type(options.Color) == "boolean")
+    assert(type(options.Indent) == "string")
+    assert(type(options.PrintSkipped) == "boolean")
+    const lines = {}
+    for index, child in visibleChildren(results, options) do
+        if index > 1 then
+            table.insert(lines, "")
         end
-    else
-        if Config.PrintSkipped and results.skippedCount > 0 then
-            return `{results.successCount} passed, {results.failureCount} failed, {results.skippedCount} skipped.`
-        else
-            return `{results.successCount} passed, {results.failureCount} failed.`
+        table.insert(lines, statusText(aggregateStatus(child), child.planNode.phrase, options.Color))
+        const children = visibleChildren(child, options)
+        for childIndex, grandchild in children do
+            appendNode(grandchild, lines, "", childIndex == #children, options)
         end
+    end
+    return lines
+end
+
+function TextReporter.formatSeparator(color: boolean): { string }
+    assert(type(color) == "boolean")
+    return { "", if color then Ansi.dim(SEPARATOR) else SEPARATOR, "" }
+end
+
+const function formatCount(count: number, label: string, color: boolean, colorFn: (string) -> string): string
+    const text = `{count} {label}`
+    return if not color then text else if count > 0 then colorFn(text) else Ansi.dim(text)
+end
+
+--[[
+    Returns the report header, tree, and summary. Errors remain separate so TestService
+    receives the original diagnostic strings.
+]]
+function TextReporter.format(results, options: Options): { string }
+    assert(type(results) == "table")
+    assert(type(options) == "table")
+    const lines = TextReporter.formatSeparator(options.Color)
+    table.insert(lines, if options.Color then Ansi.bold("Unit Tests") else "Unit Tests")
+    table.insert(lines, "")
+    for _, line in TextReporter.formatTree(results, options) do
+        table.insert(lines, line)
+    end
+    table.insert(lines, "")
+    const passed = formatCount(results.successCount, "passed", options.Color, Ansi.brightGreen)
+    const failed = formatCount(results.failureCount, "failed", options.Color, Ansi.brightRed)
+    const skipped = formatCount(results.skippedCount, "skipped", options.Color, Ansi.brightYellow)
+    table.insert(lines, `{passed}, {failed}, {skipped}.`)
+    return lines
+end
+
+function TextReporter.renderTree(results)
+    assert(type(results) == "table")
+    for _, line in TextReporter.formatTree(results, getOptions()) do
+        print(line)
+    end
+end
+
+function TextReporter.separator()
+    for _, line in TextReporter.formatSeparator(IS_LUNE) do
+        print(line)
     end
 end
 
 function TextReporter.report(results)
-    if INDIVIDUAL_PRINTS then
-        -- Print each line separately
-        print("The tests have completed.")
-
-        const reportBuffer = report(results)
-        for _, line in ipairs(reportBuffer) do
-            print(line)
-        end
-
-        print(buildSummaryLine(results))
-    else
-        -- Print all as one big message
-        const resultBuffer = {
-            "The tests have completed.",
-            table.concat(report(results), "\n"),
-            buildSummaryLine(results),
-        }
-
-        print(table.concat(resultBuffer, "\n"))
+    assert(type(results) == "table")
+    for _, line in TextReporter.format(results, getOptions()) do
+        print(line)
     end
-
     if #results.errors > 0 then
-        print("Errors reported by tests...\n")
-
-        for _, message in ipairs(results.errors) do
+        print("")
+        print("Errors reported by tests...")
+        print("")
+        for _, message in results.errors do
             if TestService then
                 TestService:Error(message)
-
-                -- Insert a blank line after each error
                 print("")
             else
                 print(message)

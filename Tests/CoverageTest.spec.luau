@@ -80,6 +80,15 @@ return function()
             expect(report.Files[1].ExecutableLines).to.be.a("number")
             expect(report.Files[1].HitLines).to.be.a("number")
             expect(report.Files[1].Percentage).to.be.a("number")
+            expect(report.Files[1].Path:match("SampleModule%.luau$") ~= nil).to.equal(true)
+            const file = report.Files[1]
+            expect(file.Percentage).to.equal(math.floor(file.HitLines / file.ExecutableLines * 1000) / 10)
+            for _, fn in file.Functions do
+                const expected = if fn.ExecutableLines > 0
+                    then math.floor(fn.HitLines / fn.ExecutableLines * 1000) / 10
+                    else 0
+                expect(fn.Percentage).to.equal(expected)
+            end
         end)
 
         it("should include local functions in coverage", function()
@@ -124,7 +133,7 @@ return function()
             expect(report.TotalPercentage <= 100).to.equal(true)
 
             if report.TotalExecutableLines > 0 then
-                const expected = math.floor((report.TotalHitLines / report.TotalExecutableLines) * 100)
+                const expected = math.floor((report.TotalHitLines / report.TotalExecutableLines) * 1000) / 10
                 expect(report.TotalPercentage).to.equal(expected)
             end
         end)

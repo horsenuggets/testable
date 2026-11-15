@@ -34,6 +34,7 @@ export type FunctionCoverage = {
 
 export type FileCoverage = {
     Name: string,
+    Path: string,
     Functions: { FunctionCoverage },
     ExecutableLines: number,
     HitLines: number,
@@ -177,7 +178,7 @@ const function collectFileCoverage(scriptInstance: any): ({ FunctionCoverage }, 
         fileHit += funcHit
         fileExecutable += funcExecutable
 
-        const pct = if funcExecutable > 0 then math.floor((funcHit / funcExecutable) * 100) else 0
+        const pct = if funcExecutable > 0 then math.floor((funcHit / funcExecutable) * 1000) / 10 else 0
 
         local funcName = entry.Function
         if funcName == "" then
@@ -292,6 +293,7 @@ function Coverage.collect(roots: any): CoverageReport?
         return nil
     end
 
+    const fs = require("@lune/fs")
     const scripts = Coverage.resolveRoots(roots)
     const files: { FileCoverage } = {}
     local grandTotalHit = 0
@@ -303,10 +305,18 @@ function Coverage.collect(roots: any): CoverageReport?
         grandTotalHit += fileHit
         grandTotalExecutable += fileExecutable
 
-        const filePct = if fileExecutable > 0 then math.floor((fileHit / fileExecutable) * 100) else 0
+        const filePct = if fileExecutable > 0 then math.floor((fileHit / fileExecutable) * 1000) / 10 else 0
+
+        local path = tostring(entry.Script)
+        if fs.isDir(path) then
+            path = `{path}/init.luau`
+        elseif not fs.isFile(path) then
+            path = if fs.isFile(`{path}.luau`) then `{path}.luau` else `{path}.lua`
+        end
 
         table.insert(files, {
             Name = entry.Name,
+            Path = path,
             Functions = fileFunctions,
             ExecutableLines = fileExecutable,
             HitLines = fileHit,
@@ -314,7 +324,9 @@ function Coverage.collect(roots: any): CoverageReport?
         })
     end
 
-    const totalPct = if grandTotalExecutable > 0 then math.floor((grandTotalHit / grandTotalExecutable) * 100) else 0
+    const totalPct = if grandTotalExecutable > 0
+        then math.floor((grandTotalHit / grandTotalExecutable) * 1000) / 10
+        else 0
 
     return {
         Files = files,
