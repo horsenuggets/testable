@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.5
+- Added tree-style test reports with check and cross symbols and aggregated suite outcomes.
+- Added section dividers and configurable tree indentation.
+- Added bordered coverage tables with folder-aware paths and Unicode column alignment.
+- Added one-decimal coverage percentages and tree-style threshold results.
+- Fixed planning errors not counting as failures or failing `Testable.run`.
+- Added reporter and planning-error regression tests for parallel and sequential execution.
+- Updated the Luau toolchain and shared CI tooling.
+
 ## 1.1.4
 - Remove .luaurc from Wally package to fix transitive dependency resolution
 - Bump dependencies and update submodules

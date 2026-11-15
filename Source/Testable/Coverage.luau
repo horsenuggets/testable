@@ -11,11 +11,11 @@ disable.
 
 --]]
 
-local IS_LUNE = pcall(function()
+const IS_LUNE = pcall(function()
     require("@lune/fs")
 end)
 
-local EXCLUDED_SUFFIXES = {
+const EXCLUDED_SUFFIXES = {
     "%.legacy$",
     "%.server$",
     "%.client$",
@@ -34,6 +34,7 @@ export type FunctionCoverage = {
 
 export type FileCoverage = {
     Name: string,
+    Path: string,
     Functions: { FunctionCoverage },
     ExecutableLines: number,
     HitLines: number,
@@ -47,7 +48,7 @@ export type CoverageReport = {
     TotalPercentage: number,
 }
 
-local Coverage = {}
+const Coverage = {}
 
 --[[
     Checks if a module name should be excluded based on its suffix.
@@ -55,7 +56,7 @@ local Coverage = {}
     @param name - The module name to check
     @return True if the name matches an excluded suffix
 ]]
-local function isExcluded(name: string): boolean
+const function isExcluded(name: string): boolean
     for _, suffix in EXCLUDED_SUFFIXES do
         if name:match(suffix) then
             return true
@@ -71,8 +72,8 @@ end
     @param scriptInstance - The script instance
     @return The cleaned module name
 ]]
-local function getDisplayName(scriptInstance: any): string
-    local name = scriptInstance.Name
+const function getDisplayName(scriptInstance: any): string
+    const name = scriptInstance.Name
     return name:gsub("%.luau$", ""):gsub("%.lua$", "")
 end
 
@@ -86,29 +87,29 @@ end
     @param results - Array to accumulate { Name, Script } entries
     @param seen - Set of already-processed paths for deduplication
 ]]
-local function discoverModules(dirScript: any, results: { { Name: string, Script: any } }, seen: { [string]: boolean })
+const function discoverModules(dirScript: any, results: { { Name: string, Script: any } }, seen: { [string]: boolean })
     if not IS_LUNE then
         return
     end
 
-    local fs = require("@lune/fs")
-    local dirPath = tostring(dirScript)
+    const fs = require("@lune/fs")
+    const dirPath = tostring(dirScript)
 
-    local ok, entries = pcall(fs.readDir, dirPath)
+    const ok, entries = pcall(fs.readDir, dirPath)
     if not ok then
         return
     end
 
     for _, entry in entries do
-        local fullPath = dirPath .. "/" .. entry
-        local isDir = fs.isDir(fullPath)
+        const fullPath = dirPath .. "/" .. entry
+        const isDir = fs.isDir(fullPath)
 
         if isDir then
-            local initPath = fullPath .. "/init.luau"
+            const initPath = fullPath .. "/init.luau"
             if fs.isFile(initPath) then
                 -- Directory with init.luau is a module
-                local childScript = dirScript[entry]
-                local scriptPath = tostring(childScript)
+                const childScript = dirScript[entry]
+                const scriptPath = tostring(childScript)
                 if not seen[scriptPath] and not isExcluded(entry) then
                     seen[scriptPath] = true
                     table.insert(results, {
@@ -121,14 +122,14 @@ local function discoverModules(dirScript: any, results: { { Name: string, Script
             -- more modules alongside or inside the init module)
             discoverModules(dirScript[entry], results, seen)
         elseif entry:match("%.luau$") or entry:match("%.lua$") then
-            local baseName = entry:gsub("%.luau$", ""):gsub("%.lua$", "")
+            const baseName = entry:gsub("%.luau$", ""):gsub("%.lua$", "")
             -- Skip init files (handled as directory modules above)
             if baseName == "init" then
                 continue
             end
             if not isExcluded(baseName) then
-                local childScript = dirScript[baseName]
-                local scriptPath = tostring(childScript)
+                const childScript = dirScript[baseName]
+                const scriptPath = tostring(childScript)
                 if not seen[scriptPath] then
                     seen[scriptPath] = true
                     table.insert(results, {
@@ -151,13 +152,13 @@ end
     @return fileHit - Total hit lines across all functions
     @return fileExecutable - Total executable lines across all functions
 ]]
-local function collectFileCoverage(scriptInstance: any): ({ FunctionCoverage }, number, number)
-    local ok, entries = pcall(debug.getcoverage, scriptInstance)
+const function collectFileCoverage(scriptInstance: any): ({ FunctionCoverage }, number, number)
+    const ok, entries = pcall(debug.getcoverage, scriptInstance)
     if not ok or type(entries) ~= "table" then
         return {}, 0, 0
     end
 
-    local fileFunctions: { FunctionCoverage } = {}
+    const fileFunctions: { FunctionCoverage } = {}
     local fileHit = 0
     local fileExecutable = 0
 
@@ -177,7 +178,7 @@ local function collectFileCoverage(scriptInstance: any): ({ FunctionCoverage }, 
         fileHit += funcHit
         fileExecutable += funcExecutable
 
-        local pct = if funcExecutable > 0 then math.floor((funcHit / funcExecutable) * 100) else 0
+        const pct = if funcExecutable > 0 then math.floor((funcHit / funcExecutable) * 1000) / 10 else 0
 
         local funcName = entry.Function
         if funcName == "" then
@@ -204,7 +205,7 @@ end
     @param results - Array to accumulate { Name, Script } entries
     @param seen - Set of already-processed paths for deduplication
 ]]
-local function resolveScript(
+const function resolveScript(
     scriptInstance: any,
     name: string,
     results: { { Name: string, Script: any } },
@@ -214,12 +215,12 @@ local function resolveScript(
         return
     end
 
-    local fs = require("@lune/fs")
-    local scriptPath = tostring(scriptInstance)
+    const fs = require("@lune/fs")
+    const scriptPath = tostring(scriptInstance)
 
     if fs.isDir(scriptPath) then
         -- Check if the directory itself is a module (has init.luau)
-        local initPath = scriptPath .. "/init.luau"
+        const initPath = scriptPath .. "/init.luau"
         if fs.isFile(initPath) then
             if not seen[scriptPath] and not isExcluded(name) then
                 seen[scriptPath] = true
@@ -255,14 +256,14 @@ end
     @return scripts - Array of { Name, Script } entries
 ]]
 function Coverage.resolveRoots(roots: any): { { Name: string, Script: any } }
-    local results: { { Name: string, Script: any } } = {}
-    local seen: { [string]: boolean } = {}
+    const results: { { Name: string, Script: any } } = {}
+    const seen: { [string]: boolean } = {}
 
     -- Detect if roots is a dictionary (table with string keys) or
     -- a single script instance (userdata with Name/Parent)
     if type(roots) == "table" then
         -- Dictionary format: { Name = scriptInstance, ... }
-        local keys = {}
+        const keys = {}
         for key in pairs(roots) do
             table.insert(keys, key)
         end
@@ -287,26 +288,35 @@ end
     @return report - The coverage report, or nil if coverage is disabled
 ]]
 function Coverage.collect(roots: any): CoverageReport?
-    local hasApi = type(debug.iscoverageenabled) == "function"
+    const hasApi = type(debug.iscoverageenabled) == "function"
     if not hasApi or not debug.iscoverageenabled() then
         return nil
     end
 
-    local scripts = Coverage.resolveRoots(roots)
-    local files: { FileCoverage } = {}
+    const fs = require("@lune/fs")
+    const scripts = Coverage.resolveRoots(roots)
+    const files: { FileCoverage } = {}
     local grandTotalHit = 0
     local grandTotalExecutable = 0
 
     for _, entry in scripts do
-        local fileFunctions, fileHit, fileExecutable = collectFileCoverage(entry.Script)
+        const fileFunctions, fileHit, fileExecutable = collectFileCoverage(entry.Script)
 
         grandTotalHit += fileHit
         grandTotalExecutable += fileExecutable
 
-        local filePct = if fileExecutable > 0 then math.floor((fileHit / fileExecutable) * 100) else 0
+        const filePct = if fileExecutable > 0 then math.floor((fileHit / fileExecutable) * 1000) / 10 else 0
+
+        local path = tostring(entry.Script)
+        if fs.isDir(path) then
+            path = `{path}/init.luau`
+        elseif not fs.isFile(path) then
+            path = if fs.isFile(`{path}.luau`) then `{path}.luau` else `{path}.lua`
+        end
 
         table.insert(files, {
             Name = entry.Name,
+            Path = path,
             Functions = fileFunctions,
             ExecutableLines = fileExecutable,
             HitLines = fileHit,
@@ -314,7 +324,9 @@ function Coverage.collect(roots: any): CoverageReport?
         })
     end
 
-    local totalPct = if grandTotalExecutable > 0 then math.floor((grandTotalHit / grandTotalExecutable) * 100) else 0
+    const totalPct = if grandTotalExecutable > 0
+        then math.floor((grandTotalHit / grandTotalExecutable) * 1000) / 10
+        else 0
 
     return {
         Files = files,

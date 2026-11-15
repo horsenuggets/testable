@@ -19,7 +19,7 @@ export type ConfigOptions = {
     Verbose: boolean?,
 }
 
-local Config = {
+const Config = {
     AlphabeticalSort = false,
     Coverage = false,
     CoverageRoots = nil :: any?,
@@ -47,7 +47,7 @@ function Config.set(options: ConfigOptions)
     if options.Coverage ~= nil then
         assert(type(options.Coverage) == "boolean", "Coverage must be a boolean")
         if options.Coverage then
-            local hasApi = type(debug.iscoverageenabled) == "function"
+            const hasApi = type(debug.iscoverageenabled) == "function"
             if not hasApi then
                 error(
                     "Cannot enable coverage because debug.iscoverageenabled "

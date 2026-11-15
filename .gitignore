@@ -16,7 +16,9 @@
 .env
 .local
 .mcp.json
-.vscode
+/.vscode/*
+!/.vscode/extensions.json
+!/.vscode/settings.json
 
 # Generated files
 *.bak
@@ -29,4 +31,14 @@
 aftman.toml
 
 # Project
+/CONTEXT.md
 /TODO.md
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+
+# Worktrees
+/.worktrees/
+/.wt/

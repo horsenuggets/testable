@@ -10,12 +10,12 @@ can be negated using `.never` and throw errors when their conditions are not met
 
 --]]
 
-local Expectation = {}
+const Expectation = {}
 
 --[[
     These keys don't do anything except make expectations read more cleanly
 ]]
-local SELF_KEYS = {
+const SELF_KEYS = {
     to = true,
     be = true,
     been = true,
@@ -27,14 +27,14 @@ local SELF_KEYS = {
 --[[
     These keys invert the condition expressed by the Expectation.
 ]]
-local NEGATION_KEYS = {
+const NEGATION_KEYS = {
     never = true,
 }
 
 --[[
     Extension of Lua's 'assert' that lets you specify an error level.
 ]]
-local function assertLevel(condition, message, level)
+const function assertLevel(condition, message, level)
     message = message or "Assertion failed!"
     level = level or 1
 
@@ -46,7 +46,7 @@ end
 --[[
     Returns a version of the given method that can be called with either . or :
 ]]
-local function bindSelf(self, method)
+const function bindSelf(self, method)
     return function(firstArg, ...)
         if firstArg == self then
             return method(self, ...)
@@ -56,7 +56,7 @@ local function bindSelf(self, method)
     end
 end
 
-local function formatMessage(result, trueMessage, falseMessage)
+const function formatMessage(result, trueMessage, falseMessage)
     if result then
         return trueMessage
     else
@@ -68,7 +68,7 @@ end
     Create a new expectation
 ]]
 function Expectation.new(value)
-    local self = {
+    const self = {
         value = value,
         successCondition = true,
         condition = false,
@@ -101,8 +101,8 @@ function Expectation:extend(matchers)
 
     for name, implementation in pairs(self.matchers) do
         self._boundMatchers[name] = bindSelf(self, function(_self, ...)
-            local result = implementation(self.value, ...)
-            local pass = result.pass == self.successCondition
+            const result = implementation(self.value, ...)
+            const pass = result.pass == self.successCondition
 
             assertLevel(pass, result.message, 3)
             self:_resetModifiers()
@@ -121,7 +121,7 @@ function Expectation.__index(self, key)
 
     -- Invert your assertion
     if NEGATION_KEYS[key] then
-        local newExpectation = Expectation.new(self.value):extend(self.matchers)
+        const newExpectation = Expectation.new(self.value):extend(self.matchers)
         newExpectation.successCondition = not self.successCondition
 
         return newExpectation
@@ -156,9 +156,9 @@ end
     expect(5).to.be.a("number")
 ]]
 function Expectation:a(typeName)
-    local result = (type(self.value) == typeName) == self.successCondition
+    const result = (type(self.value) == typeName) == self.successCondition
 
-    local message = formatMessage(
+    const message = formatMessage(
         self.successCondition,
         ("Expected value of type %q, got value %q of type %s"):format(typeName, tostring(self.value), type(self.value)),
         ("Expected value not of type %q, got value %q of type %s"):format(
@@ -181,9 +181,9 @@ Expectation.an = Expectation.a
     Assert that our expectation value is truthy
 ]]
 function Expectation:ok()
-    local result = (self.value ~= nil) == self.successCondition
+    const result = (self.value ~= nil) == self.successCondition
 
-    local message = formatMessage(
+    const message = formatMessage(
         self.successCondition,
         ("Expected value %q to be non-nil"):format(tostring(self.value)),
         ("Expected value %q to be nil"):format(tostring(self.value))
@@ -199,9 +199,9 @@ end
     Assert that our expectation value is equal to another value
 ]]
 function Expectation:equal(otherValue)
-    local result = (self.value == otherValue) == self.successCondition
+    const result = (self.value == otherValue) == self.successCondition
 
-    local message = formatMessage(
+    const message = formatMessage(
         self.successCondition,
         ("Expected value %q (%s), got %q (%s) instead"):format(
             tostring(otherValue),
@@ -229,9 +229,9 @@ function Expectation:near(otherValue, limit)
 
     limit = limit or 1e-7
 
-    local result = (math.abs(self.value - otherValue) <= limit) == self.successCondition
+    const result = (math.abs(self.value - otherValue) <= limit) == self.successCondition
 
-    local message = formatMessage(
+    const message = formatMessage(
         self.successCondition,
         ("Expected value to be near %f (within %f) but got %f instead"):format(otherValue, limit, self.value),
         ("Expected value to not be near %f (within %f) but got %f instead"):format(otherValue, limit, self.value)
@@ -249,7 +249,7 @@ end
     contains the given value.
 ]]
 function Expectation:throw(messageSubstring)
-    local ok, err = pcall(self.value)
+    const ok, err = pcall(self.value)
     local result = ok ~= self.successCondition
 
     if messageSubstring and not ok then

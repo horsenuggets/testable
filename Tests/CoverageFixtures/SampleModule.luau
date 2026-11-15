@@ -8,11 +8,11 @@ file-level coverage captures both.
 
 --]]
 
-local function helper(value: number): number
+const function helper(value: number): number
     return value * 2
 end
 
-local SampleModule = {}
+const SampleModule = {}
 
 function SampleModule.add(a: number, b: number): number
     return a + b

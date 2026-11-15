@@ -7,18 +7,18 @@ matchers, lifecycle hooks, and parallel test execution support.
 
 --]]
 
-local Config = require("@self/Config")
-local Coverage = require("@self/Coverage")
-local CoverageReporter = require("@self/Reporters/CoverageReporter")
-local Expectation = require("@self/Expectation")
-local TestBootstrap = require("@self/TestBootstrap")
-local TestEnum = require("@self/TestEnum")
-local TestPlan = require("@self/TestPlan")
-local TestPlanner = require("@self/TestPlanner")
-local TestResults = require("@self/TestResults")
-local TestRunner = require("@self/TestRunner")
-local TestSession = require("@self/TestSession")
-local TextReporter = require("@self/Reporters/TextReporter")
+const Config = require("@self/Config")
+const Coverage = require("@self/Coverage")
+const CoverageReporter = require("@self/Reporters/CoverageReporter")
+const Expectation = require("@self/Expectation")
+const TestBootstrap = require("@self/TestBootstrap")
+const TestEnum = require("@self/TestEnum")
+const TestPlan = require("@self/TestPlan")
+const TestPlanner = require("@self/TestPlanner")
+const TestResults = require("@self/TestResults")
+const TestRunner = require("@self/TestRunner")
+const TestSession = require("@self/TestSession")
+const TextReporter = require("@self/Reporters/TextReporter")
 
 --[[
     Executes tests from the specified test roots, generates a test plan, runs the tests,
@@ -30,7 +30,7 @@ local TextReporter = require("@self/Reporters/TextReporter")
     @return results - The test results object
     @return passed - Boolean indicating if all tests passed
 ]]
-local function run(testRoots: any): (any, boolean)
+const function run(testRoots: any): (any, boolean)
     if not testRoots then
         error("testRoots must be provided")
     end
@@ -40,20 +40,20 @@ local function run(testRoots: any): (any, boolean)
 
     -- Snapshot coverage config before tests run, since tests may call
     -- Config.reset() which would wipe the coverage settings
-    local coverageEnabled = Config.Coverage
-    local coverageRoots = Config.CoverageRoots
-    local coverageThreshold = Config.CoverageThreshold
+    const coverageEnabled = Config.Coverage
+    const coverageRoots = Config.CoverageRoots
+    const coverageThreshold = Config.CoverageThreshold
 
-    local modules = TestBootstrap:getModulesFromMultipleRoots(testRoots)
-    local plan = TestPlanner.createPlan(modules)
-    local results = TestRunner.runPlan(plan)
+    const modules = TestBootstrap:getModulesFromMultipleRoots(testRoots)
+    const plan = TestPlanner.createPlan(modules)
+    const results = TestRunner.runPlan(plan)
 
     TextReporter.report(results)
 
     local passed = results.failureCount == 0
 
     if coverageEnabled and coverageRoots ~= nil then
-        local coverageReport = Coverage.collect(coverageRoots)
+        const coverageReport = Coverage.collect(coverageRoots)
 
         if coverageReport ~= nil then
             CoverageReporter.report(coverageReport, coverageThreshold)
@@ -67,7 +67,7 @@ local function run(testRoots: any): (any, boolean)
     return results, passed
 end
 
-local Testable = {
+const Testable = {
     configure = Config.set,
     resetConfig = Config.reset,
     run = run,

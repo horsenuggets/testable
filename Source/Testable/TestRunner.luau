@@ -8,25 +8,25 @@ parallel test execution via task.spawn.
 
 --]]
 
-local Config = require("./Config")
-local LifecycleHooks = require("./LifecycleHooks")
-local task = if task then task else require("@lune/task")
-local TestEnum = require("./TestEnum")
-local TestResults = require("./TestResults")
-local TestSession = require("./TestSession")
+const Config = require("./Config")
+const LifecycleHooks = require("./LifecycleHooks")
+const task = if task then task else require("@lune/task")
+const TestEnum = require("./TestEnum")
+const TestResults = require("./TestResults")
+const TestSession = require("./TestSession")
 
-local RUNNING_GLOBAL = "__TESTABLE_RUNNING_TEST__"
-local RUNNING_COUNT_GLOBAL = "__TESTABLE_RUNNING_COUNT__"
+const RUNNING_GLOBAL = "__TESTABLE_RUNNING_TEST__"
+const RUNNING_COUNT_GLOBAL = "__TESTABLE_RUNNING_COUNT__"
 
 -- Global semaphore for limiting concurrent test execution across all describe blocks
-local globalSemaphore = { activeCount = 0, lock = false }
+const globalSemaphore = { activeCount = 0, lock = false }
 
-local TestRunner = {
+const TestRunner = {
     environment = {},
 }
 
 -- Helper to acquire a global semaphore slot
-local function acquireGlobalSlot()
+const function acquireGlobalSlot()
     while true do
         while globalSemaphore.lock do
             task.wait()
@@ -43,7 +43,7 @@ local function acquireGlobalSlot()
 end
 
 -- Helper to release a global semaphore slot
-local function releaseGlobalSlot()
+const function releaseGlobalSlot()
     while globalSemaphore.lock do
         task.wait()
     end
@@ -57,7 +57,7 @@ end
 
     @param ... - Messages to log
 ]]
-local function log(...: any): ()
+const function log(...: any): ()
     if Config.Verbose then
         print("[Testable]", ...)
     end
@@ -69,7 +69,7 @@ end
     @param expectationContext - The expectation context to wrap
     @return A callable table that provides the expect() API
 ]]
-local function wrapExpectContextWithPublicApi(expectationContext: any): any
+const function wrapExpectContextWithPublicApi(expectationContext: any): any
     return setmetatable({
         extend = function(...)
             expectationContext:extend(...)
@@ -90,10 +90,10 @@ end
 ]]
 function TestRunner.runPlan(plan: any): any
     log("Starting test plan execution...")
-    local session = TestSession.new(plan)
-    local lifecycleHooks = LifecycleHooks.new()
+    const session = TestSession.new(plan)
+    const lifecycleHooks = LifecycleHooks.new()
 
-    local exclusiveNodes = plan:findNodes(function(node)
+    const exclusiveNodes = plan:findNodes(function(node)
         return node.modifier == TestEnum.NodeModifier.Focus
     end)
 
@@ -126,7 +126,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
         @param messagePrefix - Optional prefix for error messages
         @return success: boolean, errorMessage: string?
     ]]
-    local function runCallback(callback: (any) -> (), inputMessagePrefix: string?): (boolean, string?)
+    const function runCallback(callback: (any) -> (), inputMessagePrefix: string?): (boolean, string?)
         local success = true
         local errorMessage
         -- Any code can check RUNNING_GLOBAL to fork behavior based on
@@ -136,9 +136,9 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
         _G[RUNNING_COUNT_GLOBAL] = (_G[RUNNING_COUNT_GLOBAL] or 0) + 1
         _G[RUNNING_GLOBAL] = true
 
-        local messagePrefix: string = inputMessagePrefix or ""
+        const messagePrefix: string = inputMessagePrefix or ""
 
-        local testEnvironment = getfenv(callback)
+        const testEnvironment = getfenv(callback)
 
         for key, value in pairs(TestRunner.environment) do
             testEnvironment[key] = value
@@ -155,9 +155,9 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
 
         testEnvironment.expect = wrapExpectContextWithPublicApi(session:getExpectationContext())
 
-        local context = session:getContext()
+        const context = session:getContext()
 
-        local nodeSuccess, nodeResult = xpcall(function()
+        const nodeSuccess, nodeResult = xpcall(function()
             callback(context)
         end, function(message)
             return messagePrefix .. debug.traceback(tostring(message), 2)
@@ -180,21 +180,21 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
         return success, errorMessage
     end
 
-    local function runNode(childPlanNode)
+    const function runNode(childPlanNode)
         -- Errors can be set either via `error` propagating upwards or
         -- by a test calling fail([message]).
 
         for _, hook in ipairs(lifecycleHooks:getBeforeEachHooks()) do
-            local success, errorMessage = runCallback(hook, "beforeEach hook: ")
+            const success, errorMessage = runCallback(hook, "beforeEach hook: ")
             if not success then
                 return false, errorMessage
             end
         end
 
-        local testSuccess, testErrorMessage = runCallback(childPlanNode.callback)
+        const testSuccess, testErrorMessage = runCallback(childPlanNode.callback)
 
         for _, hook in ipairs(lifecycleHooks:getAfterEachHooks()) do
-            local success, errorMessage = runCallback(hook, "afterEach hook: ")
+            const success, errorMessage = runCallback(hook, "afterEach hook: ")
             if not success then
                 if not testSuccess then
                     return false,
@@ -217,7 +217,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
 
     local halt = false
     for _, hook in ipairs(lifecycleHooks:getBeforeAllHooks()) do
-        local success, errorMessage = runCallback(hook, "beforeAll hook: ")
+        const success, errorMessage = runCallback(hook, "beforeAll hook: ")
         if not success then
             session:addDummyError("beforeAll", errorMessage)
             halt = true
@@ -226,8 +226,8 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
 
     if not halt then
         -- Collect all "it" tests and describe blocks at this level
-        local itTests = {}
-        local describeBlocks = {}
+        const itTests = {}
+        const describeBlocks = {}
 
         for _, childPlanNode in ipairs(planNode.children) do
             if childPlanNode.type == TestEnum.NodeType.It then
@@ -241,26 +241,26 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
         if Config.Parallel and #itTests > 0 then
             log(string.format("Running %d tests in parallel (max %d concurrent)...", #itTests, Config.MaxConcurrency))
             local completed = 0
-            local total = #itTests
-            local startTime = os.clock()
+            const total = #itTests
+            const startTime = os.clock()
             local completionLock = false
 
             -- Pre-create all test nodes to maintain proper order in tree
-            local testNodes = {}
-            local testContexts = {}
-            local testExpectationContexts = {}
+            const testNodes = {}
+            const testContexts = {}
+            const testExpectationContexts = {}
             for i, childPlanNode in ipairs(itTests) do
-                local node = TestResults.createNode(childPlanNode)
-                local lastNode = session.nodeStack[#session.nodeStack] or session.results
+                const node = TestResults.createNode(childPlanNode)
+                const lastNode = session.nodeStack[#session.nodeStack] or session.results
                 table.insert(lastNode.children, node)
                 testNodes[i] = node
 
                 -- Pre-create contexts
-                local Context = require("./Context")
-                local ExpectationContext = require("./ExpectationContext")
-                local lastContext = session.contextStack[#session.contextStack]
+                const Context = require("./Context")
+                const ExpectationContext = require("./ExpectationContext")
+                const lastContext = session.contextStack[#session.contextStack]
                 testContexts[i] = Context.new(lastContext)
-                local lastExpectationContext = session.expectationContextStack[#session.expectationContextStack]
+                const lastExpectationContext = session.expectationContextStack[#session.expectationContextStack]
                 testExpectationContexts[i] = ExpectationContext.new(lastExpectationContext)
             end
 
@@ -273,7 +273,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
                     log(string.format("  [%d/%d] Starting: %s", i, total, childPlanNode.phrase))
 
                     -- Create isolated session for this test that writes to the pre-created node
-                    local testSession = {
+                    const testSession = {
                         results = session.results,
                         nodeStack = { testNodes[i] },
                         contextStack = { testContexts[i] },
@@ -282,16 +282,16 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
                     }
                     setmetatable(testSession, { __index = TestSession })
 
-                    local shouldSkip = testSession:shouldSkip()
+                    const shouldSkip = testSession:shouldSkip()
 
                     if shouldSkip then
                         log(string.format("  [%d/%d] Skipped: %s", i, total, childPlanNode.phrase))
                         testSession:setSkipped()
                     else
                         -- Run the test (parallel execution here)
-                        local testStartTime = os.clock()
-                        local success, errorMessage = runNode(childPlanNode)
-                        local testDuration = os.clock() - testStartTime
+                        const testStartTime = os.clock()
+                        const success, errorMessage = runNode(childPlanNode)
+                        const testDuration = os.clock() - testStartTime
 
                         if success then
                             testSession:setSuccess()
@@ -338,7 +338,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
                 task.wait()
             end
 
-            local totalDuration = os.clock() - startTime
+            const totalDuration = os.clock() - startTime
             log(string.format("Parallel execution complete: %d tests in %.2fs", total, totalDuration))
         elseif #itTests > 0 then
             -- Run tests sequentially
@@ -350,15 +350,15 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
 
             for i, childPlanNode in ipairs(itTests) do
                 log(string.format("  [%d/%d] Running: %s", i, #itTests, childPlanNode.phrase))
-                local testStartTime = os.clock()
+                const testStartTime = os.clock()
 
                 session:pushNode(childPlanNode)
                 if session:shouldSkip() then
                     session:setSkipped()
                     log(string.format("  [%d/%d] Skipped: %s", i, #itTests, childPlanNode.phrase))
                 else
-                    local success, errorMessage = runNode(childPlanNode)
-                    local testDuration = os.clock() - testStartTime
+                    const success, errorMessage = runNode(childPlanNode)
+                    const testDuration = os.clock() - testStartTime
 
                     if success then
                         session:setSuccess()
@@ -392,15 +392,15 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
         if Config.Parallel and #describeBlocks > 0 then
             log(string.format("Running %d describe blocks in parallel...", #describeBlocks))
             local completed = 0
-            local total = #describeBlocks
-            local startTime = os.clock()
-            local mutex: { locked: boolean? } = {}
+            const total = #describeBlocks
+            const startTime = os.clock()
+            const mutex: { locked: boolean? } = {}
 
             -- Pre-create result nodes for all describe blocks in the correct order
-            local describeNodes = {}
+            const describeNodes = {}
             for i, childPlanNode in ipairs(describeBlocks) do
-                local node = TestResults.createNode(childPlanNode)
-                local lastNode = session.nodeStack[#session.nodeStack] or session.results
+                const node = TestResults.createNode(childPlanNode)
+                const lastNode = session.nodeStack[#session.nodeStack] or session.results
                 table.insert(lastNode.children, node)
                 describeNodes[i] = node
             end
@@ -408,11 +408,11 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
             for i, childPlanNode in ipairs(describeBlocks) do
                 task.spawn(function()
                     log(string.format("  [%d/%d] Starting describe block: %s", i, total, childPlanNode.phrase))
-                    local blockStartTime = os.clock()
+                    const blockStartTime = os.clock()
 
                     -- Create an isolated sub-session for this describe block
                     -- that will write to our pre-created node
-                    local subSession = {
+                    const subSession = {
                         results = session.results,
                         nodeStack = {},
                         contextStack = {},
@@ -436,14 +436,14 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
                     mutex.locked = true
                     table.insert(subSession.nodeStack, describeNodes[i])
 
-                    local Context = require("./Context")
-                    local ExpectationContext = require("./ExpectationContext")
-                    local lastContext = subSession.contextStack[#subSession.contextStack]
-                    local context = Context.new(lastContext)
+                    const Context = require("./Context")
+                    const ExpectationContext = require("./ExpectationContext")
+                    const lastContext = subSession.contextStack[#subSession.contextStack]
+                    const context = Context.new(lastContext)
                     table.insert(subSession.contextStack, context)
-                    local lastExpectationContext =
+                    const lastExpectationContext =
                         subSession.expectationContextStack[#subSession.expectationContextStack]
-                    local expectationContext = ExpectationContext.new(lastExpectationContext)
+                    const expectationContext = ExpectationContext.new(lastExpectationContext)
                     table.insert(subSession.expectationContextStack, expectationContext)
                     mutex.locked = false
 
@@ -456,7 +456,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
                     end
                     mutex.locked = true
                     if childPlanNode.loadError then
-                        local message = "Error during planning: " .. childPlanNode.loadError
+                        const message = "Error during planning: " .. childPlanNode.loadError
                         subSession:setError(message)
                         log(string.format("  [%d/%d] ✗ Planning error in: %s", i, total, childPlanNode.phrase))
                     else
@@ -464,8 +464,8 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
                     end
 
                     completed = completed + 1
-                    local blockDuration = os.clock() - blockStartTime
-                    local remaining = total - completed
+                    const blockDuration = os.clock() - blockStartTime
+                    const remaining = total - completed
                     log(
                         string.format(
                             "  [%d/%d] Completed describe block: %s (%.2fs)",
@@ -492,7 +492,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
                 task.wait()
             end
 
-            local totalDuration = os.clock() - startTime
+            const totalDuration = os.clock() - startTime
             log(string.format("Parallel describe block execution complete: %d blocks in %.2fs", total, totalDuration))
         elseif #describeBlocks > 0 then
             -- Run describe blocks sequentially
@@ -502,7 +502,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
                 TestRunner.runPlanNode(session, childPlanNode, lifecycleHooks)
 
                 if childPlanNode.loadError then
-                    local message = "Error during planning: " .. childPlanNode.loadError
+                    const message = "Error during planning: " .. childPlanNode.loadError
                     session:setError(message)
                     log(string.format("✗ Planning error in: %s", childPlanNode.phrase))
                 else
@@ -515,7 +515,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
     end
 
     for _, hook in ipairs(lifecycleHooks:getAfterAllHooks()) do
-        local success, errorMessage = runCallback(hook, "afterAll hook: ")
+        const success, errorMessage = runCallback(hook, "afterAll hook: ")
         if not success then
             session:addDummyError("afterAll", errorMessage)
         end

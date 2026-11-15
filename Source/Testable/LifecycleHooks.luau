@@ -8,9 +8,9 @@ exited.
 
 --]]
 
-local TestEnum = require("./TestEnum")
+const TestEnum = require("./TestEnum")
 
-local LifecycleHooks = {}
+const LifecycleHooks = {}
 LifecycleHooks.__index = LifecycleHooks
 
 --[[
@@ -19,7 +19,7 @@ LifecycleHooks.__index = LifecycleHooks
     @return A new LifecycleHooks object
 ]]
 function LifecycleHooks.new(): any
-    local self = {
+    const self = {
         _stack = {},
     }
     return setmetatable(self, LifecycleHooks)
@@ -31,8 +31,8 @@ end
     @return Array of beforeEach hook functions
 ]]
 function LifecycleHooks:getBeforeEachHooks(): { any }
-    local key = TestEnum.NodeType.BeforeEach
-    local hooks = {}
+    const key = TestEnum.NodeType.BeforeEach
+    const hooks = {}
 
     for _, level in ipairs(self._stack) do
         for _, hook in ipairs(level[key]) do
@@ -49,8 +49,8 @@ end
     @return Array of afterEach hook functions
 ]]
 function LifecycleHooks:getAfterEachHooks(): { any }
-    local key = TestEnum.NodeType.AfterEach
-    local hooks = {}
+    const key = TestEnum.NodeType.AfterEach
+    const hooks = {}
 
     for _, level in ipairs(self._stack) do
         for _, hook in ipairs(level[key]) do
@@ -110,7 +110,7 @@ end
     @return Array of callback functions matching the type
 ]]
 function LifecycleHooks:_getHooksOfType(nodes: { any }, key: string): { any }
-    local hooks = {}
+    const hooks = {}
 
     for _, node in ipairs(nodes) do
         if node.type == key then
