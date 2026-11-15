@@ -173,8 +173,8 @@ const function copyScriptsToRepo(repoPath: string)
     fs.writeDir(`{repoPath}/Scripts/Helpers`)
     const scriptContent = fs.readFile("Submodules/luau-cicd/Scripts/EnsureProperVersionUpdate.exec.luau")
     fs.writeFile(`{repoPath}/Scripts/EnsureProperVersionUpdate.exec.luau`, scriptContent)
-    const helperContent = fs.readFile("Submodules/luau-cicd/Scripts/Helpers/parseVersion.luau")
-    fs.writeFile(`{repoPath}/Scripts/Helpers/parseVersion.luau`, helperContent)
+    const helperContent = fs.readFile("Submodules/luau-cicd/Scripts/Helpers/ParseVersion.func.luau")
+    fs.writeFile(`{repoPath}/Scripts/Helpers/ParseVersion.func.luau`, helperContent)
 end
 
 const function setupTestRepo(): string
@@ -192,7 +192,7 @@ return function()
             -- Don't create VERSION file
             const success, output = runVersionCheck(tempDir)
             expect(success).to.equal(false)
-            expect(string.find(output, "VERSION file does not exist")).to.be.ok()
+            expect(string.find(output, '"VERSION" file does not exist')).to.be.ok()
             cleanupTempDir(tempDir)
         end)
 
@@ -382,7 +382,7 @@ return function()
             setWorkingVersion(tempDir, "1.0.0")
             const success, output = runVersionCheck(tempDir)
             expect(success).to.equal(true)
-            expect(string.find(output, "was not in proper format")).to.be.ok()
+            expect(string.find(output, "was not in the proper format")).to.be.ok()
             cleanupTempDir(tempDir)
         end)
 
