@@ -19,6 +19,40 @@ end
 
 See the [TestEZ documentation](https://roblox.github.io/testez/api-reference/) for details on writing tests.
 
+## Matchers
+
+On top of the TestEZ matchers (`equal`, `ok`, `near`, `throw`, and `a`), `expect` offers a
+richer vocabulary in the same chain style. All of them can be negated with `.never`...
+
+```luau
+expect({ 1, { 2 } }).to.deepEqual({ 1, { 2 } })
+expect("hello world").to.contain("world")
+expect({ 1, 2, 3 }).to.have.length(3)
+expect("abc123").to.match("%a+%d+")
+expect(5).to.be.greaterThan(3)
+expect(nil).never.to.be.truthy()
+```
+
+- `deepEqual(expected)` → Compares tables recursively by contents. NaN equals NaN, and
+  cyclic tables are safe.
+- `contain(item)` → Finds a plain substring in a string, or a deeply equal element in an
+  array.
+- `length(count)` → Checks `#value` for a string or a table.
+- `match(pattern)` → Matches a string against a Luau string pattern.
+- `greaterThan(bound)`, `greaterThanOrEqual(bound)`, `lessThan(bound)`, and
+  `lessThanOrEqual(bound)` → Order two numbers or two strings.
+- `truthy()` and `falsy()` → Check whether the value is anything but `false` and `nil`, or
+  one of those two.
+- `none()` → Checks that the value is exactly `nil`.
+- `a(typeName)` → Accepts either the `typeof` name (e.g., `"Vector3"`) or the `type` name
+  (e.g., `"userdata"`).
+
+Failed comparisons report `Expected` and `Received` lines. Tables are pretty-printed with
+sorted keys, and deeply nested values are shortened to `{...}` in the message only. Using a
+matcher on the wrong kind of value (e.g., `greaterThan` with a table) fails the test with
+a message that names the matcher, even under `.never`. These names are reserved, so
+`expect.extend` rejects custom matchers that reuse them.
+
 ## Configuration
 
 Configure Testable using `Testable.configure()`:
