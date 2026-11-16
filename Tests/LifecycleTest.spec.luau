@@ -10,23 +10,36 @@ beforeAll, and afterAll hooks.
 return function()
     describe("beforeEach and afterEach", function()
         local beforeEachRan = false
-        local afterEachRan = false
+        local afterEachCount = 0
+        local testCount = 0
 
         beforeEach(function()
             beforeEachRan = true
         end)
 
         afterEach(function()
-            afterEachRan = true
+            afterEachCount += 1
+        end)
+
+        -- Tests in a describe block can start in any order when they run in parallel, so
+        -- no test can rely on another's afterEach having run. The count is checked here
+        -- instead, once every test has finished, against the tests that actually ran
+        -- (a filter may leave some out). A failing afterAll fails the run.
+        afterAll(function()
+            assert(
+                afterEachCount == testCount,
+                `afterEach should have run after each of the {testCount} tests, but it ran {afterEachCount} times`
+            )
         end)
 
         it("should run beforeEach before the test", function()
+            testCount += 1
             expect(beforeEachRan).to.equal(true)
         end)
 
-        it("should run afterEach after a test", function()
-            -- afterEach from the previous test should have run
-            expect(afterEachRan).to.equal(true)
+        it("should run afterEach after every test", function()
+            testCount += 1
+            expect(beforeEachRan).to.equal(true)
         end)
     end)
 
