@@ -15,6 +15,7 @@ const Testable = require("../Source/Testable")
 const fs = require("@lune/fs")
 const process = require("@lune/process")
 const task = require("@lune/task")
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 
 const MemorySnapshotStore = Testable.Snapshots.MemorySnapshotStore
 const SnapshotDiff = Testable.Snapshots.SnapshotDiff
