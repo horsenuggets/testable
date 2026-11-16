@@ -42,6 +42,23 @@ const function coverage(path: string, value: number): any
 end
 
 return function()
+    it("formats with the original layout when callers pass no layout", function()
+        const report = coverage("Source/Session.luau", 50)
+        const withoutLayout = CoverageReporter.format(report, 70, false, "   ")
+        expect(table.concat(withoutLayout, "\n")).to.equal(
+            table.concat(CoverageReporter.format(report, 70, false, "   ", DEFAULT_LAYOUT), "\n")
+        )
+    end)
+
+    it("ignores configuration when formatting without a layout", function()
+        const report = coverage("Source/Session.luau", 50)
+        const before = table.concat(CoverageReporter.format(report, 70, false, "   "), "\n")
+        Config.set({ CoverageRows = 1, CoverageSort = "HitLines" })
+        const after = table.concat(CoverageReporter.format(report, 70, false, "   "), "\n")
+        Config.reset()
+        expect(after).to.equal(before)
+    end)
+
     it("renders nested suites and connectors exactly", function()
         const root = node("Root", nil, {
             node("Guild", nil, {
