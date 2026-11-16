@@ -34,6 +34,7 @@ const TESTS = {
     { Name = "JsonReporterTest", Func = require("../Tests/JsonReporterTest.spec") },
     { Name = "LcovReporterTest", Func = require("../Tests/LcovReporterTest.spec") },
     { Name = "LifecycleTest", Func = require("../Tests/LifecycleTest.spec") },
+    { Name = "NestedRunTest", Func = require("../Tests/NestedRunTest.spec") },
     { Name = "ParallelHooksTest", Func = require("../Tests/ParallelHooksTest.spec") },
     { Name = "PlanningErrorTest", Func = require("../Tests/PlanningErrorTest.spec") },
     { Name = "ReporterArgumentsTest", Func = require("../Tests/ReporterArgumentsTest.spec") },
