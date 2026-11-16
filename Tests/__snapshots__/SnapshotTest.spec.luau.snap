@@ -1,0 +1,21 @@
+testable snapshot v1
+
+SnapshotTest > matcher > should match this spec's own snapshot file 1 10
+{
+    Framework = "testable",
+    Lifecycle = {
+        "write",
+        "match",
+        "mismatch",
+        "update",
+    },
+    Rendered = "testable snapshot v1\n\nSpec > test 1 3\n{\n    Status = \"ok\",\n}\n",
+}
+
+SnapshotTest > matcher > should match this spec's own snapshot file 2 1
+1
+
+SnapshotTest > matcher > should match this spec's own snapshot file multi-line text 3
+"Summary
+
+  passed 2  failed 0"

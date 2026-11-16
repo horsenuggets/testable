@@ -34,8 +34,16 @@ export type ConfigOptions = {
     ReporterOutputs: { [string]: string }?,
     Reporters: { Reporter }?,
     SlowestTests: number?,
+    SnapshotStore: SnapshotStore?,
     Timeout: number?,
+    UpdateSnapshots: boolean?,
     Verbose: boolean?,
+}
+
+-- Where snapshot files are kept. Lune uses the filesystem when no store is set.
+export type SnapshotStore = {
+    read: (path: string) -> string?,
+    write: (path: string, contents: string) -> (),
 }
 
 const Config = {
@@ -55,7 +63,9 @@ const Config = {
     ReporterOutputs = {} :: { [string]: string },
     Reporters = { TestEnum.Reporter.Text } :: { Reporter },
     SlowestTests = 0,
+    SnapshotStore = nil :: SnapshotStore?,
     Timeout = nil :: number?,
+    UpdateSnapshots = false,
     Verbose = false,
 }
 
@@ -191,9 +201,23 @@ function Config.set(options: ConfigOptions)
         Config.SlowestTests = options.SlowestTests
     end
 
+    if options.SnapshotStore ~= nil then
+        const store = options.SnapshotStore
+        assert(
+            type(store) == "table" and type(store.read) == "function" and type(store.write) == "function",
+            "SnapshotStore must be a table with read and write functions"
+        )
+        Config.SnapshotStore = store
+    end
+
     if options.Timeout ~= nil then
         assert(TestTimeout.isValid(options.Timeout), "Timeout must be a positive number of seconds")
         Config.Timeout = options.Timeout
+    end
+
+    if options.UpdateSnapshots ~= nil then
+        assert(type(options.UpdateSnapshots) == "boolean", "UpdateSnapshots must be a boolean")
+        Config.UpdateSnapshots = options.UpdateSnapshots
     end
 
     if options.Verbose ~= nil then
@@ -222,7 +246,9 @@ function Config.reset()
     Config.ReporterOutputs = {}
     Config.Reporters = { TestEnum.Reporter.Text }
     Config.SlowestTests = 0
+    Config.SnapshotStore = nil
     Config.Timeout = nil
+    Config.UpdateSnapshots = false
     Config.Verbose = false
 end
 

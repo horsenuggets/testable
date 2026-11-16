@@ -19,6 +19,7 @@ Reporter flags choose which reports the run produces and where they go...
 > --output <path> - Writes the reporter named just before it to a file instead of
   standard output.
 > --slowest <count> - Lists that many of the slowest tests in the text report.
+> --update-snapshots, -u - Accepts changed snapshots and removes obsolete ones.
 
 [Usage] ./Scripts/RunTests.exec.luau [flags] [spec files...]
 
@@ -27,13 +28,14 @@ Reporter flags choose which reports the run produces and where they go...
 const FilterArguments = require("./Helpers/FilterArguments")
 const ReporterArguments = require("./Helpers/ReporterArguments")
 const RunTestsArguments = require("./Helpers/RunTestsArguments")
+const SnapshotArguments = require("./Helpers/SnapshotArguments")
 const Testable = require("../Source/Testable")
 const process = require("@lune/process")
 
 const INCLUDE = { "Tests/**/*.spec.luau" }
 const SCRIPT_PATH = "Scripts/RunTests.exec.luau"
 const USAGE = `[Usage] ./{SCRIPT_PATH} {RunTestsArguments.Usage} {FilterArguments.Usage} `
-    .. `{ReporterArguments.Usage} [spec files...]`
+    .. `{ReporterArguments.Usage} {SnapshotArguments.Usage} [spec files...]`
 
 const RunTests = {}
 
@@ -77,8 +79,10 @@ const function watch(files: { string }, childArguments: { string })
 end
 
 function RunTests.exec()
-    -- Each parser takes the flags it knows and hands the rest to the next one
-    const parsed, reporterOptions, filterOptions, remaining = pcall(function()
+    -- Each parser takes the flags it knows and hands the rest to the next one. Snapshot
+    -- flags come after the reporter and filter flags, so a value that belongs to another
+    -- flag (e.g., an output path) is never mistaken for one.
+    const parsed, reporterOptions, filterOptions, unparsed = pcall(function()
         const reporterOptions, unparsed = ReporterArguments.parse(process.args)
         return reporterOptions, FilterArguments.parse(unparsed)
     end)
@@ -86,6 +90,7 @@ function RunTests.exec()
         exitWithToolError(tostring(reporterOptions), true)
     end
 
+    const snapshotOptions, remaining = SnapshotArguments.parse(unparsed)
     const arguments, problem = RunTestsArguments.parse(remaining)
     if arguments == nil then
         exitWithToolError(problem :: string, true)
@@ -99,6 +104,7 @@ function RunTests.exec()
 
     Testable.configure(reporterOptions)
     Testable.configure(filterOptions)
+    Testable.configure(snapshotOptions)
     for _, reporter in reporterOptions.Reporters or {} do
         if reporter == Testable.TestEnum.Reporter.Lcov then
             Testable.configure({ Coverage = true, CoverageRoots = script.Parent.Parent.Source.Testable })

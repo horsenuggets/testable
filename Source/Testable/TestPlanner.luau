@@ -41,7 +41,10 @@ function TestPlanner.createPlan(modulesList: { any }, filter: string?, extraEnvi
     end)
 
     for _, module in ipairs(modulesList) do
-        plan:addRoot(module.path, module.method)
+        -- Snapshots find the spec a test belongs to, and where its file lives, through
+        -- this tag on the spec's own node.
+        const specNode = plan:addRoot(module.path, module.method)
+        specNode.specModule = module
     end
 
     const selection = TestFilter.apply(plan, filter)

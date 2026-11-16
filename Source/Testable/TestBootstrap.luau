@@ -121,11 +121,14 @@ function TestBootstrap:getModules(root: any): { any }
 
     if typeof(root) == "table" and typeof(root.Name) == "string" and typeof(root.Func) == "function" then
         -- Module descriptor table: { Name = "Test", Func = fn }
-        -- Works in both Roblox and Lune
+        -- Works in both Roblox and Lune. SnapshotPath optionally overrides where the
+        -- spec's snapshot file lives.
+        assert(root.SnapshotPath == nil or type(root.SnapshotPath) == "string", "SnapshotPath must be a string or nil")
         table.insert(modules, {
             method = root.Func,
             path = { root.Name },
             pathStringForSorting = root.Name:lower(),
+            snapshotPath = root.SnapshotPath,
         })
     elseif IS_ROBLOX and (typeof(root) :: string) == "Instance" then
         -- Roblox Instance: recursively find .spec ModuleScripts

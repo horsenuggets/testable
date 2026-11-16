@@ -149,6 +149,8 @@ Testable.configure({
 | `ReporterOutputs` | `{ [string]: string }` | `{}` | File paths for machine-readable reports, keyed by reporter name (see [Reporters](#reporters)) |
 | `Reporters` | `{ "Text" \| "Json" \| "JUnit" \| "Lcov" }` | `{ "Text" }` | Reports that a run produces (see [Reporters](#reporters)) |
 | `SlowestTests` | `number` | `0` | Number of slowest tests listed after the text report, or `0` to leave the list out |
+| `SnapshotStore` | `table?` | `nil` | Where snapshot files are kept, which defaults to the filesystem in Lune (see [Snapshots](#snapshots)) |
+| `UpdateSnapshots` | `boolean` | `false` | Accept changed snapshots and remove obsolete ones (see [Snapshots](#snapshots)) |
 | `Verbose` | `boolean` | `false` | Enable detailed logging during test execution |
 
 Reset configuration to defaults with `Testable.resetConfig()`.
@@ -469,3 +471,46 @@ at the start unless `RunOnStart` is `false`.
 
 This repository's own `Scripts/RunTests.exec.luau` is a complete example. It accepts
 `--changed <ref>`, `--watch`, and a list of spec files.
+
+## Snapshots
+
+Call `matchSnapshot` to compare a value against the one stored from an earlier run...
+
+```luau
+it("renders the summary", function()
+    expect(render(report)).to.matchSnapshot()
+    expect(render(report, { Compact = true })).to.matchSnapshot("compact layout")
+end)
+```
+
+A value with nothing stored is written and passes, so review new snapshot files before
+committing them. A value that equals the stored one passes, and a different value fails
+with a line diff labeled by the snapshot's key. Set `UpdateSnapshots = true` to accept
+changed values instead. This repository's own runner turns it on with
+`./Scripts/RunTests.exec.luau --update-snapshots`.
+
+Each key is the full test name (the spec name, describe blocks, and test joined by `>`)
+followed by the snapshot's number within the test, or by the hint when one is given.
+Values are serialized with sorted keys and no depth cap. Functions, threads, and userdata
+are written as their type name (e.g., `<function>`), while a cyclic value or a table key
+that is not a string, number, or boolean fails the assertion.
+
+In Lune, snapshots live in a plain text file beside the spec, at
+`__snapshots__/<spec file name>.snap`, and should be committed with the tests. Pass
+`SnapshotPath` on a test root to choose another location...
+
+```luau
+Testable.run({
+    { Name = "ReportTest", Func = require("./ReportTest.spec"), SnapshotPath = "Snapshots/Report.snap" },
+})
+```
+
+Roblox has no filesystem, so set `SnapshotStore` to a table with `read(path)` (returning
+the contents or `nil`) and `write(path, contents)` functions. Without one, `matchSnapshot`
+fails there. `Testable.Snapshots.MemorySnapshotStore.new(files)` keeps files in a table
+that you can seed before a run and persist afterward.
+
+Stored snapshots that no test produced are listed as obsolete in the run summary, and
+update mode removes them. Detection only covers snapshot files used during the run, and it
+is skipped when the run was focused or filtered, or when a test or describe block in the
+spec failed or was skipped.

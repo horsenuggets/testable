@@ -10,6 +10,7 @@ parallel test execution via task.spawn.
 
 const Config = require("./Config")
 const LifecycleHooks = require("./LifecycleHooks")
+const SnapshotManager = require("./Snapshots/SnapshotManager")
 const SpecApi = require("./SpecApi")
 const task = if task then task else require("@lune/task")
 const TestEnum = require("./TestEnum")
@@ -92,6 +93,10 @@ function TestRunner.runPlan(plan: any): any
 
     session.hasFocusNodes = TestFilter.hasFocus(plan)
 
+    -- Read the snapshot settings before tests run, since tests may call Config.reset().
+    const snapshots = SnapshotManager.new({ Store = Config.SnapshotStore, Update = Config.UpdateSnapshots })
+    session.results.snapshots = snapshots
+
     -- The plan captured the focus guard before any spec code ran, so neither planning nor
     -- the tests themselves can turn it off.
     session.forbidFocus = plan.forbidFocus == true
@@ -106,6 +111,10 @@ function TestRunner.runPlan(plan: any): any
 
     const results = session:finalize()
     results.duration = os.clock() - planStartTime
+
+    -- A focused or filtered run skips tests, so their snapshots must not be mistaken for
+    -- obsolete.
+    results.snapshotSummary = snapshots:Finish(results, session.hasFocusNodes or plan.filter ~= nil)
 
     return results
 end

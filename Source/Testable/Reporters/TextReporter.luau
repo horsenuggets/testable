@@ -9,6 +9,7 @@ Formats test results as a status tree and reports failures to stdout or TestServ
 const Ansi = require("../Ansi")
 const Config = require("../Config")
 const ResultTree = require("./ResultTree")
+const SnapshotSummary = require("../Snapshots/SnapshotSummary")
 const TestEnum = require("../TestEnum")
 const IS_LUNE = Ansi.isLune()
 const SEPARATOR = string.rep("─", 64)
@@ -161,6 +162,13 @@ function TextReporter.format(results, options: Options): { string }
     const focusSummary = TextReporter.formatFocusSummary(results.focusExcludedCount or 0)
     if focusSummary then
         table.insert(lines, if options.Color then Ansi.brightYellow(focusSummary) else focusSummary)
+    end
+    if results.snapshotSummary then
+        const snapshotLines = SnapshotSummary.format(results.snapshotSummary, options.Indent)
+        if #snapshotLines > 0 then
+            table.insert(lines, "")
+            table.move(snapshotLines, 1, #snapshotLines, #lines + 1, lines)
+        end
     end
     return lines
 end
