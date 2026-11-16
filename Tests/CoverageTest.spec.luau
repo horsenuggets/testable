@@ -324,6 +324,47 @@ return function()
                 expect(Coverage.normalizePath(spelling)).to.equal("/a/b/c.luau")
             end
         end)
+
+        it("should keep a network share as one root", function()
+            expect(Coverage.normalizePath("//server/share/Module.luau")).to.equal("//server/share/Module.luau")
+            expect(Coverage.normalizePath("//server/share/../Module.luau")).to.equal("//server/share/Module.luau")
+            expect(Coverage.normalizePath("\\\\server\\share\\x\\..\\Module.luau")).to.equal(
+                "//server/share/Module.luau"
+            )
+        end)
+
+        it("should keep the slash on a drive or POSIX root", function()
+            expect(Coverage.normalizePath("C:/")).to.equal("C:/")
+            expect(Coverage.normalizePath("c:/a/..")).to.equal("C:/")
+            expect(Coverage.normalizePath("/a/..")).to.equal("/")
+            expect(Coverage.normalizePath("//server/share/a/..")).to.equal("//server/share/")
+        end)
+
+        it("should return every result unchanged when normalized again", function()
+            const workingDirectories = { "/home/dev/project", "C:\\Users\\dev\\project", "//server/share/project" }
+            const paths = {
+                "Module.luau",
+                "../Module.luau",
+                "../../../../Module.luau",
+                "./a/../b/./Module.luau",
+                "/",
+                "/a/..",
+                "/../../x.luau",
+                "C:/",
+                "c:/a/..",
+                "c:\\x\\..\\..\\y.luau",
+                "//server/share",
+                "//server/share/a/../..",
+                "\\\\server\\share\\x.luau",
+            }
+            for _, workingDirectory in workingDirectories do
+                for _, path in paths do
+                    const once = Coverage.normalizePath(path, workingDirectory)
+                    expect(Coverage.normalizePath(once, workingDirectory)).to.equal(once)
+                    expect(Coverage.normalizePath(once, "/elsewhere")).to.equal(once)
+                end
+            end
+        end)
     end)
 
     describe("Coverage.percentage", function()
