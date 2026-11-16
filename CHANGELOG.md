@@ -5,6 +5,7 @@
 - Added `Coverage.normalizePath` so different spellings of one path share coverage.
 - Added the `CoverageRows` option to set how many file rows the coverage table lists before folding the rest.
 - Added the `CoverageSort` option to order coverage rows by hit lines instead of percentage.
+- Colored file coverage percentages by band, with red below 25%, yellow below 75%, and green from 75%, while the total still follows the threshold.
 
 ## 1.1.6
 - Counted modules that no test required as uncovered by compiling them for their executable lines.
