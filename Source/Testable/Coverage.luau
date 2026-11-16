@@ -78,6 +78,10 @@ function Coverage.normalizePath(path: string): string
     if not isAbsolute and IS_LUNE then
         unified = `{require("@lune/process").cwd}/{unified}`
     end
+    -- Drive letters are case-insensitive, so "c:" and "C:" must share a key.
+    unified = unified:gsub("^(%a):/", function(drive: string)
+        return `{string.upper(drive)}:/`
+    end)
 
     const segments: { string } = {}
     for _, segment in string.split(unified, "/") do

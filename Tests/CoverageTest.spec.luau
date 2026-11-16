@@ -291,6 +291,17 @@ return function()
             expect(Coverage.normalizePath("C:/x/../../../a.luau")).to.equal("C:/a.luau")
         end)
 
+        it("should give both drive letter cases one key", function()
+            expect(Coverage.normalizePath("c:/project/Module.luau")).to.equal("C:/project/Module.luau")
+            expect(Coverage.normalizePath("c:\\project\\Module.luau")).to.equal(
+                Coverage.normalizePath("C:/project/Module.luau")
+            )
+            -- Only the drive letter is case-insensitive, so the rest keeps its case.
+            expect(Coverage.normalizePath("C:/project/Module.luau")).never.to.equal(
+                Coverage.normalizePath("C:/project/module.luau")
+            )
+        end)
+
         it("should resolve relative paths against the working directory", function()
             const cwd = require("@lune/process").cwd
             expect(Coverage.normalizePath("Tests/x/../y.luau")).to.equal(Coverage.normalizePath(`{cwd}/Tests/y.luau`))
