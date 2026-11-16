@@ -74,10 +74,17 @@ export type Expect<Custom = {}> = ((value: any) -> Expectation<Custom>) & {
     extend: (matchers: { [string]: Matcher }) -> (),
 }
 
+-- The options a single test accepts as the third argument of `it`.
+export type TestOptions = {
+    -- The time budget of the test in seconds, which wins over the configured Timeout.
+    Timeout: number?,
+}
+
 type Callback = (...any) -> ...any
 type Declare = (phrase: string, callback: Callback) -> ()
 -- A skip variant, which takes an optional reason that is reported with the skipped tests.
 type DeclareSkipped = (phrase: string, callback: Callback, reason: string?) -> ()
+type DeclareTest = (phrase: string, callback: Callback, options: TestOptions?) -> ()
 type Hook = (callback: Callback) -> ()
 
 --[[
@@ -97,13 +104,13 @@ export type Api = {
     expect: Expect,
     fail: (message: any?) -> (),
     fdescribe: Declare,
-    fit: Declare,
+    fit: DeclareTest,
     FIXME: (message: string?) -> (),
     FOCUS: () -> (),
     HACK_NO_XPCALL: () -> (),
-    it: Declare,
+    it: DeclareTest,
     itFIXME: (phrase: string, callback: Callback, message: string?) -> (),
-    itFOCUS: Declare,
+    itFOCUS: DeclareTest,
     itSKIP: DeclareSkipped,
     itTODO: (phrase: string) -> (),
     SKIP: (reason: string?) -> (),

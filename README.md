@@ -334,6 +334,42 @@ and durations are in seconds. `ErrorMessage` is only present on nodes that faile
 Result nodes carry a `duration` field in seconds. Tests and describe blocks record how
 long they ran, the results object records the whole run, and skipped tests have none.
 
+## Timeouts
+
+A test that yields forever (e.g., one waiting on a signal that never fires) would
+otherwise hang the whole run. Set the `Timeout` option to give every test a time budget in
+seconds. It's off by default, so tests may run for as long as they like until you set
+it...
+
+```luau
+Testable.configure({ Timeout = 5 })
+```
+
+A single test can raise or lower its budget with an options table as the third argument
+of `it` (or `itFOCUS` and `fit`). Use `math.huge` to turn the limit off for that test. The
+option on a test works even when no `Timeout` is configured...
+
+```luau
+it("waits for a slow service", function()
+    -- ...
+end, { Timeout = 30 })
+```
+
+A test that runs past its budget is reported as failed with a message naming the budget,
+its thread is cancelled, its `afterEach` hooks still run, and the rest of the run carries
+on. Here's what else to know...
+
+- Every `beforeEach` and `afterEach` hook gets the same budget as the test it surrounds,
+  counted separately for each hook, so a slow hook doesn't use up the time of the test.
+- The `beforeAll` and `afterAll` hooks have no budget, since they often do slow one-time
+  setup and belong to no single test.
+- Only code that yields can be interrupted. A busy loop that never yields blocks the Luau
+  scheduler, so the budget can't stop it and the run still hangs. Work that doesn't yield
+  but does return still counts against the budget, so a test that finishes over budget is
+  reported as timed out.
+- Cancelling a test stops its own thread only. Threads that the test started with
+  `task.spawn` or `task.delay` keep running.
+
 ## Coverage
 
 In Lune, set `Coverage = true` and `CoverageRoots` to report line coverage for every
