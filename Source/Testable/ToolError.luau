@@ -9,7 +9,7 @@ value of a run instead of being thrown.
 
 --]]
 
-export type Kind = "EmptyCoverage" | "EmptyFilter"
+export type Kind = "EmptyCoverage" | "EmptyFilter" | "InvalidReporters"
 
 export type ToolError = {
     Kind: Kind,
@@ -19,6 +19,7 @@ export type ToolError = {
 const KINDS = {
     EmptyCoverage = "EmptyCoverage" :: Kind,
     EmptyFilter = "EmptyFilter" :: Kind,
+    InvalidReporters = "InvalidReporters" :: Kind,
 }
 
 const ToolError = {}

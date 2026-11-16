@@ -40,8 +40,8 @@ const EXIT_CODES = {
 
     Test failures are reported through the "passed" return value. Tool errors, where the
     run can't give a meaningful verdict, are thrown as ToolError objects instead. That
-    covers a Config.Filter that selects no tests and a coverage threshold with nothing
-    measured. Catch them with pcall and ToolError.is, or use runToExitCode.
+    covers a Config.Filter that selects no tests, a coverage threshold with nothing
+    measured, and reporter settings that can't work together. Catch them with pcall and ToolError.is, or use runToExitCode.
 
     @param testRoots - Array of test module roots to execute
     @return results - The test results object
@@ -67,10 +67,23 @@ const function run(testRoots: any): (any, boolean)
 
     -- The reporter settings are resolved up front for the same reason, and so that a bad
     -- combination fails before any test runs.
-    const selection = ReporterSelection.resolve(Config.Reporters, Config.ReporterOutputs)
+    -- A combination that can't work is a tool error, since no test has anything to do
+    -- with it.
+    const resolved, selection = pcall(ReporterSelection.resolve, Config.Reporters, Config.ReporterOutputs)
+    if not resolved then
+        -- The source position in front of the message means nothing to the caller
+        const message = tostring(selection):gsub("^[^\n]-:%d+: ", "")
+        error(ToolError.new(ToolError.Kind.InvalidReporters, message), 0)
+    end
     const slowestTests = Config.SlowestTests
     if selection.NeedsCoverage and not (coverageEnabled and coverageRoots ~= nil) then
-        error('The "Lcov" reporter needs Coverage enabled and CoverageRoots set.')
+        error(
+            ToolError.new(
+                ToolError.Kind.InvalidReporters,
+                'The "Lcov" reporter needs Coverage enabled and CoverageRoots set.'
+            ),
+            0
+        )
     end
 
     -- A machine-readable report on standard output has to be the only thing there, so

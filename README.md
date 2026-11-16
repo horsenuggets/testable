@@ -86,8 +86,10 @@ the run can't give a meaningful verdict, and `Testable.run` throws a `ToolError`
 instead. These are the tool errors...
 
 - `EmptyFilter` → `Filter` did not match any test, so nothing would have run.
-- `EmptyCoverage` → `CoverageThreshold` is above 0 but coverage measured no executable
-  lines.
+- `EmptyCoverage` → `Coverage` is enabled with a `CoverageThreshold` above 0, but no
+  executable lines were measured. The threshold is ignored while `Coverage` is off.
+- `InvalidReporters` → `Reporters` and `ReporterOutputs` describe a combination that
+  can't work, such as two reports on standard output.
 
 `Testable.runToExitCode` wraps `Testable.run` and maps the outcome to `0` for a passing
 run, `1` for test failures, and `2` for a tool error (also available as

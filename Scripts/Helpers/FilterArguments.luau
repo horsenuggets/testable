@@ -25,7 +25,8 @@ FilterArguments.Usage = `[{FILTER_FLAG} "<text>"]`
     caller can print it as is.
 
     > --filter <text> - Only runs the tests whose full name contains the text. It can
-      also be written as --filter=<text>.
+      also be written as --filter=<text>, which is the form to use when the text itself
+      looks like another parser's flag.
 
     @param arguments - The command-line arguments
     @return options - The configuration options the flag describes

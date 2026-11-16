@@ -276,6 +276,16 @@ return function()
             expect(contains(output, "[Usage] ./Scripts/RunTests.exec.luau")).to.equal(true)
         end)
 
+        it("should exit with 2 for reporters that can't work together", function()
+            const code, output = runTestsScript({ "--reporter", "json", "--reporter", "junit" })
+
+            expect(code).to.equal(2)
+            expect(contains(output, "Testable could not complete the run.")).to.equal(true)
+            expect(contains(output, "passed")).to.equal(false)
+            -- The message is for the person running the script, so it has no source position
+            expect(contains(output, "ReporterSelection.luau")).to.equal(false)
+        end)
+
         it("should keep a tool error out of a report on standard output", function()
             const result = process.exec(
                 "lune",
