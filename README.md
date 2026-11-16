@@ -139,6 +139,7 @@ Testable.configure({
 | `AlphabeticalSort` | `boolean` | `false` | Sort test results alphabetically instead of definition order |
 | `CoverageRows` | `number` | `20` | File rows listed in the coverage table before the rest fold into a summary row |
 | `CoverageSort` | `"Percentage" \| "HitLines"` | `"Percentage"` | Order coverage rows by percentage or by hit lines, both descending |
+| `Filter` | `string?` | `nil` | Only run tests whose full name contains this text (see [Filtering Tests](#filtering-tests)) |
 | `ForbidFocus` | `boolean` | `false` | Fail the run when a focus modifier excluded any test |
 | `Indent` | `string` | `"   "` | Indentation string used for nested test output |
 | `InjectGlobals` | `boolean` | `true` | Inject `describe`, `it`, `expect`, and the rest into spec functions as globals |
@@ -151,6 +152,64 @@ Testable.configure({
 | `Verbose` | `boolean` | `false` | Enable detailed logging during test execution |
 
 Reset configuration to defaults with `Testable.resetConfig()`.
+
+## Filtering Tests
+
+Set `Filter` to run only the tests whose full name contains the given text. A test's full
+name is its module name, the phrases of its `describe` blocks, and its own phrase, joined
+by single spaces (e.g., `PlayerTest inventory should stack items`).
+
+```luau
+Testable.configure({ Filter = "inventory should stack" })
+```
+
+The filter is a case-sensitive plain substring, so characters like `%`, `.`, and `(` have
+no special meaning. Matching a module or `describe` name selects every test under it, and
+an empty string clears the filter.
+
+The filter narrows the run first, and focus (`fit`, `fdescribe`) then narrows what the
+filter left. A focus on tests that the filter excluded has no effect, and a `describe`
+block with no selected tests doesn't run its `beforeAll` and `afterAll` hooks. Tests that
+the filter excluded are reported as skipped with the reason `excluded by filter`, and they
+never count as excluded by focus. The summary and `results.filteredCount` say how many of
+the skipped tests the filter accounts for...
+
+```text
+3 passed, 0 failed, 12 skipped (11 filtered out).
+```
+
+## Exit Codes
+
+Test failures and tool errors are kept apart. A failing test (or coverage below
+`CoverageThreshold`) makes `Testable.run` return `passed` as `false`. A tool error means
+the run can't give a meaningful verdict, and `Testable.run` throws a `ToolError` for it
+instead. These are the tool errors...
+
+- `EmptyFilter` → `Filter` did not match any test, so nothing would have run.
+- `EmptyCoverage` → `Coverage` is enabled with a `CoverageThreshold` above 0, but no
+  executable lines were measured. The threshold is ignored while `Coverage` is off.
+- `InvalidReporters` → `Reporters` and `ReporterOutputs` describe a combination that
+  can't work, such as two reports on standard output.
+
+`Testable.runToExitCode` wraps `Testable.run` and maps the outcome to `0` for a passing
+run, `1` for test failures, and `2` for a tool error (also available as
+`Testable.ExitCode`). It prints tool errors and rethrows any other error.
+
+```luau
+local exitCode = Testable.runToExitCode({ testRoot })
+process.exit(exitCode)
+```
+
+To handle tool errors yourself, catch them with `pcall` and check them with
+`Testable.ToolError.is`...
+
+```luau
+local ok, results, passed = pcall(Testable.run, { testRoot })
+
+if not ok and Testable.ToolError.is(results) then
+    print(results.Kind, results.Message)
+end
+```
 
 ## Skipping, Todo Tests & Focus
 
