@@ -2,53 +2,72 @@
 
 NestedRunTest.spec
 
-Tests that plans run from inside running tests finish instead of waiting forever for
-concurrency slots that their callers hold. Uses subprocess execution so a regression
-shows up as a timed-out script instead of hanging the whole suite.
+Pins that a test can start a run of its own without deadlocking. A test holds one of the
+run's concurrency slots while it executes, so nested runs must not compete with the tests
+that are waiting on them for the same slots. Runs in a subprocess with a watchdog, so a
+regression fails this spec instead of hanging the whole suite.
 
 --]]
 
 const Subprocess = require("./Helpers/Subprocess")
+
+const CASES = {
+    { MaxConcurrency = 1, Name = "one nesting test and one slot", Tests = 1 },
+    { MaxConcurrency = 4, Name = "as many nesting tests as slots", Tests = 4 },
+    { MaxConcurrency = 2, Name = "more nesting tests than slots", Tests = 5 },
+}
 const SCRIPT_TEMPLATE = [[
     const process = require("@lune/process")
     const task = require("@lune/task")
     const Testable = require("./Source/Testable")
 
-    Testable.configure({ MaxConcurrency = %d })
+    Testable.configure({ MaxConcurrency = %d, Parallel = true })
 
-    task.delay(20, function()
-        print("TIMED_OUT")
-        process.exit(3)
+    task.delay(10, function()
+        print("DEADLOCK")
+        process.exit(2)
     end)
 
+    local nestedRan = 0
+
     const function nestedRun()
-        const results = Testable.TestRunner.runPlan(Testable.TestPlanner.createPlan({
-            {
-                method = function()
-                    it("inner first", function()
-                        task.wait()
+        const _, nestedPassed = Testable.run({
+            Nested = function()
+                describe("nested", function()
+                    it("yields and passes", function()
+                        task.wait(0.01)
+                        nestedRan += 1
                     end)
-                    it("inner second", function() end)
-                end,
-                path = { "Inner" },
-                pathStringForSorting = "inner",
-            },
-        }))
-        assert(results.successCount == 2, "The nested run should pass both of its tests.")
+
+                    it("runs a run of its own", function()
+                        const _, innermostPassed = Testable.run({
+                            Innermost = function()
+                                it("passes", function()
+                                    nestedRan += 1
+                                end)
+                            end,
+                        })
+                        expect(innermostPassed).to.equal(true)
+                    end)
+                end)
+            end,
+        })
+        expect(nestedPassed).to.equal(true)
     end
 
     const results, passed = Testable.run({
-        {
-            Name = "Outer",
-            Func = function()
+        Outer = function()
+            describe("outer", function()
                 for index = 1, %d do
-                    it("outer " .. index, nestedRun)
+                    it("starts nested run " .. index, nestedRun)
                 end
-            end,
-        },
+            end)
+        end,
     })
+
     print("PASSED:" .. tostring(passed))
     print("PASS_COUNT:" .. results.successCount)
+    print("NESTED_RAN:" .. nestedRan)
     process.exit(if passed then 0 else 1)
 ]]
 
@@ -57,19 +76,15 @@ const function contains(output: string, text: string): boolean
 end
 
 return function()
-    for _, case in
-        { { Slots = 1, Tests = 1 }, { Slots = 1, Tests = 3 }, { Slots = 2, Tests = 6 }, { Slots = 4, Tests = 9 } }
-    do
-        const runs = if case.Tests == 1 then "1 nested run" else `{case.Tests} nested runs`
-        const slots = if case.Slots == 1 then "1 concurrency slot" else `{case.Slots} concurrency slots`
+    for _, case in CASES do
+        it(`should finish with {case.Name}`, function()
+            const ok, output = Subprocess.runScript(string.format(SCRIPT_TEMPLATE, case.MaxConcurrency, case.Tests))
 
-        it(`should finish {runs} with {slots}`, function()
-            const ok, output = Subprocess.runScript(string.format(SCRIPT_TEMPLATE, case.Slots, case.Tests))
-
-            expect(contains(output, "TIMED_OUT")).to.equal(false)
-            expect(ok).to.equal(true)
+            expect(contains(output, "DEADLOCK")).to.equal(false)
             expect(contains(output, "PASSED:true")).to.equal(true)
             expect(contains(output, `PASS_COUNT:{case.Tests}`)).to.equal(true)
+            expect(contains(output, `NESTED_RAN:{case.Tests * 2}`)).to.equal(true)
+            expect(ok).to.equal(true)
         end)
     end
 end

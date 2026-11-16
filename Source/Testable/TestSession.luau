@@ -14,6 +14,13 @@ const TestEnum = require("./TestEnum")
 const TestResults = require("./TestResults")
 const FILTERED_SKIP_REASON = "Excluded by the filter."
 
+-- Limits how many tests of one run execute at the same time. The lowercase keys match the
+-- other session fields.
+export type Semaphore = {
+    activeCount: number,
+    lock: boolean,
+}
+
 const TestSession = {}
 
 TestSession.__index = TestSession
@@ -33,6 +40,8 @@ function TestSession.new(plan: any): any
         contextStack = {},
         expectationContextStack = {},
         hasFocusNodes = false,
+        -- Owned by this run alone, so a run nested inside one of its tests gets its own.
+        semaphore = { activeCount = 0, lock = false } :: Semaphore,
     }
 
     setmetatable(self, TestSession)

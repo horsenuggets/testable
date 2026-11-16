@@ -19,19 +19,16 @@ const TestSession = require("./TestSession")
 const RUNNING_GLOBAL = "__TESTABLE_RUNNING_TEST__"
 const RUNNING_COUNT_GLOBAL = "__TESTABLE_RUNNING_COUNT__"
 
--- Global semaphore for limiting concurrent test execution across all describe blocks
-const globalSemaphore = { activeCount = 0, lock = false }
-
--- The threads that currently hold a global semaphore slot, so that a plan run from
--- inside a running test can tell that its caller is occupying one
-const slotHolders: { [thread]: boolean } = {}
-
 const TestRunner = {
     environment = {},
 }
 
--- Helper to acquire a global semaphore slot
-const function acquireGlobalSlot()
+-- Helper to acquire a slot of the semaphore that limits concurrent test execution across
+-- all describe blocks of one run. Every run has its own semaphore (see TestSession.new),
+-- because a test that starts a nested run holds its slot until the nested run finishes.
+-- If both shared one semaphore, the nested tests could wait forever for slots that are
+-- all held by the tests waiting on them.
+const function acquireGlobalSlot(globalSemaphore: TestSession.Semaphore)
     while true do
         while globalSemaphore.lock do
             task.wait()
@@ -39,7 +36,6 @@ const function acquireGlobalSlot()
         globalSemaphore.lock = true
         if globalSemaphore.activeCount < Config.MaxConcurrency then
             globalSemaphore.activeCount = globalSemaphore.activeCount + 1
-            slotHolders[coroutine.running()] = true
             globalSemaphore.lock = false
             return
         end
@@ -48,14 +44,13 @@ const function acquireGlobalSlot()
     end
 end
 
--- Helper to release a global semaphore slot
-const function releaseGlobalSlot()
+-- Helper to release a slot of a run's semaphore
+const function releaseGlobalSlot(globalSemaphore: TestSession.Semaphore)
     while globalSemaphore.lock do
         task.wait()
     end
     globalSemaphore.lock = true
     globalSemaphore.activeCount = globalSemaphore.activeCount - 1
-    slotHolders[coroutine.running()] = nil
     globalSemaphore.lock = false
 end
 
@@ -107,25 +102,7 @@ function TestRunner.runPlan(plan: any): any
         log("Focus nodes detected, other tests will be skipped.")
     end
 
-    -- A plan run from inside a running test (such as a test of Testable itself) needs
-    -- slots for its own tests while its caller holds one. Enough of those callers at
-    -- once would hold every slot and wait on each other forever, so the caller lends
-    -- its slot to the nested run and takes one back afterward.
-    const lendsSlot = slotHolders[coroutine.running()] == true
-    if lendsSlot then
-        releaseGlobalSlot()
-    end
-
-    const ok, problem = xpcall(TestRunner.runPlanNode, function(message)
-        return debug.traceback(tostring(message), 2)
-    end, session, plan, lifecycleHooks)
-
-    if lendsSlot then
-        acquireGlobalSlot()
-    end
-    if not ok then
-        error(problem, 0)
-    end
+    TestRunner.runPlanNode(session, plan, lifecycleHooks)
 
     log("Test plan execution complete.")
 
@@ -298,7 +275,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
             for i, childPlanNode in ipairs(itTests) do
                 task.spawn(function()
                     -- Wait for a global slot to become available
-                    acquireGlobalSlot()
+                    acquireGlobalSlot(session.semaphore)
 
                     log(string.format("  [%d/%d] Starting: %s", i, total, childPlanNode.phrase))
 
@@ -353,7 +330,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
                     end
 
                     -- Release the global slot and update completion count
-                    releaseGlobalSlot()
+                    releaseGlobalSlot(session.semaphore)
                     while completionLock do
                         task.wait()
                     end
@@ -450,6 +427,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
                         contextStack = {},
                         expectationContextStack = {},
                         hasFocusNodes = session.hasFocusNodes,
+                        semaphore = session.semaphore,
                     }
                     setmetatable(subSession, { __index = TestSession })
 
