@@ -137,10 +137,92 @@ const function isCallable(value)
     if type(value) == "table" then
         const metatable = getmetatable(value)
 
-        return type(metatable) == "table" and type(rawget(metatable, "__call")) == "function"
+        if metatable == nil then
+            return false
+        end
+
+        -- A metatable protected with __metatable hides whether it has __call, so the table
+        -- is given the benefit of the doubt.
+        return type(metatable) ~= "table" or rawget(metatable, "__call") ~= nil
     end
 
     return false
+end
+
+--[[
+    Returns a description of what is wrong with a Luau string pattern, or nil when it is
+    well formed. The string library only parses as much of a pattern as it needs while
+    matching, so a malformed tail can go unnoticed unless the whole pattern is checked.
+]]
+const function findPatternProblem(pattern)
+    const length = #pattern
+    local openCaptures = 0
+    local position = 1
+
+    while position <= length do
+        const character = pattern:sub(position, position)
+
+        if character == "%" then
+            const escaped = pattern:sub(position + 1, position + 1)
+
+            if escaped == "" then
+                return 'it ends with "%".'
+            elseif escaped == "b" then
+                if position + 3 > length then
+                    return 'it is missing the two characters after "%b".'
+                end
+
+                position += 4
+            elseif escaped == "f" then
+                if pattern:sub(position + 2, position + 2) ~= "[" then
+                    return 'it is missing a "[" after "%f".'
+                end
+
+                position += 2
+            else
+                position += 2
+            end
+        elseif character == "[" then
+            position += 1
+
+            if pattern:sub(position, position) == "^" then
+                position += 1
+            end
+
+            -- The first character of a set is always literal, even when it is "]".
+            repeat
+                if position > length then
+                    return 'it has a "[" without a closing "]".'
+                end
+
+                if pattern:sub(position, position) == "%" then
+                    position += 1
+                end
+
+                position += 1
+            until pattern:sub(position, position) == "]"
+
+            position += 1
+        elseif character == "(" then
+            openCaptures += 1
+            position += 1
+        elseif character == ")" then
+            if openCaptures == 0 then
+                return 'it has a ")" without an opening "(".'
+            end
+
+            openCaptures -= 1
+            position += 1
+        else
+            position += 1
+        end
+    end
+
+    if openCaptures > 0 then
+        return 'it has a "(" without a closing ")".'
+    end
+
+    return nil
 end
 
 --[[
@@ -456,6 +538,14 @@ function Expectation:match(pattern)
         misuse("match", `expects a string pattern, but received {describeKind(pattern)}.`)
     end
 
+    const patternProblem = findPatternProblem(pattern)
+
+    if patternProblem then
+        misuse("match", `received the malformed pattern {ValueInspector.format(pattern)}, since {patternProblem}`)
+    end
+
+    -- Problems that only show up while matching (e.g., an invalid back-reference) still
+    -- surface here.
     const ok, found = pcall(string.find, self.value, pattern)
 
     if not ok then

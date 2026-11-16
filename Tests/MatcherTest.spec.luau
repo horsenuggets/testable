@@ -371,6 +371,35 @@ return function()
             end)
         end)
 
+        it("should reject malformed patterns even when the malformed part is never reached", function()
+            const malformed = { "z[", "z%", "z(", "z)", "z%b", "z%b(", "z%f", "z%fa", "z[^", "z[%", "z[]", "(z))" }
+
+            for _, pattern in malformed do
+                expectMisuse("match", function()
+                    expect("a").to.match(pattern)
+                end)
+                expectMisuse("match", function()
+                    expect("a").never.to.match(pattern)
+                end)
+            end
+        end)
+
+        it("should accept well-formed patterns that use unusual syntax", function()
+            expect("]").to.match("[]]")
+            expect("a").to.match("[^]]")
+            expect("]").to.match("[%]]")
+            expect("(").to.match("[(]")
+            expect("(").to.match("%(")
+            expect(")").to.match("%)")
+            expect("%").to.match("%%")
+            expect("(x)").to.match("%b()")
+            expect("THE (quick) fox").to.match("%f[%a]%a+")
+            expect("ab").to.match("(a)(b)")
+            expect("ab").to.match("()ab()")
+            expect("aa").to.match("(a)%1")
+            expect("a").never.to.match("[%a]%d")
+        end)
+
         it("should reject ordering anything but two numbers or two strings", function()
             const names = { "greaterThan", "greaterThanOrEqual", "lessThan", "lessThanOrEqual" }
             const invalidPairs = {
@@ -440,6 +469,25 @@ return function()
             })
 
             expect(callable).to.throw("from callable")
+        end)
+
+        it("should accept callable tables with a protected metatable", function()
+            const callable = setmetatable({}, {
+                __call = function()
+                    error("from protected callable")
+                end,
+                __metatable = "locked",
+            })
+
+            expect(callable).to.throw("from protected callable")
+        end)
+
+        it("should reject tables that are not callable", function()
+            const message = failureMessage(function()
+                expect(setmetatable({}, {})).to.throw()
+            end)
+
+            expect(message).to.contain('Matcher "throw"')
         end)
 
         it("should handle errors that are not strings", function()

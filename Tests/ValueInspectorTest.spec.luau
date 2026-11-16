@@ -182,6 +182,25 @@ return function()
             expect(ValueInspector.format(forward)).to.equal(ValueInspector.format(forward))
         end)
 
+        it("should order reference keys that render identically by their values", function()
+            for _ = 1, 20 do
+                const value = {}
+
+                for _, item in { "delta", "alpha", "charlie", "bravo" } do
+                    value[{}] = item
+                end
+
+                expect(ValueInspector.format(value)).to.equal(table.concat({
+                    "{",
+                    '    [<table>] = "alpha",',
+                    '    [<table>] = "bravo",',
+                    '    [<table>] = "charlie",',
+                    '    [<table>] = "delta",',
+                    "}",
+                }, "\n"))
+            end
+        end)
+
         it("should break long tables across indented lines", function()
             const value = {
                 Description = "a fairly long string that pushes the table past the inline width",

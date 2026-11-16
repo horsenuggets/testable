@@ -129,7 +129,12 @@ const function formatKey(key: any): string
     return `[{formatScalar(key)}]`
 end
 
-const function compareKeys(left: any, right: any): boolean
+--[[
+    Orders two table keys. Reference keys (tables, functions, and so on) have no stable
+    order of their own, so keys that render identically fall back to comparing their
+    rendered values.
+]]
+const function compareKeys(left: any, right: any, renderValue: (key: any) -> string): boolean
     const leftType = type(left)
     const rightType = type(right)
     const leftOrder = KEY_TYPE_ORDER[leftType] or LAST_KEY_TYPE_ORDER
@@ -148,7 +153,14 @@ const function compareKeys(left: any, right: any): boolean
         return left == false and right == true
     end
 
-    return formatScalar(left) < formatScalar(right)
+    const leftText = formatScalar(left)
+    const rightText = formatScalar(right)
+
+    if leftText ~= rightText then
+        return leftText < rightText
+    end
+
+    return renderValue(left) < renderValue(right)
 end
 
 local formatInner
@@ -185,7 +197,22 @@ const function formatTable(
         end
     end
 
-    table.sort(keys, compareKeys)
+    const renderedValues: { [any]: string } = {}
+
+    const function renderValue(key: any): string
+        local rendered = renderedValues[key]
+
+        if rendered == nil then
+            rendered = formatInner(rawget(value, key), depth + 1, maxDepth, maxItems, ancestors)
+            renderedValues[key] = rendered
+        end
+
+        return rendered
+    end
+
+    table.sort(keys, function(left, right)
+        return compareKeys(left, right, renderValue)
+    end)
 
     const entries = {}
     const totalItems = arrayLength + #keys
@@ -203,8 +230,7 @@ const function formatTable(
             break
         end
 
-        const rendered = formatInner(rawget(value, key), depth + 1, maxDepth, maxItems, ancestors)
-        table.insert(entries, `{formatKey(key)} = {rendered}`)
+        table.insert(entries, `{formatKey(key)} = {renderValue(key)}`)
     end
 
     if totalItems > #entries then
