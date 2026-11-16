@@ -10,7 +10,8 @@ misuse errors, and the "Expected" and "Received" failure messages.
 
 const Expectation = require("../Source/Testable/Expectation")
 const ExpectationContext = require("../Source/Testable/ExpectationContext")
-const roblox = require("@lune/roblox")
+-- The Lune type definitions don't declare the Roblox datatype constructors.
+const roblox = require("@lune/roblox") :: any
 
 const NAN = 0 / 0
 const NEW_MATCHERS = {

@@ -151,7 +151,7 @@ return function()
         end)
 
         it("should put array items first, then numbers, strings, and booleans", function()
-            const value = { "a", "b", Name = "x", [10] = "ten", [true] = "yes", [-1] = "neg" }
+            const value: { [any]: any } = { "a", "b", Name = "x", [10] = "ten", [true] = "yes", [-1] = "neg" }
 
             expect(ValueInspector.format(value)).to.equal(
                 '{ "a", "b", [-1] = "neg", [10] = "ten", Name = "x", [true] = "yes" }'
