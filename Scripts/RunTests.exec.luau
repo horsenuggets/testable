@@ -7,12 +7,22 @@ RunTests.exec
 Discovers every spec file in Tests/ and runs it, then exits with an appropriate status
 code. The run can be narrowed to specific spec files, or to the specs affected by what
 changed since a git ref. In watch mode, the affected specs run again whenever a file
-they depend on changes.
+they depend on changes. Reporter flags choose which reports the run produces and where
+they go...
 
-[Usage] ./Scripts/RunTests.exec.luau [--changed <ref>] [--watch] [spec files...]
+> --changed <ref> - Runs only the specs affected by the changes since a git ref.
+> --watch - Keeps running, and runs the affected specs again whenever files change.
+> --reporter <text|json|junit|lcov> - Adds a reporter. It can be given several times, and
+  "lcov" also turns on coverage for the source.
+> --output <path> - Writes the reporter named just before it to a file instead of
+  standard output.
+> --slowest <count> - Lists that many of the slowest tests in the text report.
+
+[Usage] ./Scripts/RunTests.exec.luau [--changed <ref>] [--watch] [reporter flags] [spec files...]
 
 --]]
 
+const ReporterArguments = require("./Helpers/ReporterArguments")
 const RunTestsArguments = require("./Helpers/RunTestsArguments")
 const Testable = require("../Source/Testable")
 const process = require("@lune/process")
@@ -22,6 +32,7 @@ const EXIT_CODE_SUCCESS = 0
 const EXIT_CODE_TOOL_ERROR = 2
 const INCLUDE = { "Tests/**/*.spec.luau" }
 const SCRIPT_PATH = "Scripts/RunTests.exec.luau"
+const USAGE = `[Usage] ./{SCRIPT_PATH} {RunTestsArguments.Usage} {ReporterArguments.Usage} [spec files...]`
 
 const RunTests = {}
 
@@ -42,12 +53,17 @@ end
     first.
 
     @param files - Spec files to watch instead of every spec, when any were given
+    @param childArguments - The flags to hand on to every pass
 ]]
-const function watch(files: { string })
+const function watch(files: { string }, childArguments: { string })
     const ok, message = pcall(Testable.Discovery.watch, {
         Include = if #files > 0 then files else INCLUDE,
         Run = function(specFiles: { string })
-            Testable.Discovery.runInChild({ Files = specFiles, Script = SCRIPT_PATH })
+            Testable.Discovery.runInChild({
+                Arguments = childArguments,
+                Files = specFiles,
+                Script = SCRIPT_PATH,
+            })
         end,
     })
     if not ok then
@@ -56,16 +72,28 @@ const function watch(files: { string })
 end
 
 function RunTests.exec()
-    const arguments, problem = RunTestsArguments.parse(process.args)
+    const parsed, options, remaining = pcall(ReporterArguments.parse, process.args)
+    if not parsed then
+        exitWithToolError(tostring(options))
+    end
+
+    const arguments, problem = RunTestsArguments.parse(remaining)
     if arguments == nil then
         print(problem)
-        exitWithToolError(RunTestsArguments.Usage)
+        exitWithToolError(USAGE)
         return
     end
 
     if arguments.Watch then
-        watch(arguments.Files)
+        watch(arguments.Files, RunTestsArguments.without(process.args, remaining))
         return
+    end
+
+    Testable.configure(options)
+    for _, reporter in options.Reporters or {} do
+        if reporter == Testable.TestEnum.Reporter.Lcov then
+            Testable.configure({ Coverage = true, CoverageRoots = script.Parent.Parent.Source.Testable })
+        end
     end
 
     local files: { string }? = if #arguments.Files > 0 then arguments.Files else nil

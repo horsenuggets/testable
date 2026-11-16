@@ -15,7 +15,7 @@ export type Arguments = {
 
 const RunTestsArguments = {}
 
-RunTestsArguments.Usage = "[Usage] ./Scripts/RunTests.exec.luau [--changed <ref>] [--watch] [spec files...]"
+RunTestsArguments.Usage = "[--changed <ref>] [--watch]"
 
 --[[
     Parses the arguments given to the RunTests script.
@@ -63,6 +63,32 @@ function RunTestsArguments.parse(arguments: { string }): (Arguments?, string?)
     end
 
     return parsed, nil
+end
+
+--[[
+    Removes a subsequence from a list of arguments. The script uses it to find the flags
+    that another parser consumed, so a watch pass can hand exactly those on to its child
+    process.
+
+    @param arguments - The full list of arguments
+    @param removed - The arguments to take out, in the order they appear in the list
+    @return The arguments that are left, in their original order
+]]
+function RunTestsArguments.without(arguments: { string }, removed: { string }): { string }
+    assert(type(arguments) == "table", "arguments must be an array of strings")
+    assert(type(removed) == "table", "removed must be an array of strings")
+
+    const kept = {}
+    local removedIndex = 1
+    for _, argument in arguments do
+        if argument == removed[removedIndex] then
+            removedIndex += 1
+        else
+            table.insert(kept, argument)
+        end
+    end
+
+    return kept
 end
 
 return RunTestsArguments

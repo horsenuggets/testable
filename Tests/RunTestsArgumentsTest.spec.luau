@@ -76,7 +76,37 @@ return function()
         end)
     end)
 
+    describe("RunTestsArguments.without()", function()
+        it("should keep the arguments that another parser consumed", function()
+            const arguments = { "--reporter", "json", "--watch", "--output", "out.json", "Tests/A.spec.luau" }
+            const kept = RunTestsArguments.without(arguments, { "--watch", "Tests/A.spec.luau" })
+            expect(table.concat(kept, " ")).to.equal("--reporter json --output out.json")
+        end)
+
+        it("should only remove one occurrence for each removed argument", function()
+            const kept = RunTestsArguments.without({ "a", "b", "a", "c" }, { "a" })
+            expect(table.concat(kept, " ")).to.equal("b a c")
+        end)
+
+        it("should return everything when nothing is removed and nothing when all is", function()
+            expect(table.concat(RunTestsArguments.without({ "a", "b" }, {}), " ")).to.equal("a b")
+            expect(#RunTestsArguments.without({ "a", "b" }, { "a", "b" })).to.equal(0)
+        end)
+    end)
+
     describe("RunTests.exec", function()
+        it("should exit with a tool error for an invalid reporter flag", function()
+            const result = runScript({ "--reporter", "unknown" })
+            expect(result.code).to.equal(EXIT_CODE_TOOL_ERROR)
+            expect(string.find(result.stdout, '"--reporter" flag needs', 1, true)).to.be.ok()
+        end)
+
+        it("should accept reporter flags together with spec files", function()
+            const result = runScript({ "--slowest", "1", "Tests/ExampleTest.spec.luau" })
+            expect(result.code).to.equal(0)
+            expect(string.find(result.stdout, "ExampleTest", 1, true)).to.be.ok()
+        end)
+
         it("should print the usage and exit with a tool error for invalid arguments", function()
             const result = runScript({ "--watch", "--changed", "HEAD" })
             expect(result.code).to.equal(EXIT_CODE_TOOL_ERROR)
