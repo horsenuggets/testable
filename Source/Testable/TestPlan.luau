@@ -10,6 +10,16 @@ TestPlan objects are produced by TestPlanner.
 const Expectation = require("./Expectation")
 const TestEnum = require("./TestEnum")
 
+--[[
+    Builds the skip reason for a test marked as broken, with or without a message.
+]]
+const function fixmeReason(message)
+    if message == nil or message == "" then
+        return TestEnum.SkipReason.Fixme
+    end
+    return `{TestEnum.SkipReason.Fixme}, {message}`
+end
+
 const function newEnvironment(currentNode, extraEnvironment)
     const env = {}
 
@@ -23,21 +33,43 @@ const function newEnvironment(currentNode, extraEnvironment)
         end
     end
 
-    const function addChild(phrase, callback, nodeType, nodeModifier)
+    const function addChild(phrase, callback, nodeType, nodeModifier, skipReason)
         const node = currentNode:addChild(phrase, nodeType, nodeModifier)
         node.callback = callback
+        node.skipReason = skipReason
         if nodeType == TestEnum.NodeType.Describe then
             node:expand()
         end
         return node
     end
 
+    --[[
+        Validates an optional skip reason passed to one of the skip variants and returns
+        it unchanged.
+    ]]
+    const function checkReason(name, reason)
+        if reason ~= nil and type(reason) ~= "string" then
+            error(`The reason passed to "{name}" must be a string, got {typeof(reason)}.`, 3)
+        end
+        return reason
+    end
+
     function env.describeFOCUS(phrase, callback)
         addChild(phrase, callback, TestEnum.NodeType.Describe, TestEnum.NodeModifier.Focus)
     end
 
-    function env.describeSKIP(phrase, callback)
-        addChild(phrase, callback, TestEnum.NodeType.Describe, TestEnum.NodeModifier.Skip)
+    --[[
+        Skips every test under the describe block. The optional reason is reported for
+        each of those tests unless a test carries a reason of its own.
+    ]]
+    function env.describeSKIP(phrase, callback, reason)
+        addChild(
+            phrase,
+            callback,
+            TestEnum.NodeType.Describe,
+            TestEnum.NodeModifier.Skip,
+            checkReason("describeSKIP", reason)
+        )
     end
 
     function env.describe(phrase, callback, nodeModifier)
@@ -48,13 +80,28 @@ const function newEnvironment(currentNode, extraEnvironment)
         addChild(phrase, callback, TestEnum.NodeType.It, TestEnum.NodeModifier.Focus)
     end
 
-    function env.itSKIP(phrase, callback)
-        addChild(phrase, callback, TestEnum.NodeType.It, TestEnum.NodeModifier.Skip)
+    function env.itSKIP(phrase, callback, reason)
+        addChild(phrase, callback, TestEnum.NodeType.It, TestEnum.NodeModifier.Skip, checkReason("itSKIP", reason))
     end
 
-    function env.itFIXME(phrase, callback)
-        const node = addChild(phrase, callback, TestEnum.NodeType.It, TestEnum.NodeModifier.Skip)
-        warn("FIXME: broken test", node:getFullName())
+    --[[
+        Skips a test that is known to be broken. It is reported with the reason "fixme",
+        followed by the optional message.
+    ]]
+    function env.itFIXME(phrase, callback, message)
+        const reason = fixmeReason(checkReason("itFIXME", message))
+        addChild(phrase, callback, TestEnum.NodeType.It, TestEnum.NodeModifier.Skip, reason)
+    end
+
+    --[[
+        Records a test that still needs to be written. It takes a name only and is
+        reported as skipped with the reason "todo".
+    ]]
+    function env.itTODO(phrase, ...)
+        if select("#", ...) > 0 then
+            error(`"itTODO" only takes a name, so use "it" for "{phrase}" once it has a body.`, 2)
+        end
+        addChild(phrase, nil, TestEnum.NodeType.It, TestEnum.NodeModifier.Skip, TestEnum.SkipReason.Todo)
     end
 
     function env.it(phrase, callback, nodeModifier)
@@ -79,8 +126,7 @@ const function newEnvironment(currentNode, extraEnvironment)
     end
 
     function env.FIXME(optionalMessage)
-        warn("FIXME: broken test", currentNode:getFullName(), optionalMessage or "")
-
+        currentNode.skipReason = fixmeReason(checkReason("FIXME", optionalMessage))
         currentNode.modifier = TestEnum.NodeModifier.Skip
     end
 
@@ -88,7 +134,8 @@ const function newEnvironment(currentNode, extraEnvironment)
         currentNode.modifier = TestEnum.NodeModifier.Focus
     end
 
-    function env.SKIP()
+    function env.SKIP(reason)
+        currentNode.skipReason = checkReason("SKIP", reason)
         currentNode.modifier = TestEnum.NodeModifier.Skip
     end
 
@@ -140,6 +187,7 @@ function TestNode.new(plan, phrase, nodeType, nodeModifier)
         children = {},
         callback = nil,
         parent = nil,
+        skipReason = nil,
     }
 
     node.environment = newEnvironment(node, plan.extraEnvironment)
