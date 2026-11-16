@@ -17,10 +17,22 @@ export type TableRow = {
     Separator: boolean?,
 }
 
-function TableRenderer.format(headers: { string }, rows: { TableRow }, color: boolean): { string }
+export type Alignment = "Left" | "Right"
+
+--[[
+    Formats a bordered table. Columns align left unless the matching entry in alignments
+    is "Right".
+]]
+function TableRenderer.format(
+    headers: { string },
+    rows: { TableRow },
+    color: boolean,
+    alignments: { Alignment }?
+): { string }
     assert(type(headers) == "table")
     assert(type(rows) == "table")
     assert(type(color) == "boolean")
+    assert(alignments == nil or type(alignments) == "table")
     const widths = {}
     for index, header in headers do
         widths[index] = DisplayWidth.measure(header)
@@ -41,7 +53,8 @@ function TableRenderer.format(headers: { string }, rows: { TableRow }, color: bo
         const parts = {}
         for index, value in values do
             const padding = string.rep(" ", widths[index] - DisplayWidth.measure(raw[index]))
-            table.insert(parts, ` {value}{padding} `)
+            const right = alignments ~= nil and alignments[index] == "Right"
+            table.insert(parts, if right then ` {padding}{value} ` else ` {value}{padding} `)
         end
         return `│{table.concat(parts, "│")}│`
     end

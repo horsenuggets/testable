@@ -2,7 +2,9 @@
 
 CoverageReporter
 
-Formats coverage as a bordered table followed by a tree-style threshold result.
+Formats coverage as a bordered table followed by a tree-style threshold result. Rows are
+sorted by coverage percentage, modules without executable lines are left out, and rows
+past the limit are folded into a single summary row.
 
 --]]
 
@@ -13,33 +15,114 @@ const DisplayWidth = require("../DisplayWidth")
 const TableRenderer = require("../TableRenderer")
 const TestEnum = require("../TestEnum")
 const TextReporter = require("./TextReporter")
+const ALIGNMENTS: { TableRenderer.Alignment } = { "Left", "Right", "Right", "Right" }
+const ELLIPSIS = "..."
 const IS_LUNE = Ansi.isLune()
 const MAX_PATH_LENGTH = 40
+const MAX_ROWS = 20
 
 const CoverageReporter = {}
 
-const function formatPath(path: string, color: boolean): (string, string)
-    const normalized = path:gsub("\\", "/")
-    local raw = normalized
+--[[
+    Keeps the end of text that fits within the given number of terminal columns.
+]]
+const function keepEnd(text: string, columns: number): string
+    const characters = {}
+    for _, codepoint in utf8.codes(text) do
+        table.insert(characters, utf8.char(codepoint))
+    end
+    local width = 0
+    local first = #characters + 1
+    for index = #characters, 1, -1 do
+        width += DisplayWidth.measure(characters[index])
+        if width > columns then
+            break
+        end
+        first = index
+    end
+    return table.concat(characters, "", first)
+end
+
+--[[
+    Shortens a path to at most MAX_PATH_LENGTH columns. Whole folders are dropped from the
+    front first, and a file name that can't fit on its own keeps only its end.
+]]
+function CoverageReporter.formatPath(path: string, color: boolean): (string, string)
+    assert(type(path) == "string")
+    assert(type(color) == "boolean")
+    local raw = path:gsub("\\", "/")
     if DisplayWidth.measure(raw) > MAX_PATH_LENGTH then
         const parts = string.split(raw, "/")
         raw = table.remove(parts) :: string
-        for index = #parts, 1, -1 do
-            const candidate = `{parts[index]}/{raw}`
-            if DisplayWidth.measure(candidate) + 4 > MAX_PATH_LENGTH then
-                break
+        if DisplayWidth.measure(raw) + #ELLIPSIS + 1 > MAX_PATH_LENGTH then
+            raw = `{ELLIPSIS}{keepEnd(raw, MAX_PATH_LENGTH - #ELLIPSIS)}`
+        else
+            for index = #parts, 1, -1 do
+                const candidate = `{parts[index]}/{raw}`
+                if DisplayWidth.measure(candidate) + #ELLIPSIS + 1 > MAX_PATH_LENGTH then
+                    break
+                end
+                raw = candidate
             end
-            raw = candidate
+            raw = `{ELLIPSIS}/{raw}`
         end
-        raw = `.../{raw}`
     end
     const directory, filename = raw:match("^(.+/)([^/]+)$")
     return if color and directory then `{Ansi.dim(directory)}{filename}` else raw, raw
 end
 
-const function percentage(value: number): string
-    return string.format("%.1f%%", value)
+--[[
+    Formats a whole number with comma thousands separators (e.g., 543126 → "543,126").
+]]
+function CoverageReporter.formatCount(count: number): string
+    assert(type(count) == "number")
+    local text = tostring(math.floor(count))
+    while true do
+        const grouped, replacements = text:gsub("^(-?%d+)(%d%d%d)", "%1,%2")
+        if replacements == 0 then
+            return text
+        end
+        text = grouped
+    end
 end
+
+--[[
+    Formats a percentage with one decimal, or two below 1% so tiny totals stay visible.
+    Values are floored so the text never claims more coverage than was measured.
+]]
+function CoverageReporter.formatPercentage(value: number): string
+    assert(type(value) == "number")
+    if value > 0 and value < 1 then
+        return string.format("%.2f%%", math.floor(value * 100) / 100)
+    end
+    return string.format("%.1f%%", math.floor(value * 10) / 10)
+end
+
+--[[
+    Returns the files worth listing, ordered by percentage, then executable lines, then
+    path. Files without executable lines are left out. The input is not modified.
+]]
+function CoverageReporter.sortFiles(files: { Coverage.FileCoverage }): { Coverage.FileCoverage }
+    assert(type(files) == "table")
+    const sorted = {}
+    for _, file in files do
+        if file.ExecutableLines > 0 then
+            table.insert(sorted, file)
+        end
+    end
+    table.sort(sorted, function(a, b)
+        if a.Percentage ~= b.Percentage then
+            return a.Percentage > b.Percentage
+        end
+        if a.ExecutableLines ~= b.ExecutableLines then
+            return a.ExecutableLines > b.ExecutableLines
+        end
+        return a.Path < b.Path
+    end)
+    return sorted
+end
+
+const percentage = CoverageReporter.formatPercentage
 
 --[[
     Returns formatted lines without emitting output. The color argument makes terminal
@@ -59,23 +142,45 @@ function CoverageReporter.format(
     table.insert(lines, if color then Ansi.bold("Code Coverage") else "Code Coverage")
     table.insert(lines, "")
     const rows: { TableRenderer.TableRow } = {}
-    for _, file in report.Files do
-        const path, rawPath = formatPath(file.Path, color)
+    const sorted = CoverageReporter.sortFiles(report.Files)
+    for index = 1, math.min(#sorted, MAX_ROWS) do
+        const file = sorted[index]
+        const path, rawPath = CoverageReporter.formatPath(file.Path, color)
         const pct = percentage(file.Percentage)
         const styledPct = if not color
             then pct
             else if file.Percentage >= threshold then Ansi.brightGreen(pct) else Ansi.dim(pct)
-        const executable = tostring(file.ExecutableLines)
-        const hit = tostring(file.HitLines)
+        const executable = CoverageReporter.formatCount(file.ExecutableLines)
+        const hit = CoverageReporter.formatCount(file.HitLines)
         table.insert(rows, {
             Colored = { path, executable, hit, styledPct },
             Raw = { rawPath, executable, hit, pct },
         })
     end
+    const hiddenCount = #sorted - MAX_ROWS
+    if hiddenCount > 0 then
+        local hiddenExecutable = 0
+        local hiddenHit = 0
+        for index = MAX_ROWS + 1, #sorted do
+            hiddenExecutable += sorted[index].ExecutableLines
+            hiddenHit += sorted[index].HitLines
+        end
+        const raw = {
+            `{CoverageReporter.formatCount(hiddenCount)} more {if hiddenCount == 1 then "module" else "modules"}`,
+            CoverageReporter.formatCount(hiddenExecutable),
+            CoverageReporter.formatCount(hiddenHit),
+            percentage(Coverage.percentage(hiddenHit, hiddenExecutable)),
+        }
+        const colored = {}
+        for _, cell in raw do
+            table.insert(colored, if color then Ansi.dim(cell) else cell)
+        end
+        table.insert(rows, { Colored = colored, Raw = raw, Separator = true })
+    end
     const passed = report.TotalPercentage >= threshold
     const totalPct = percentage(report.TotalPercentage)
-    const totalExecutable = tostring(report.TotalExecutableLines)
-    const totalHit = tostring(report.TotalHitLines)
+    const totalExecutable = CoverageReporter.formatCount(report.TotalExecutableLines)
+    const totalHit = CoverageReporter.formatCount(report.TotalHitLines)
     const styledTotalPct = if not color
         then totalPct
         else if passed then Ansi.brightGreen(totalPct) else Ansi.brightRed(totalPct)
@@ -84,9 +189,9 @@ function CoverageReporter.format(
             then { Ansi.bold("Total"), Ansi.bold(totalExecutable), Ansi.bold(totalHit), Ansi.bold(styledTotalPct) }
             else { "Total", totalExecutable, totalHit, totalPct },
         Raw = { "Total", totalExecutable, totalHit, totalPct },
-        Separator = true,
+        Separator = hiddenCount <= 0,
     })
-    for _, line in TableRenderer.format({ "Script", "Executable Lines", "Hit", "Percent" }, rows, color) do
+    for _, line in TableRenderer.format({ "Script", "Executable Lines", "Hit", "Percent" }, rows, color, ALIGNMENTS) do
         table.insert(lines, line)
     end
     const pctText = if color then Ansi.boldInline(totalPct) else totalPct
