@@ -6,7 +6,9 @@ Turns a series of specification functions into a test plan. Uses a TestPlanBuild
 keep track of the state of the tree being built.
 
 --]]
+const TestFilter = require("./TestFilter")
 const TestPlan = require("./TestPlan")
+const ToolError = require("./ToolError")
 
 const TestPlanner = {}
 
@@ -22,17 +24,17 @@ const TestPlanner = {}
             path, -- array of parent entires, first element is the leaf that owns `method`
             pathStringForSorting -- a string representation of `path`, used for sorting
         }
-        - testNamePattern - Only tests matching this Lua pattern string will run. Pass
-          empty or nil to run all tests
-        - extraEnvironment - Lua table holding additional functions and variables to be
+        - filter - Only tests whose full name contains this plain substring will run
+          (see TestFilter). Pass empty or nil to run all tests
+        - extraEnvironment - Luau table holding additional functions and variables to be
           injected into the specification function during execution
+
+    Throws an "EmptyFilter" ToolError when the filter selects no tests.
 ]]
-function TestPlanner.createPlan(
-    modulesList: { any },
-    testNamePattern: string?,
-    extraEnvironment: { [string]: any }?
-): any
-    const plan = TestPlan.new(testNamePattern, extraEnvironment)
+function TestPlanner.createPlan(modulesList: { any }, filter: string?, extraEnvironment: { [string]: any }?): any
+    assert(filter == nil or type(filter) == "string", "filter must be a string or nil")
+
+    const plan = TestPlan.new(extraEnvironment)
 
     table.sort(modulesList, function(a, b)
         return a.pathStringForSorting < b.pathStringForSorting
@@ -40,6 +42,18 @@ function TestPlanner.createPlan(
 
     for _, module in ipairs(modulesList) do
         plan:addRoot(module.path, module.method)
+    end
+
+    const selection = TestFilter.apply(plan, filter)
+    if TestFilter.isEmpty(selection, filter) then
+        const noun = if selection.Total == 1 then "test" else "tests"
+        error(
+            ToolError.new(
+                ToolError.Kind.EmptyFilter,
+                `The filter "{filter}" did not match any of the {selection.Total} planned {noun}.`
+            ),
+            0
+        )
     end
 
     return plan

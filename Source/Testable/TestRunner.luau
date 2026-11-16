@@ -12,6 +12,7 @@ const Config = require("./Config")
 const LifecycleHooks = require("./LifecycleHooks")
 const task = if task then task else require("@lune/task")
 const TestEnum = require("./TestEnum")
+const TestFilter = require("./TestFilter")
 const TestResults = require("./TestResults")
 const TestSession = require("./TestSession")
 
@@ -20,6 +21,10 @@ const RUNNING_COUNT_GLOBAL = "__TESTABLE_RUNNING_COUNT__"
 
 -- Global semaphore for limiting concurrent test execution across all describe blocks
 const globalSemaphore = { activeCount = 0, lock = false }
+
+-- The threads that currently hold a global semaphore slot, so that a plan run from
+-- inside a running test can tell that its caller is occupying one
+const slotHolders: { [thread]: boolean } = {}
 
 const TestRunner = {
     environment = {},
@@ -34,6 +39,7 @@ const function acquireGlobalSlot()
         globalSemaphore.lock = true
         if globalSemaphore.activeCount < Config.MaxConcurrency then
             globalSemaphore.activeCount = globalSemaphore.activeCount + 1
+            slotHolders[coroutine.running()] = true
             globalSemaphore.lock = false
             return
         end
@@ -49,6 +55,7 @@ const function releaseGlobalSlot()
     end
     globalSemaphore.lock = true
     globalSemaphore.activeCount = globalSemaphore.activeCount - 1
+    slotHolders[coroutine.running()] = nil
     globalSemaphore.lock = false
 end
 
@@ -93,17 +100,31 @@ function TestRunner.runPlan(plan: any): any
     const session = TestSession.new(plan)
     const lifecycleHooks = LifecycleHooks.new()
 
-    const exclusiveNodes = plan:findNodes(function(node)
-        return node.modifier == TestEnum.NodeModifier.Focus
-    end)
-
-    session.hasFocusNodes = #exclusiveNodes > 0
+    session.hasFocusNodes = TestFilter.hasFocus(plan)
 
     if session.hasFocusNodes then
         log("Focus nodes detected, other tests will be skipped.")
     end
 
-    TestRunner.runPlanNode(session, plan, lifecycleHooks)
+    -- A plan run from inside a running test (such as a test of Testable itself) needs
+    -- slots for its own tests while its caller holds one. Enough of those callers at
+    -- once would hold every slot and wait on each other forever, so the caller lends
+    -- its slot to the nested run and takes one back afterward.
+    const lendsSlot = slotHolders[coroutine.running()] == true
+    if lendsSlot then
+        releaseGlobalSlot()
+    end
+
+    const ok, problem = xpcall(TestRunner.runPlanNode, function(message)
+        return debug.traceback(tostring(message), 2)
+    end, session, plan, lifecycleHooks)
+
+    if lendsSlot then
+        acquireGlobalSlot()
+    end
+    if not ok then
+        error(problem, 0)
+    end
 
     log("Test plan execution complete.")
 
@@ -215,8 +236,13 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
 
     lifecycleHooks:pushHooksFrom(planNode)
 
+    -- A describe block that the filter left no tests in isn't part of the run, so its
+    -- beforeAll and afterAll hooks don't run. Its tests are still visited below so that
+    -- they are reported as skipped.
+    const filteredOut = TestFilter.excludes(session.results.planNode, planNode)
+
     local halt = false
-    for _, hook in ipairs(lifecycleHooks:getBeforeAllHooks()) do
+    for _, hook in ipairs(if filteredOut then {} else lifecycleHooks:getBeforeAllHooks()) do
         const success, errorMessage = runCallback(hook, "beforeAll hook: ")
         if not success then
             session:addDummyError("beforeAll", errorMessage)
@@ -514,7 +540,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
         end
     end
 
-    for _, hook in ipairs(lifecycleHooks:getAfterAllHooks()) do
+    for _, hook in ipairs(if filteredOut then {} else lifecycleHooks:getAfterAllHooks()) do
         const success, errorMessage = runCallback(hook, "afterAll hook: ")
         if not success then
             session:addDummyError("afterAll", errorMessage)

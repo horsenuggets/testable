@@ -31,6 +31,7 @@ function TestResults.new(plan: any): any
         successCount = 0,
         failureCount = 0,
         skippedCount = 0,
+        filteredCount = 0,
         planNode = plan,
         children = {},
         errors = {},

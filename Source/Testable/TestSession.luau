@@ -41,7 +41,8 @@ end
 
 --[[
     Calculate success, failure, and skipped test counts in the tree at the
-    current point in the execution. A describe node whose body errored during
+    current point in the execution. Tests excluded by the filter count as skipped and
+    are also tallied on their own as filteredCount. A describe node whose body errored during
     planning also counts as a failure, since the error is recorded on the describe
     node itself rather than on any of its it nodes.
 ]]
@@ -51,6 +52,7 @@ function TestSession:calculateTotals(): ()
     results.successCount = 0
     results.failureCount = 0
     results.skippedCount = 0
+    results.filteredCount = 0
 
     results:visitAllNodes(function(node)
         const status = node.status
@@ -63,6 +65,10 @@ function TestSession:calculateTotals(): ()
                 results.failureCount += 1
             elseif status == TestEnum.TestStatus.Skipped then
                 results.skippedCount += 1
+                -- Filtered-out tests are a subset of the skipped ones
+                if node.planNode.filteredOut then
+                    results.filteredCount += 1
+                end
             end
         elseif
             nodeType == TestEnum.NodeType.Describe
@@ -164,34 +170,33 @@ end
     @return True if the current test should be skipped
 ]]
 function TestSession:shouldSkip(): boolean
-    -- If our test tree had any exclusive tests, then normal tests are skipped!
-    if self.hasFocusNodes then
-        for i = #self.nodeStack, 1, -1 do
-            const node = self.nodeStack[i]
-
-            -- Skipped tests are still skipped
-            if node.planNode.modifier == TestEnum.NodeModifier.Skip then
-                return true
-            end
-
-            -- Focused tests are the only ones that aren't skipped
-            if node.planNode.modifier == TestEnum.NodeModifier.Focus then
-                return false
-            end
-        end
-
+    -- The filter narrows first, so a test it excluded is skipped whatever its modifiers
+    const current = self.nodeStack[#self.nodeStack]
+    if current ~= nil and current.planNode.filteredOut then
         return true
-    else
-        for i = #self.nodeStack, 1, -1 do
-            const node = self.nodeStack[i]
-
-            if node.planNode.modifier == TestEnum.NodeModifier.Skip then
-                return true
-            end
-        end
     end
 
-    return false
+    -- Walk up the plan tree instead of the node stack. Parallel execution gives every
+    -- test and describe block its own stack that starts at that node, so the stack
+    -- alone would miss modifiers on enclosing describe blocks.
+    local planNode = if current ~= nil then current.planNode else nil
+
+    while planNode ~= nil do
+        -- Skipped tests are still skipped
+        if planNode.modifier == TestEnum.NodeModifier.Skip then
+            return true
+        end
+
+        -- If our test tree had any exclusive tests, then focused tests are the only
+        -- ones that aren't skipped
+        if self.hasFocusNodes and planNode.modifier == TestEnum.NodeModifier.Focus then
+            return false
+        end
+
+        planNode = planNode.parent
+    end
+
+    return self.hasFocusNodes
 end
 
 --[[

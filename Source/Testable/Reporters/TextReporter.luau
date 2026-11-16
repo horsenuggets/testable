@@ -156,7 +156,10 @@ function TextReporter.format(results, options: Options): { string }
     table.insert(lines, "")
     const passed = formatCount(results.successCount, "passed", options.Color, Ansi.brightGreen)
     const failed = formatCount(results.failureCount, "failed", options.Color, Ansi.brightRed)
-    const skipped = formatCount(results.skippedCount, "skipped", options.Color, Ansi.brightYellow)
+    -- Tests excluded by Config.Filter are part of the skipped count, so call them out
+    const filteredCount = results.filteredCount or 0
+    const skippedLabel = if filteredCount > 0 then `skipped ({filteredCount} filtered out)` else "skipped"
+    const skipped = formatCount(results.skippedCount, skippedLabel, options.Color, Ansi.brightYellow)
     table.insert(lines, `{passed}, {failed}, {skipped}.`)
     return lines
 end

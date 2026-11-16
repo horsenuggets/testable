@@ -17,6 +17,7 @@ export type ConfigOptions = {
     CoverageRows: number?,
     CoverageSort: CoverageSort?,
     CoverageThreshold: number?,
+    Filter: string?,
     Indent: string?,
     MaxConcurrency: number?,
     Parallel: boolean?,
@@ -31,6 +32,7 @@ const Config = {
     CoverageRows = 20,
     CoverageSort = "Percentage" :: CoverageSort,
     CoverageThreshold = 0,
+    Filter = nil :: string?,
     Indent = "   ",
     MaxConcurrency = 4,
     Parallel = true,
@@ -100,6 +102,12 @@ function Config.set(options: ConfigOptions)
         Config.CoverageThreshold = options.CoverageThreshold
     end
 
+    if options.Filter ~= nil then
+        assert(type(options.Filter) == "string", "Filter must be a string")
+        -- An empty string clears the filter, since set() can't be passed nil for a key
+        Config.Filter = if options.Filter == "" then nil else options.Filter
+    end
+
     if options.Indent ~= nil then
         assert(type(options.Indent) == "string", "Indent must be a string")
         Config.Indent = options.Indent
@@ -137,6 +145,7 @@ function Config.reset()
     Config.CoverageRows = 20
     Config.CoverageSort = "Percentage"
     Config.CoverageThreshold = 0
+    Config.Filter = nil
     Config.Indent = "   "
     Config.MaxConcurrency = 4
     Config.Parallel = true

@@ -277,7 +277,7 @@ end
 
     @param roots - Array of root instances or module descriptors containing test modules
     @param reporter - Optional reporter module with a report function (defaults to TextReporter)
-    @param otherOptions - Optional table of options: showTimingInfo, testNamePattern, extraEnvironment
+    @param otherOptions - Optional table of options: showTimingInfo, filter, extraEnvironment
     @return TestResults object and boolean indicating if all tests passed
 ]]
 function TestBootstrap:run(roots: { any }, reporter: any?, inputOtherOptions: { [string]: any }?): (any, boolean)
@@ -285,7 +285,7 @@ function TestBootstrap:run(roots: { any }, reporter: any?, inputOtherOptions: { 
 
     const otherOptions: { [string]: any } = inputOtherOptions or {}
     const showTimingInfo = otherOptions["showTimingInfo"] or false
-    const testNamePattern = otherOptions["testNamePattern"]
+    const filter = otherOptions["filter"]
     const extraEnvironment = otherOptions["extraEnvironment"] or {}
 
     if type(roots) ~= "table" then
@@ -296,7 +296,7 @@ function TestBootstrap:run(roots: { any }, reporter: any?, inputOtherOptions: { 
     const modules = self:getModulesFromMultipleRoots(roots)
     const afterModules = tick()
 
-    const plan = TestPlanner.createPlan(modules, testNamePattern, extraEnvironment)
+    const plan = TestPlanner.createPlan(modules, filter, extraEnvironment)
     const afterPlan = tick()
 
     const results = TestRunner.runPlan(plan)
