@@ -18,8 +18,10 @@ const TextReporter = require("./TextReporter")
 const ALIGNMENTS: { TableRenderer.Alignment } = { "Left", "Right", "Right", "Right" }
 const ELLIPSIS = "..."
 const FLOOR_EPSILON = 1e-9
+const GREEN_FROM = 75
 const IS_LUNE = Ansi.isLune()
 const MAX_PATH_LENGTH = 40
+const YELLOW_FROM = 25
 
 -- How the table orders its rows and how many file rows it lists before the summary row.
 export type Layout = {
@@ -140,6 +142,21 @@ end
 const percentage = CoverageReporter.formatPercentage
 
 --[[
+    Colors a file's percentage by band with the terminal's stock colors. Below 25% is red,
+    from 25% up to 75% is yellow, and 75% or more is green.
+]]
+function CoverageReporter.colorPercentage(value: number, text: string): string
+    assert(type(value) == "number")
+    assert(type(text) == "string")
+    if value < YELLOW_FROM then
+        return Ansi.brightRed(text)
+    elseif value < GREEN_FROM then
+        return Ansi.brightYellow(text)
+    end
+    return Ansi.brightGreen(text)
+end
+
+--[[
     Returns formatted lines without emitting output. The color argument makes terminal
     and plain output independently testable, and the layout picks the row order and how
     many file rows to list before folding the rest into a summary row.
@@ -167,9 +184,7 @@ function CoverageReporter.format(
         const file = sorted[index]
         const path, rawPath = CoverageReporter.formatPath(file.Path, color)
         const pct = percentage(file.Percentage)
-        const styledPct = if not color
-            then pct
-            else if file.Percentage >= threshold then Ansi.brightGreen(pct) else Ansi.dim(pct)
+        const styledPct = if color then CoverageReporter.colorPercentage(file.Percentage, pct) else pct
         const executable = CoverageReporter.formatCount(file.ExecutableLines)
         const hit = CoverageReporter.formatCount(file.HitLines)
         table.insert(rows, {

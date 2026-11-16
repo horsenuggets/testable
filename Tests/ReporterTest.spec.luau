@@ -277,6 +277,39 @@ return function()
         expect(raw).to.equal("Source/Session.luau")
     end)
 
+    it("colors file percentages red, yellow, and green by band", function()
+        const cases = {
+            { 0, Ansi.brightRed },
+            { 24.9, Ansi.brightRed },
+            { 25, Ansi.brightYellow },
+            { 74.9, Ansi.brightYellow },
+            { 75, Ansi.brightGreen },
+            { 100, Ansi.brightGreen },
+        }
+        for _, case in cases do
+            const value, paint = case[1], case[2]
+            const text = CoverageReporter.formatPercentage(value)
+            expect(CoverageReporter.colorPercentage(value, text)).to.equal(paint(text))
+            -- File rows use the band color whatever the threshold is.
+            for _, threshold in { 0, 50, 100 } do
+                const report = coverage("Source/Session.luau", value)
+                const lines = CoverageReporter.format(report, threshold, true, "   ", DEFAULT_LAYOUT)
+                const row = table.concat(lines, "\n"):match("[^\n]*Session%.luau[^\n]*") :: string
+                expect(row:find(paint(text), 1, true) ~= nil).to.equal(true)
+            end
+        end
+    end)
+
+    it("keeps coloring the total by the threshold", function()
+        for _, case in { { 10, 5, Ansi.brightGreen }, { 10, 50, Ansi.brightRed }, { 90, 95, Ansi.brightRed } } do
+            const value, threshold, paint = case[1], case[2], case[3]
+            const report = coverage("Source/Session.luau", value)
+            const lines = CoverageReporter.format(report, threshold, true, "   ", DEFAULT_LAYOUT)
+            const total = table.concat(lines, "\n"):match("Total[^\n]*") :: string
+            expect(total:find(paint(CoverageReporter.formatPercentage(value)), 1, true) ~= nil).to.equal(true)
+        end
+    end)
+
     it("never shows a path wider than 40 columns", function()
         for folderLength = 1, 45, 4 do
             for nameLength = 1, 60, 3 do
