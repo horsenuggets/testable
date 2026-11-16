@@ -29,6 +29,9 @@ export type Layout = {
     Sort: Config.CoverageSort,
 }
 
+-- The layout from before rows and order were configurable.
+const DEFAULT_LAYOUT: Layout = { Rows = 20, Sort = "Percentage" }
+
 const CoverageReporter = {}
 
 --[[
@@ -159,20 +162,22 @@ end
 --[[
     Returns formatted lines without emitting output. The color argument makes terminal
     and plain output independently testable, and the layout picks the row order and how
-    many file rows to list before folding the rest into a summary row.
+    many file rows to list before folding the rest into a summary row. Without a layout,
+    it lists 20 rows by percentage, so the output never depends on configuration.
 ]]
 function CoverageReporter.format(
     report: Coverage.CoverageReport,
     threshold: number,
     color: boolean,
     indent: string,
-    layout: Layout
+    layoutOverride: Layout?
 ): { string }
     assert(type(report) == "table")
     assert(type(threshold) == "number")
     assert(type(color) == "boolean")
     assert(type(indent) == "string")
-    assert(type(layout) == "table")
+    assert(layoutOverride == nil or type(layoutOverride) == "table")
+    const layout = layoutOverride or DEFAULT_LAYOUT
     assert(type(layout.Rows) == "number" and layout.Rows >= 1 and layout.Rows % 1 == 0)
     const maxRows = layout.Rows
     const lines = TextReporter.formatSeparator(color)
@@ -263,11 +268,16 @@ function CoverageReporter.format(
     return lines
 end
 
-function CoverageReporter.report(report: Coverage.CoverageReport, threshold: number, layout: Layout)
+--[[
+    Prints the formatted report. Without a layout, it uses the configured row limit and
+    row order.
+]]
+function CoverageReporter.report(report: Coverage.CoverageReport, threshold: number, layout: Layout?)
     assert(type(report) == "table")
     assert(type(threshold) == "number")
-    assert(type(layout) == "table")
-    for _, line in CoverageReporter.format(report, threshold, IS_LUNE, Config.Indent, layout) do
+    assert(layout == nil or type(layout) == "table")
+    const resolved = layout or { Rows = Config.CoverageRows, Sort = Config.CoverageSort }
+    for _, line in CoverageReporter.format(report, threshold, IS_LUNE, Config.Indent, resolved) do
         print(line)
     end
 end

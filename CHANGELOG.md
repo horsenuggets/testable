@@ -2,9 +2,10 @@
 
 ## 1.2.0
 - Added `Coverage.track` so chunks loaded with `luau.load` count toward the coverage of their source files, merging hits from every load.
-- Added `Coverage.normalizePath` so different spellings of one path share coverage.
+- Added `Coverage.normalizePath` so different spellings of one path share coverage, including either case of a drive letter, without climbing above the root.
 - Added the `CoverageRows` option to set how many file rows the coverage table lists before folding the rest.
 - Added the `CoverageSort` option to order coverage rows by hit lines instead of percentage.
+- Added an optional layout argument to `CoverageReporter.format` and `CoverageReporter.report`, so existing calls keep working.
 - Colored file coverage percentages by band, with red below 25%, yellow below 75%, and green from 75%, while the total still follows the threshold.
 - Fixed describe blocks running in parallel sharing one hook stack, which ran another module's `beforeAll` and `afterAll` hooks and reported them under the wrong module.
 
