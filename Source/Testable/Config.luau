@@ -7,10 +7,15 @@ default values.
 
 --]]
 
+const TestEnum = require("./TestEnum")
 const TestTimeout = require("./TestTimeout")
 
 -- How coverage report rows are ordered, by coverage percentage or by hit lines.
 export type CoverageSort = "HitLines" | "Percentage"
+
+-- A report that a run produces. "Text" is the tree printed to standard output, and the
+-- others are machine-readable.
+export type Reporter = "JUnit" | "Json" | "Lcov" | "Text"
 
 export type ConfigOptions = {
     AlphabeticalSort: boolean?,
@@ -20,9 +25,13 @@ export type ConfigOptions = {
     CoverageSort: CoverageSort?,
     CoverageThreshold: number?,
     Indent: string?,
+    InjectGlobals: boolean?,
     MaxConcurrency: number?,
     Parallel: boolean?,
     PrintSkipped: boolean?,
+    ReporterOutputs: { [string]: string }?,
+    Reporters: { Reporter }?,
+    SlowestTests: number?,
     Timeout: number?,
     Verbose: boolean?,
 }
@@ -35,9 +44,13 @@ const Config = {
     CoverageSort = "Percentage" :: CoverageSort,
     CoverageThreshold = 0,
     Indent = "   ",
+    InjectGlobals = true,
     MaxConcurrency = 4,
     Parallel = true,
     PrintSkipped = false,
+    ReporterOutputs = {} :: { [string]: string },
+    Reporters = { TestEnum.Reporter.Text } :: { Reporter },
+    SlowestTests = 0,
     Timeout = nil :: number?,
     Verbose = false,
 }
@@ -109,6 +122,11 @@ function Config.set(options: ConfigOptions)
         Config.Indent = options.Indent
     end
 
+    if options.InjectGlobals ~= nil then
+        assert(type(options.InjectGlobals) == "boolean", "InjectGlobals must be a boolean")
+        Config.InjectGlobals = options.InjectGlobals
+    end
+
     if options.MaxConcurrency ~= nil then
         assert(type(options.MaxConcurrency) == "number", "MaxConcurrency must be a number")
         assert(options.MaxConcurrency >= 1, "MaxConcurrency must be at least 1")
@@ -123,6 +141,39 @@ function Config.set(options: ConfigOptions)
     if options.PrintSkipped ~= nil then
         assert(type(options.PrintSkipped) == "boolean", "PrintSkipped must be a boolean")
         Config.PrintSkipped = options.PrintSkipped
+    end
+
+    if options.ReporterOutputs ~= nil then
+        assert(type(options.ReporterOutputs) == "table", "ReporterOutputs must be a table")
+        for name, path in options.ReporterOutputs do
+            assert(
+                TestEnum.Reporter[name] ~= nil and name ~= TestEnum.Reporter.Text,
+                'ReporterOutputs keys must be "JUnit", "Json", or "Lcov"'
+            )
+            assert(type(path) == "string" and path ~= "", "ReporterOutputs paths must be non-empty strings")
+        end
+        -- Copied so that later changes to the caller's table don't change the config.
+        Config.ReporterOutputs = table.clone(options.ReporterOutputs)
+    end
+
+    if options.Reporters ~= nil then
+        assert(type(options.Reporters) == "table", "Reporters must be an array")
+        for _, name in options.Reporters do
+            assert(
+                type(name) == "string" and TestEnum.Reporter[name] ~= nil,
+                'Reporters must only contain "JUnit", "Json", "Lcov", or "Text"'
+            )
+        end
+        Config.Reporters = table.clone(options.Reporters)
+    end
+
+    if options.SlowestTests ~= nil then
+        assert(type(options.SlowestTests) == "number", "SlowestTests must be a number")
+        assert(
+            options.SlowestTests >= 0 and options.SlowestTests % 1 == 0,
+            "SlowestTests must be a non-negative integer"
+        )
+        Config.SlowestTests = options.SlowestTests
     end
 
     if options.Timeout ~= nil then
@@ -147,9 +198,13 @@ function Config.reset()
     Config.CoverageSort = "Percentage"
     Config.CoverageThreshold = 0
     Config.Indent = "   "
+    Config.InjectGlobals = true
     Config.MaxConcurrency = 4
     Config.Parallel = true
     Config.PrintSkipped = false
+    Config.ReporterOutputs = {}
+    Config.Reporters = { TestEnum.Reporter.Text }
+    Config.SlowestTests = 0
     Config.Timeout = nil
     Config.Verbose = false
 end

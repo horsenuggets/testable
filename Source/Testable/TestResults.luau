@@ -34,6 +34,7 @@ function TestResults.new(plan: any): any
         planNode = plan,
         children = {},
         errors = {},
+        duration = 0,
     }
 
     setmetatable(self, TestResults)
@@ -48,11 +49,14 @@ end
     @return A new result node
 ]]
 function TestResults.createNode(planNode: any): any
+    -- The duration is in seconds. It stays nil for nodes that never ran, such as skipped
+    -- tests.
     const node = {
         planNode = planNode,
         children = {},
         errors = {},
         status = nil,
+        duration = nil :: number?,
     }
 
     return node

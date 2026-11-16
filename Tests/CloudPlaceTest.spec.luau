@@ -10,7 +10,9 @@ URLs. None of these tests touch the network or the filesystem.
 --]]
 
 const CloudPlace = require("../Scripts/Helpers/CloudPlace")
+const Testable = require("../Source/Testable")
 const serde = require("@lune/serde")
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 
 const HASH = CloudPlace.hashPlace("place contents")
 const PLACE_ID = "222"

@@ -19,6 +19,104 @@ end
 
 See the [TestEZ documentation](https://roblox.github.io/testez/api-reference/) for details on writing tests.
 
+## Matchers
+
+On top of the TestEZ matchers (`equal`, `ok`, `near`, `throw`, and `a`), `expect` offers a
+richer vocabulary in the same chain style. All of them can be negated with `.never`...
+
+```luau
+expect({ 1, { 2 } }).to.deepEqual({ 1, { 2 } })
+expect("hello world").to.contain("world")
+expect({ 1, 2, 3 }).to.have.length(3)
+expect("abc123").to.match("%a+%d+")
+expect(5).to.be.greaterThan(3)
+expect(nil).never.to.be.truthy()
+```
+
+- `deepEqual(expected)` → Compares tables recursively by contents. NaN equals NaN, and
+  cyclic tables are safe.
+- `contain(item)` → Finds a plain substring in a string, or a deeply equal element in an
+  array.
+- `length(count)` → Checks `#value` for a string or a table.
+- `match(pattern)` → Matches a string against a Luau string pattern.
+- `greaterThan(bound)`, `greaterThanOrEqual(bound)`, `lessThan(bound)`, and
+  `lessThanOrEqual(bound)` → Order two numbers or two strings.
+- `truthy()` and `falsy()` → Check whether the value is anything but `false` and `nil`, or
+  one of those two.
+- `none()` → Checks that the value is exactly `nil`.
+- `a(typeName)` → Accepts either the `typeof` name (e.g., `"Vector3"`) or the `type` name
+  (e.g., `"userdata"`).
+
+Failed comparisons report `Expected` and `Received` lines. Tables are pretty-printed with
+sorted keys, and deeply nested values are shortened to `{...}` in the message only. Using a
+matcher on the wrong kind of value (e.g., `greaterThan` with a table) fails the test with
+a message that names the matcher, even under `.never`. These names are reserved, so
+`expect.extend` rejects custom matchers that reuse them.
+
+## Requiring the Spec API
+
+Specs can require `describe`, `it`, `expect`, and the rest from Testable instead of using
+them as injected globals. Required functions are fully typed, work the same on Lune and
+Roblox, and don't need a list of globals in `.luaurc`...
+
+```luau
+local Testable = require("@devpackages/testable")
+local describe, it, expect = Testable.describe, Testable.it, Testable.expect
+local beforeEach = Testable.beforeEach
+
+return function()
+    describe("parser", function()
+        beforeEach(function() end)
+
+        it("reads an empty document", function()
+            expect(parse("")).to.be.a("table")
+        end)
+    end)
+end
+```
+
+Everything the injected globals offer is exported, including the lifecycle hooks, `fail`,
+and the focus and skip variants (`fit`, `xit`, `fdescribe`, `xdescribe`, `itFOCUS`,
+`itSKIP`, and so on). Injected globals keep working, and both styles can be mixed in one
+run. Once every spec requires its functions, set `InjectGlobals = false` so that Testable
+stops rewriting function environments, which lets Luau optimize spec code again.
+
+**Late Registration**
+
+Calling `describe`, `it`, or a hook after its block has been collected (e.g., from inside
+a running test) is an error in both styles, rather than a registration that silently
+never runs.
+
+**Threads Started by a Test**
+
+Testable ties `expect` and `fail` to a test through the coroutine that runs it, including
+across yields. A thread that the test starts itself (e.g., with `task.spawn`) isn't tied
+to it, so there `fail` and `expect.extend` raise an error and `expect` only offers the
+built-in matchers. Wrap the function with `Testable.bindTest` to tie it to the test that
+is running when `bindTest` is called...
+
+```luau
+it("fails from another thread", function()
+    task.spawn(Testable.bindTest(function()
+        fail("This fails the test above.")
+    end))
+end)
+```
+
+Injected globals behave the same way on the test's own coroutine. In other threads they
+fall back to the test in their block that started most recently, as they always have.
+
+**Custom Matcher Types**
+
+`Testable.Expect` takes the shape of matchers added with `expect.extend`, so they can be
+typed as well...
+
+```luau
+type Matchers = { beEven: () -> any }
+
+local expect: Testable.Expect<Matchers> = Testable.expect :: any
+```
+
 ## Configuration
 
 Configure Testable using `Testable.configure()`:
@@ -42,12 +140,94 @@ Testable.configure({
 | `CoverageRows` | `number` | `20` | File rows listed in the coverage table before the rest fold into a summary row |
 | `CoverageSort` | `"Percentage" \| "HitLines"` | `"Percentage"` | Order coverage rows by percentage or by hit lines, both descending |
 | `Indent` | `string` | `"   "` | Indentation string used for nested test output |
+| `InjectGlobals` | `boolean` | `true` | Inject `describe`, `it`, `expect`, and the rest into spec functions as globals |
 | `MaxConcurrency` | `number` | `4` | Maximum number of tests to run in parallel |
 | `Parallel` | `boolean` | `true` | Enable or disable parallel test execution |
 | `PrintSkipped` | `boolean` | `false` | Include skipped tests in the output |
+| `ReporterOutputs` | `{ [string]: string }` | `{}` | File paths for machine-readable reports, keyed by reporter name (see [Reporters](#reporters)) |
+| `Reporters` | `{ "Text" \| "Json" \| "JUnit" \| "Lcov" }` | `{ "Text" }` | Reports that a run produces (see [Reporters](#reporters)) |
+| `SlowestTests` | `number` | `0` | Number of slowest tests listed after the text report, or `0` to leave the list out |
 | `Verbose` | `boolean` | `false` | Enable detailed logging during test execution |
 
 Reset configuration to defaults with `Testable.resetConfig()`.
+
+## Reporters
+
+A run prints the text report by default. Set `Reporters` to choose which reports it
+produces, and `ReporterOutputs` to send machine-readable reports to files...
+
+```luau
+Testable.configure({
+    Reporters = { "Text", "Json", "JUnit" },
+    ReporterOutputs = { Json = "reports/results.json", JUnit = "reports/junit.xml" },
+    SlowestTests = 5,
+})
+```
+
+- `Text` → The status tree and summary, always on standard output. `SlowestTests` adds a
+  list of the tests that took longest.
+- `Json` → The results tree as a JSON document.
+- `JUnit` → JUnit XML for CI test annotations, with one `testsuite` per spec root and a
+  `classname` built from the describe path.
+- `Lcov` → Coverage as an lcov tracefile for coverage services and editor gutters. It
+  needs `Coverage` and `CoverageRoots` to be set.
+
+A machine-readable reporter without a path in `ReporterOutputs` writes to standard output
+instead. Only one report can use standard output, so that reporter has to be the only one
+without a path, and `Text` has to be left out. In Lune, anything your tests print during
+such a run goes to standard error instead, along with verbose logging, so standard output
+holds nothing but the report. Writing files only works in Lune.
+
+Every reporter is also a pure function from results to a string, which works in Roblox
+too...
+
+```luau
+local results = Testable.run({ testRoot })
+local json = Testable.Reporters.JsonReporter.format(results)
+local xml = Testable.Reporters.JUnitReporter.format(results)
+local tracefile = Testable.Reporters.LcovReporter.format(coverageReport)
+```
+
+**JSON Shape**
+
+The document has a `Version` (currently `1`), the `Totals`, and one node per spec root in
+`Suites`. Keys are always written in the same order...
+
+```json
+{
+  "Version": 1,
+  "Totals": { "Total": 3, "Passed": 1, "Failed": 1, "Skipped": 1, "Duration": 0.25 },
+  "Suites": [
+    {
+      "Name": "MathTest",
+      "FullName": "MathTest",
+      "Type": "Describe",
+      "Status": "Failure",
+      "Duration": 0.25,
+      "Children": [
+        {
+          "Name": "divides",
+          "FullName": "MathTest > divides",
+          "Type": "It",
+          "Status": "Failure",
+          "Duration": 0.125,
+          "ErrorMessage": "Expected 2, got 3",
+          "Children": []
+        }
+      ]
+    }
+  ]
+}
+```
+
+`Type` is `"Describe"` or `"It"`, `Status` is `"Success"`, `"Failure"`, or `"Skipped"`,
+and durations are in seconds. `ErrorMessage` is only present on nodes that failed, and
+`SkipReason` is only present on skipped nodes that gave a reason.
+
+**Durations**
+
+Result nodes carry a `duration` field in seconds. Tests and describe blocks record how
+long they ran, the results object records the whole run, and skipped tests have none.
 
 ## Timeouts
 

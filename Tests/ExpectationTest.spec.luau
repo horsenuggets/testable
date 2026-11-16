@@ -7,6 +7,9 @@ type assertions, nil checks, numeric comparisons, error throwing, and negation.
 
 --]]
 
+const Testable = require("../Source/Testable")
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
+
 return function()
     describe("expect().to.equal()", function()
         it("should pass when values are equal", function()
@@ -189,6 +192,29 @@ return function()
 
         it("should allow 'at' chaining", function()
             expect(5).at.been.a("number")
+        end)
+    end)
+
+    describe("calling matchers with a colon", function()
+        it("should behave like calling them with a dot", function()
+            -- Called on Testable directly so that static analysis checks the colon forms.
+            Testable.expect(5):equal(5)
+            Testable.expect(5).to:equal(5).to.be:a("number"):an("number")
+            Testable.expect(5).to.be:near(5.5, 1):ok()
+            Testable.expect(nil).never.to.be:ok()
+            Testable.expect(function()
+                error("colon failure")
+            end).to
+                :throw("colon failure")
+        end)
+
+        it("should fail when the matcher does not hold", function()
+            expect(function()
+                Testable.expect(5).to:equal(6)
+            end).to.throw()
+            expect(function()
+                Testable.expect(5).to.be:a("string")
+            end).to.throw()
         end)
     end)
 

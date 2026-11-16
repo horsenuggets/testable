@@ -194,6 +194,10 @@ const DISABLED_SCRIPT_TEMPLATE = SCRIPT_HEADER
                 it("still honors its own budget", function()
                     coroutine.yield()
                 end, { Timeout = 0.02 })
+
+                Testable.it("honors a budget set through the required it", function()
+                    coroutine.yield()
+                end, { Timeout = 0.03 })
             end,
         },
     })
@@ -420,9 +424,12 @@ return function()
 
                 expect(ok).to.equal(false)
                 expect(contains(output, "SUCCESS_COUNT:1")).to.equal(true)
-                expect(contains(output, "FAIL_COUNT:1")).to.equal(true)
-                expect(countOccurrences(output, "timed out after exceeding its budget")).to.equal(1)
+                expect(contains(output, "FAIL_COUNT:2")).to.equal(true)
+                expect(countOccurrences(output, "timed out after exceeding its budget")).to.equal(2)
                 expect(contains(output, "budget of 0.02 seconds, set by the Timeout option of the test.")).to.equal(
+                    true
+                )
+                expect(contains(output, "budget of 0.03 seconds, set by the Timeout option of the test.")).to.equal(
                     true
                 )
             end)

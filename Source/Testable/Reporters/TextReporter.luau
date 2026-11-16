@@ -8,6 +8,7 @@ Formats test results as a status tree and reports failures to stdout or TestServ
 
 const Ansi = require("../Ansi")
 const Config = require("../Config")
+const ResultTree = require("./ResultTree")
 const TestEnum = require("../TestEnum")
 const IS_LUNE = Ansi.isLune()
 const SEPARATOR = string.rep("─", 64)
@@ -51,23 +52,7 @@ const function visibleChildren(node, options: Options)
     return children
 end
 
-const function aggregateStatus(node): string?
-    if node.status then
-        return node.status
-    end
-    local status = nil
-    for _, child in node.children do
-        const childStatus = aggregateStatus(child)
-        if childStatus == TestEnum.TestStatus.Failure then
-            return childStatus
-        elseif childStatus == TestEnum.TestStatus.Success then
-            status = childStatus
-        elseif childStatus == TestEnum.TestStatus.Skipped and status == nil then
-            status = childStatus
-        end
-    end
-    return status
-end
+const aggregateStatus = ResultTree.status
 
 const function statusText(status: string?, phrase: string, color: boolean): string
     if not status then
@@ -161,6 +146,50 @@ function TextReporter.format(results, options: Options): { string }
     return lines
 end
 
+--[[
+    Returns the "slowest tests" block, which lists up to the given number of tests that
+    ran, longest first. Skipped tests are left out, ties keep their definition order, and
+    the block is empty when there is nothing to list.
+]]
+function TextReporter.formatSlowest(results, count: number, color: boolean): { string }
+    assert(type(results) == "table")
+    assert(type(count) == "number" and count >= 0 and count % 1 == 0)
+    assert(type(color) == "boolean")
+    -- The block is off by default, so a run that doesn't want it skips the traversal.
+    if count == 0 then
+        return {}
+    end
+    const ran = {}
+    for index, case in ResultTree.collectCases(results) do
+        if case.Status ~= TestEnum.TestStatus.Skipped then
+            table.insert(ran, { Case = case, Index = index })
+        end
+    end
+    table.sort(ran, function(a, b)
+        if a.Case.Duration ~= b.Case.Duration then
+            return a.Case.Duration > b.Case.Duration
+        end
+        return a.Index < b.Index
+    end)
+    const shown = math.min(count, #ran)
+    if shown == 0 then
+        return {}
+    end
+
+    const durations = {}
+    local width = 0
+    for index = 1, shown do
+        durations[index] = string.format("%.3fs", ran[index].Case.Duration)
+        width = math.max(width, #durations[index])
+    end
+    const lines = { "", if color then Ansi.bold("Slowest Tests") else "Slowest Tests", "" }
+    for index = 1, shown do
+        const duration = `{string.rep(" ", width - #durations[index])}{durations[index]}`
+        table.insert(lines, `{if color then Ansi.dim(duration) else duration}  {ran[index].Case.FullName}`)
+    end
+    return lines
+end
+
 function TextReporter.renderTree(results)
     assert(type(results) == "table")
     for _, line in TextReporter.formatTree(results, getOptions()) do
@@ -174,9 +203,17 @@ function TextReporter.separator()
     end
 end
 
-function TextReporter.report(results)
+--[[
+    Prints the report. The slowest tests block lists the given number of tests, or the
+    configured number when none is given, and is left out at zero.
+]]
+function TextReporter.report(results, slowestTests: number?)
     assert(type(results) == "table")
+    assert(slowestTests == nil or type(slowestTests) == "number")
     for _, line in TextReporter.format(results, getOptions()) do
+        print(line)
+    end
+    for _, line in TextReporter.formatSlowest(results, slowestTests or Config.SlowestTests, IS_LUNE) do
         print(line)
     end
     if #results.errors > 0 then
