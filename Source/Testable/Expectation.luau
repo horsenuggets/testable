@@ -154,7 +154,7 @@ end
     well formed. The string library only parses as much of a pattern as it needs while
     matching, so a malformed tail can go unnoticed unless the whole pattern is checked.
 ]]
-const function findPatternProblem(pattern)
+const function findPatternProblem(pattern: string): string?
     const length = #pattern
     local openCaptures = 0
     local position = 1

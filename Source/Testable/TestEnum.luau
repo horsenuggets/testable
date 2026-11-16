@@ -3,7 +3,7 @@
 TestEnum
 
 Constants used throughout the testing framework including test status values, node types,
-and node modifiers.
+node modifiers, and reporter names.
 
 --]]
 
@@ -28,6 +28,13 @@ TestEnum.NodeModifier = {
     None = "None",
     Skip = "Skip",
     Focus = "Focus",
+}
+
+TestEnum.Reporter = {
+    JUnit = "JUnit",
+    Json = "Json",
+    Lcov = "Lcov",
+    Text = "Text",
 }
 
 return TestEnum

@@ -11,6 +11,7 @@ true, which is the default in Lune 0.10.4-horse.14.2+.
 const Config = require("../Source/Testable/Config")
 const Coverage = require("../Source/Testable/Coverage")
 const Testable = require("../Source/Testable")
+const afterEach, describe, expect, it = Testable.afterEach, Testable.describe, Testable.expect, Testable.it
 
 -- Require the fixture module so it has coverage data
 const SampleModule = require("./CoverageFixtures/SampleModule")
