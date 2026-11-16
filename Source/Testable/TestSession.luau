@@ -51,7 +51,8 @@ end
 
 --[[
     Calculate success, failure, and skipped test counts in the tree at the
-    current point in the execution. A describe node whose body errored during
+    current point in the execution. Tests excluded by the filter count as skipped and
+    are also tallied on their own as filteredCount. A describe node whose body errored during
     planning also counts as a failure, since the error is recorded on the describe
     node itself rather than on any of its it nodes.
 ]]
@@ -61,6 +62,7 @@ function TestSession:calculateTotals(): ()
     results.successCount = 0
     results.failureCount = 0
     results.skippedCount = 0
+    results.filteredCount = 0
     results.focusExcludedCount = 0
 
     results:visitAllNodes(function(node)
@@ -74,6 +76,10 @@ function TestSession:calculateTotals(): ()
                 results.failureCount += 1
             elseif status == TestEnum.TestStatus.Skipped then
                 results.skippedCount += 1
+                -- Filtered-out and focus-excluded tests are subsets of the skipped ones
+                if node.planNode.filteredOut then
+                    results.filteredCount += 1
+                end
                 if node.excludedByFocus then
                     results.focusExcludedCount += 1
                 end
@@ -217,6 +223,12 @@ end
 function TestSession:shouldSkip(): (boolean, string?, boolean)
     assert(#self.nodeStack > 0, "Attempting to check skip status on empty stack")
     local planNode = self.nodeStack[#self.nodeStack].planNode
+
+    -- The filter narrows first, so a test it excluded is skipped whatever its modifiers,
+    -- and it never counts as excluded by focus
+    if planNode.filteredOut then
+        return true, TestEnum.SkipReason.Filter, false
+    end
 
     while planNode ~= nil do
         -- Skipped tests are still skipped. The nearest reason wins, so a test's own

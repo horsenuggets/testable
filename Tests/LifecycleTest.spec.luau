@@ -16,6 +16,7 @@ return function()
     describe("beforeEach and afterEach", function()
         local beforeEachRuns = 0
         local afterEachRuns = 0
+        local testRuns = 0
 
         beforeEach(function()
             beforeEachRuns += 1
@@ -26,17 +27,20 @@ return function()
         end)
 
         -- The afterEach count is checked once every test is done, because tests in a
-        -- block can start in any order when they compete for concurrency slots.
+        -- block can start in any order when they compete for concurrency slots. It is
+        -- compared with the tests that ran, since a filter may leave one of them out.
         afterAll(function()
-            expect(beforeEachRuns).to.equal(2)
-            expect(afterEachRuns).to.equal(2)
+            expect(beforeEachRuns).to.equal(testRuns)
+            expect(afterEachRuns).to.equal(testRuns)
         end)
 
         it("should run beforeEach before the test", function()
+            testRuns += 1
             expect(beforeEachRuns >= 1).to.equal(true)
         end)
 
         it("should run both hooks around every test", function()
+            testRuns += 1
             expect(beforeEachRuns >= 1).to.equal(true)
             expect(afterEachRuns <= 1).to.equal(true)
         end)

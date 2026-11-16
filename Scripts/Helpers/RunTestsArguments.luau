@@ -47,7 +47,7 @@ function RunTestsArguments.parse(arguments: { string }): (Arguments?, string?)
             parsed.Changed = ref
             index += 1
         elseif string.sub(argument, 1, 1) == "-" then
-            return nil, `The flag "{argument}" is not recognized.`
+            return nil, `The argument "{argument}" is not recognized.`
         else
             table.insert(parsed.Files, argument)
         end

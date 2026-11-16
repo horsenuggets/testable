@@ -4,14 +4,16 @@
 
 RunTests.exec
 
-Discovers every spec file in Tests/ and runs it, then exits with an appropriate status
-code. The run can be narrowed to specific spec files, or to the specs affected by what
-changed since a git ref. In watch mode, the affected specs run again whenever a file
-they depend on changes. Reporter flags choose which reports the run produces and where
-they go...
+Discovers every spec file in Tests/ and runs it. Exits with 0 when the tests pass, 1 when
+tests fail, and 2 for a tool error such as an unrecognized argument, an unknown git ref,
+or a filter that matches no tests. The run can be narrowed to specific spec files, to the
+specs affected by what changed since a git ref, or to the tests a filter matches. In
+watch mode, the affected specs run again whenever a file they depend on changes.
+Reporter flags choose which reports the run produces and where they go...
 
 > --changed <ref> - Runs only the specs affected by the changes since a git ref.
 > --watch - Keeps running, and runs the affected specs again whenever files change.
+> --filter <text> - Only runs the tests whose full name contains the text.
 > --reporter <text|json|junit|lcov> - Adds a reporter. It can be given several times, and
   "lcov" also turns on coverage for the source.
 > --output <path> - Writes the reporter named just before it to a file instead of
@@ -22,17 +24,16 @@ they go...
 
 --]]
 
+const FilterArguments = require("./Helpers/FilterArguments")
 const ReporterArguments = require("./Helpers/ReporterArguments")
 const RunTestsArguments = require("./Helpers/RunTestsArguments")
 const Testable = require("../Source/Testable")
 const process = require("@lune/process")
 
-const EXIT_CODE_FAILURE = 1
-const EXIT_CODE_SUCCESS = 0
-const EXIT_CODE_TOOL_ERROR = 2
 const INCLUDE = { "Tests/**/*.spec.luau" }
 const SCRIPT_PATH = "Scripts/RunTests.exec.luau"
-const USAGE = `[Usage] ./{SCRIPT_PATH} {RunTestsArguments.Usage} {ReporterArguments.Usage} [spec files...]`
+const USAGE = `[Usage] ./{SCRIPT_PATH} {RunTestsArguments.Usage} {FilterArguments.Usage} `
+    .. `{ReporterArguments.Usage} [spec files...]`
 
 const RunTests = {}
 
@@ -41,10 +42,14 @@ const RunTests = {}
     as opposed to a failing test.
 
     @param message - A sentence describing the problem
+    @param showUsage - Whether to print the usage line as well
 ]]
-const function exitWithToolError(message: string): never
+const function exitWithToolError(message: string, showUsage: boolean?): never
     print(message)
-    return process.exit(EXIT_CODE_TOOL_ERROR)
+    if showUsage then
+        print(USAGE)
+    end
+    return process.exit(Testable.ExitCode.ToolError)
 end
 
 --[[
@@ -72,15 +77,18 @@ const function watch(files: { string }, childArguments: { string })
 end
 
 function RunTests.exec()
-    const parsed, options, remaining = pcall(ReporterArguments.parse, process.args)
+    -- Each parser takes the flags it knows and hands the rest to the next one
+    const parsed, reporterOptions, filterOptions, remaining = pcall(function()
+        const reporterOptions, unparsed = ReporterArguments.parse(process.args)
+        return reporterOptions, FilterArguments.parse(unparsed)
+    end)
     if not parsed then
-        exitWithToolError(tostring(options))
+        exitWithToolError(tostring(reporterOptions), true)
     end
 
     const arguments, problem = RunTestsArguments.parse(remaining)
     if arguments == nil then
-        print(problem)
-        exitWithToolError(USAGE)
+        exitWithToolError(problem :: string, true)
         return
     end
 
@@ -89,8 +97,9 @@ function RunTests.exec()
         return
     end
 
-    Testable.configure(options)
-    for _, reporter in options.Reporters or {} do
+    Testable.configure(reporterOptions)
+    Testable.configure(filterOptions)
+    for _, reporter in reporterOptions.Reporters or {} do
         if reporter == Testable.TestEnum.Reporter.Lcov then
             Testable.configure({ Coverage = true, CoverageRoots = script.Parent.Parent.Source.Testable })
         end
@@ -112,7 +121,7 @@ function RunTests.exec()
         end
         if #affected == 0 then
             print(`No specs are affected by the changes since "{arguments.Changed}".`)
-            process.exit(EXIT_CODE_SUCCESS)
+            process.exit(Testable.ExitCode.Passed)
         end
         files = affected
     end
@@ -122,8 +131,8 @@ function RunTests.exec()
         exitWithToolError(tostring(testRoots))
     end
 
-    const _, passed = Testable.run(testRoots)
-    process.exit(if passed then EXIT_CODE_SUCCESS else EXIT_CODE_FAILURE)
+    const exitCode = Testable.runToExitCode(testRoots)
+    process.exit(exitCode)
 end
 
 RunTests.exec()
