@@ -8,6 +8,7 @@ default values.
 --]]
 
 const TestEnum = require("./TestEnum")
+const TestTimeout = require("./TestTimeout")
 
 -- How coverage report rows are ordered, by coverage percentage or by hit lines.
 export type CoverageSort = "HitLines" | "Percentage"
@@ -33,6 +34,7 @@ export type ConfigOptions = {
     ReporterOutputs: { [string]: string }?,
     Reporters: { Reporter }?,
     SlowestTests: number?,
+    Timeout: number?,
     Verbose: boolean?,
 }
 
@@ -53,6 +55,7 @@ const Config = {
     ReporterOutputs = {} :: { [string]: string },
     Reporters = { TestEnum.Reporter.Text } :: { Reporter },
     SlowestTests = 0,
+    Timeout = nil :: number?,
     Verbose = false,
 }
 
@@ -188,6 +191,11 @@ function Config.set(options: ConfigOptions)
         Config.SlowestTests = options.SlowestTests
     end
 
+    if options.Timeout ~= nil then
+        assert(TestTimeout.isValid(options.Timeout), "Timeout must be a positive number of seconds")
+        Config.Timeout = options.Timeout
+    end
+
     if options.Verbose ~= nil then
         assert(type(options.Verbose) == "boolean", "Verbose must be a boolean")
         Config.Verbose = options.Verbose
@@ -214,6 +222,7 @@ function Config.reset()
     Config.ReporterOutputs = {}
     Config.Reporters = { TestEnum.Reporter.Text }
     Config.SlowestTests = 0
+    Config.Timeout = nil
     Config.Verbose = false
 end
 
