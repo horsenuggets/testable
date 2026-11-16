@@ -139,6 +139,7 @@ Testable.configure({
 | `AlphabeticalSort` | `boolean` | `false` | Sort test results alphabetically instead of definition order |
 | `CoverageRows` | `number` | `20` | File rows listed in the coverage table before the rest fold into a summary row |
 | `CoverageSort` | `"Percentage" \| "HitLines"` | `"Percentage"` | Order coverage rows by percentage or by hit lines, both descending |
+| `ForbidFocus` | `boolean` | `false` | Fail the run when a focus modifier excluded any test |
 | `Indent` | `string` | `"   "` | Indentation string used for nested test output |
 | `InjectGlobals` | `boolean` | `true` | Inject `describe`, `it`, `expect`, and the rest into spec functions as globals |
 | `MaxConcurrency` | `number` | `4` | Maximum number of tests to run in parallel |
@@ -152,6 +153,51 @@ Testable.configure({
 | `Verbose` | `boolean` | `false` | Enable detailed logging during test execution |
 
 Reset configuration to defaults with `Testable.resetConfig()`.
+
+## Skipping, Todo Tests & Focus
+
+Skipped tests never affect whether a run passes. Every skip variant takes an optional
+reason as its last argument, and the reason is shown next to the test when `PrintSkipped`
+is on...
+
+```luau
+itSKIP("retries the upload", function() end, "waiting on the new API")
+
+describeSKIP("matchmaking", function()
+    it("fills a lobby", function() end)
+end, "needs a live server")
+
+describe("trading", function()
+    SKIP("blocked on the inventory rewrite")
+end)
+
+itFIXME("rounds prices", function() end, "off by one cent")
+itTODO("rejects expired offers")
+```
+
+- `itSKIP` and `xit` → Skip one test.
+- `describeSKIP`, `xdescribe`, and `SKIP()` → Skip a whole block. Its tests inherit the
+  block's reason unless they carry their own.
+- `itFIXME` and `FIXME()` → Skip a broken test with the reason `fixme`, followed by the
+  optional message.
+- `itTODO` → Record a test you intend to write. It takes a name only, so passing a body
+  is an error, and it is reported as skipped with the reason `todo`.
+
+**Focus Guard**
+
+Focusing with `itFOCUS`, `fit`, `describeFOCUS`, `fdescribe`, or `FOCUS()` skips every
+other test, and those tests get the reason `excluded by focus`. The summary always says
+how many tests focus excluded. Because a focus modifier that gets committed by accident
+would otherwise leave the run green, set `ForbidFocus` in CI to fail the run whenever
+focus excluded a test...
+
+```luau
+Testable.configure({ ForbidFocus = process.env.CI ~= nil })
+```
+
+The failure counts as one failed test in the results, so `passed` is `false` and
+`results.failureCount` goes up by one. Results also expose `results.focusExcludedCount`,
+and each skipped result node carries its reason in `skipReason`.
 
 ## Reporters
 

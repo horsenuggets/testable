@@ -90,6 +90,10 @@ function TestRunner.runPlan(plan: any): any
     const snapshots = SnapshotManager.new({ Store = Config.SnapshotStore, Update = Config.UpdateSnapshots })
     session.results.snapshots = snapshots
 
+    -- The plan captured the focus guard before any spec code ran, so neither planning nor
+    -- the tests themselves can turn it off.
+    session.forbidFocus = plan.forbidFocus == true
+
     if session.hasFocusNodes then
         log("Focus nodes detected, other tests will be skipped.")
     end
@@ -303,11 +307,11 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
                     }
                     setmetatable(testSession, { __index = TestSession })
 
-                    const shouldSkip = testSession:shouldSkip()
+                    const shouldSkip, skipReason, excludedByFocus = testSession:shouldSkip()
 
                     if shouldSkip then
                         log(string.format("  [%d/%d] Skipped: %s", i, total, childPlanNode.phrase))
-                        testSession:setSkipped()
+                        testSession:setSkipped(skipReason, excludedByFocus)
                     else
                         -- Run the test (parallel execution here)
                         const testStartTime = os.clock()
@@ -375,8 +379,9 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
                 const testStartTime = os.clock()
 
                 session:pushNode(childPlanNode)
-                if session:shouldSkip() then
-                    session:setSkipped()
+                const shouldSkip, skipReason, excludedByFocus = session:shouldSkip()
+                if shouldSkip then
+                    session:setSkipped(skipReason, excludedByFocus)
                     log(string.format("  [%d/%d] Skipped: %s", i, #itTests, childPlanNode.phrase))
                 else
                     const success, errorMessage = runNode(session, childPlanNode)

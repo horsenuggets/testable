@@ -72,6 +72,18 @@ const function statusText(status: string?, phrase: string, color: boolean): stri
     return text
 end
 
+--[[
+    Returns the suffix that shows why a skipped node was skipped, or an empty string for
+    nodes that ran or have no reason.
+]]
+const function skipReasonText(node, color: boolean): string
+    if node.status ~= TestEnum.TestStatus.Skipped or type(node.skipReason) ~= "string" or node.skipReason == "" then
+        return ""
+    end
+    const text = ` ({node.skipReason})`
+    return if color then Ansi.dim(text) else text
+end
+
 const function appendNode(node, lines: { string }, prefix: string, isLast: boolean, options: Options)
     const branchIndent = options.Indent:gsub(" ", "─"):gsub("─$", " ")
     const connector = `{if isLast then "└" else "├"}{branchIndent}`
@@ -82,7 +94,7 @@ const function appendNode(node, lines: { string }, prefix: string, isLast: boole
             aggregateStatus(node),
             node.planNode.phrase,
             options.Color
-        )}`
+        )}{skipReasonText(node, options.Color)}`
     )
     const children = visibleChildren(node, options)
     const childPrefix = `{prefix}{if isLast then " " else "│"}{options.Indent}`
@@ -144,6 +156,10 @@ function TextReporter.format(results, options: Options): { string }
     const failed = formatCount(results.failureCount, "failed", options.Color, Ansi.brightRed)
     const skipped = formatCount(results.skippedCount, "skipped", options.Color, Ansi.brightYellow)
     table.insert(lines, `{passed}, {failed}, {skipped}.`)
+    const focusSummary = TextReporter.formatFocusSummary(results.focusExcludedCount or 0)
+    if focusSummary then
+        table.insert(lines, if options.Color then Ansi.brightYellow(focusSummary) else focusSummary)
+    end
     if results.snapshotSummary then
         const snapshotLines = SnapshotSummary.format(results.snapshotSummary, options.Indent)
         if #snapshotLines > 0 then
@@ -152,6 +168,20 @@ function TextReporter.format(results, options: Options): { string }
         end
     end
     return lines
+end
+
+--[[
+    Returns the line that says how many tests a focus modifier excluded from the run, or
+    nil when focus excluded nothing.
+]]
+function TextReporter.formatFocusSummary(excludedCount: number): string?
+    assert(type(excludedCount) == "number")
+    if excludedCount <= 0 then
+        return nil
+    end
+    return if excludedCount == 1
+        then "1 test was excluded by focus."
+        else `{excludedCount} tests were excluded by focus.`
 end
 
 --[[
