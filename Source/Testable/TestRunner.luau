@@ -14,6 +14,7 @@ const task = if task then task else require("@lune/task")
 const TestEnum = require("./TestEnum")
 const TestResults = require("./TestResults")
 const TestSession = require("./TestSession")
+const TestTimeout = require("./TestTimeout")
 
 const RUNNING_GLOBAL = "__TESTABLE_RUNNING_TEST__"
 const RUNNING_COUNT_GLOBAL = "__TESTABLE_RUNNING_COUNT__"
@@ -50,6 +51,15 @@ const function releaseGlobalSlot()
     globalSemaphore.lock = true
     globalSemaphore.activeCount = globalSemaphore.activeCount - 1
     globalSemaphore.lock = false
+end
+
+-- Lowers the count of running tests and only clears the flag when no tests are running
+const function releaseRunningFlag()
+    _G[RUNNING_COUNT_GLOBAL] = (_G[RUNNING_COUNT_GLOBAL] or 1) - 1
+    if _G[RUNNING_COUNT_GLOBAL] <= 0 then
+        _G[RUNNING_GLOBAL] = nil
+        _G[RUNNING_COUNT_GLOBAL] = nil
+    end
 end
 
 --[[
@@ -170,11 +180,73 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
             errorMessage = nodeResult
         end
 
-        -- Decrement the counter and only clear the flag when no tests are running
-        _G[RUNNING_COUNT_GLOBAL] = (_G[RUNNING_COUNT_GLOBAL] or 1) - 1
-        if _G[RUNNING_COUNT_GLOBAL] <= 0 then
-            _G[RUNNING_GLOBAL] = nil
-            _G[RUNNING_COUNT_GLOBAL] = nil
+        releaseRunningFlag()
+
+        return success, errorMessage
+    end
+
+    --[[
+        Runs a callback like runCallback, but gives up on it once it has been running for
+        longer than the given budget. The callback runs in its own thread so that it can
+        be cancelled while the calling thread waits for whichever comes first, the
+        callback finishing or the budget running out. Only a callback that yields can be
+        interrupted. One that never yields blocks the scheduler, so nothing else gets a
+        chance to run until it returns on its own.
+
+        @param callback - The function to execute
+        @param subject - What is running, for the timeout message
+        @param messagePrefix - Optional prefix for error messages
+        @param budget - The budget in seconds, or nil to run without a limit
+        @param source - Where the budget came from, for the timeout message
+        @return success: boolean, errorMessage: string?
+    ]]
+    const function runCallbackWithBudget(
+        callback: (any) -> (),
+        subject: string,
+        messagePrefix: string?,
+        budget: number?,
+        source: string?
+    ): (boolean, string?)
+        if budget == nil then
+            return runCallback(callback, messagePrefix)
+        end
+
+        const waiter = coroutine.running()
+        local finished = false
+        local success = false
+        local errorMessage: string? = nil
+        local timedOut = false
+        local waiting = false
+
+        const thread = task.spawn(function()
+            success, errorMessage = runCallback(callback, messagePrefix)
+            finished = true
+            if waiting then
+                task.spawn(waiter)
+            end
+        end)
+
+        if finished then
+            return success, errorMessage
+        end
+
+        const timer = task.delay(budget, function()
+            finished = true
+            timedOut = true
+            -- The cancelled thread never reaches the end of runCallback, so the running
+            -- flag it raised has to be released here instead.
+            pcall(task.cancel, thread)
+            releaseRunningFlag()
+            success = false
+            errorMessage = TestTimeout.formatMessage(subject, budget, source :: string)
+            task.spawn(waiter)
+        end)
+
+        waiting = true
+        coroutine.yield()
+
+        if not timedOut then
+            task.cancel(timer)
         end
 
         return success, errorMessage
@@ -184,17 +256,24 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
         -- Errors can be set either via `error` propagating upwards or
         -- by a test calling fail([message]).
 
+        -- The test and each of its beforeEach and afterEach hooks get the budget
+        -- separately, so a slow hook cannot use up the time of the test itself.
+        const budget, budgetSource = TestTimeout.resolve(childPlanNode.timeout, Config.Timeout)
+
         for _, hook in ipairs(lifecycleHooks:getBeforeEachHooks()) do
-            const success, errorMessage = runCallback(hook, "beforeEach hook: ")
+            const success, errorMessage =
+                runCallbackWithBudget(hook, "The beforeEach hook", "beforeEach hook: ", budget, budgetSource)
             if not success then
                 return false, errorMessage
             end
         end
 
-        const testSuccess, testErrorMessage = runCallback(childPlanNode.callback)
+        const testSuccess, testErrorMessage =
+            runCallbackWithBudget(childPlanNode.callback, "The test", nil, budget, budgetSource)
 
         for _, hook in ipairs(lifecycleHooks:getAfterEachHooks()) do
-            const success, errorMessage = runCallback(hook, "afterEach hook: ")
+            const success, errorMessage =
+                runCallbackWithBudget(hook, "The afterEach hook", "afterEach hook: ", budget, budgetSource)
             if not success then
                 if not testSuccess then
                     return false,
