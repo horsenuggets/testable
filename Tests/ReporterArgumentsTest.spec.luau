@@ -9,6 +9,8 @@ Tests for parsing the reporter flags of the test script into configuration optio
 const Config = require("../Source/Testable/Config")
 const ReporterArguments = require("../Scripts/Helpers/ReporterArguments")
 const ReporterSelection = require("../Source/Testable/Reporters/ReporterSelection")
+const Testable = require("../Source/Testable")
+const expect, it = Testable.expect, Testable.it
 
 const function failure(arguments: { string }): string?
     const ok, message = pcall(ReporterArguments.parse, arguments)

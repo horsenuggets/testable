@@ -12,7 +12,9 @@ const ResultFixture = require("./Helpers/ResultFixture")
 const ResultTree = require("../Source/Testable/Reporters/ResultTree")
 const Subprocess = require("./Helpers/Subprocess")
 const TestEnum = require("../Source/Testable/TestEnum")
+const Testable = require("../Source/Testable")
 const TextReporter = require("../Source/Testable/Reporters/TextReporter")
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 const EXECUTION_MODES = {
     { Name = "parallel", Parallel = true },
     { Name = "sequential", Parallel = false },

@@ -10,6 +10,8 @@ for it.
 const Coverage = require("../Source/Testable/Coverage")
 const LcovReporter = require("../Source/Testable/Reporters/LcovReporter")
 const SampleModule = require("./CoverageFixtures/SampleModule")
+const Testable = require("../Source/Testable")
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 const fixturesDir = script.Parent.CoverageFixtures
 
 const function file(path: string, lineHits: { [number]: number }?): any

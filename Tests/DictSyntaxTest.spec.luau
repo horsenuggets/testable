@@ -8,6 +8,7 @@ alongside the existing array syntax.
 --]]
 
 const Testable = require("../Source/Testable")
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 
 return function()
     describe("Dictionary syntax for test roots", function()

@@ -12,7 +12,9 @@ const CoverageReporter = require("../Source/Testable/Reporters/CoverageReporter"
 const DisplayWidth = require("../Source/Testable/DisplayWidth")
 const TableRenderer = require("../Source/Testable/TableRenderer")
 const TestEnum = require("../Source/Testable/TestEnum")
+const Testable = require("../Source/Testable")
 const TextReporter = require("../Source/Testable/Reporters/TextReporter")
+const expect, it = Testable.expect, Testable.it
 const DEFAULT_LAYOUT: CoverageReporter.Layout = { Rows = 20, Sort = "Percentage" }
 const FAILURE = TestEnum.TestStatus.Failure
 const SKIPPED = TestEnum.TestStatus.Skipped

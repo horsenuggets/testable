@@ -11,23 +11,26 @@ parallel test execution via task.spawn.
 const Config = require("./Config")
 const LifecycleHooks = require("./LifecycleHooks")
 const SnapshotManager = require("./Snapshots/SnapshotManager")
+const SpecApi = require("./SpecApi")
 const task = if task then task else require("@lune/task")
 const TestEnum = require("./TestEnum")
 const TestResults = require("./TestResults")
+const TestScope = require("./TestScope")
 const TestSession = require("./TestSession")
 
 const RUNNING_GLOBAL = "__TESTABLE_RUNNING_TEST__"
 const RUNNING_COUNT_GLOBAL = "__TESTABLE_RUNNING_COUNT__"
 
--- Global semaphore for limiting concurrent test execution across all describe blocks
-const globalSemaphore = { activeCount = 0, lock = false }
-
 const TestRunner = {
     environment = {},
 }
 
--- Helper to acquire a global semaphore slot
-const function acquireGlobalSlot()
+-- Helper to acquire a slot of the semaphore that limits concurrent test execution across
+-- all describe blocks of one run. Every run has its own semaphore (see TestSession.new),
+-- because a test that starts a nested run holds its slot until the nested run finishes.
+-- If both shared one semaphore, the nested tests could wait forever for slots that are
+-- all held by the tests waiting on them.
+const function acquireGlobalSlot(globalSemaphore: TestSession.Semaphore)
     while true do
         while globalSemaphore.lock do
             task.wait()
@@ -43,8 +46,8 @@ const function acquireGlobalSlot()
     end
 end
 
--- Helper to release a global semaphore slot
-const function releaseGlobalSlot()
+-- Helper to release a slot of a run's semaphore
+const function releaseGlobalSlot(globalSemaphore: TestSession.Semaphore)
     while globalSemaphore.lock do
         task.wait()
     end
@@ -62,24 +65,6 @@ const function log(...: any): ()
     if Config.Verbose then
         print("[Testable]", ...)
     end
-end
-
---[[
-    Wraps an expectation context with a public API.
-
-    @param expectationContext - The expectation context to wrap
-    @return A callable table that provides the expect() API
-]]
-const function wrapExpectContextWithPublicApi(expectationContext: any): any
-    return setmetatable({
-        extend = function(...)
-            expectationContext:extend(...)
-        end,
-    }, {
-        __call = function(_self, ...)
-            return expectationContext:startExpectationChain(...)
-        end,
-    })
 end
 
 --[[
@@ -155,30 +140,44 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
 
         const messagePrefix: string = inputMessagePrefix or ""
 
-        const testEnvironment = getfenv(callback)
+        const scope: TestScope.RunScope = {
+            ExpectationContext = callbackSession:getExpectationContext(),
+            Fail = function(message: string)
+                success = false
+                errorMessage = messagePrefix .. message
+            end,
+            Finished = false,
+        }
 
-        for key, value in pairs(TestRunner.environment) do
-            testEnvironment[key] = value
-        end
+        if Config.InjectGlobals then
+            const testEnvironment = getfenv(callback)
 
-        testEnvironment.fail = function(message)
-            if message == nil then
-                message = "fail() was called."
+            for key, value in pairs(TestRunner.environment) do
+                testEnvironment[key] = value
             end
 
-            success = false
-            errorMessage = messagePrefix .. debug.traceback(tostring(message), 2)
+            -- Callbacks declared in the same describe block share one environment, so
+            -- these bindings are overwritten by whichever callback started last. They
+            -- prefer the scope of the calling coroutine and only fall back to this one
+            -- for threads that Testable can't tie to a test.
+            testEnvironment.fail = SpecApi.createFail(scope)
+            testEnvironment.expect = SpecApi.createExpect(scope)
         end
 
-        testEnvironment.expect = wrapExpectContextWithPublicApi(callbackSession:getExpectationContext())
-
         const context = callbackSession:getContext()
+
+        -- The scope stays on this coroutine's stack while the callback runs, including
+        -- across yields, so that the requirable `expect` and `fail` can find it.
+        TestScope.enterRun(scope)
 
         const nodeSuccess, nodeResult = xpcall(function()
             callback(context)
         end, function(message)
             return messagePrefix .. debug.traceback(tostring(message), 2)
         end)
+
+        TestScope.exit()
+        scope.Finished = true
 
         -- If a node threw an error, we prefer to use that message over
         -- one created by fail() if it was set.
@@ -285,14 +284,19 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
             for i, childPlanNode in ipairs(itTests) do
                 task.spawn(function()
                     -- Wait for a global slot to become available
-                    acquireGlobalSlot()
+                    acquireGlobalSlot(session.semaphore)
 
                     log(string.format("  [%d/%d] Starting: %s", i, total, childPlanNode.phrase))
 
                     -- Create isolated session for this test that writes to the pre-created node
+                    -- The node stack keeps the test's ancestors so that a focus or skip
+                    -- modifier on an enclosing describe block still applies to it.
+                    const testNodeStack = table.clone(session.nodeStack)
+                    table.insert(testNodeStack, testNodes[i])
+
                     const testSession = {
                         results = session.results,
-                        nodeStack = { testNodes[i] },
+                        nodeStack = testNodeStack,
                         contextStack = { testContexts[i] },
                         expectationContextStack = { testExpectationContexts[i] },
                         hasFocusNodes = session.hasFocusNodes,
@@ -340,7 +344,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
                     end
 
                     -- Release the global slot and update completion count
-                    releaseGlobalSlot()
+                    releaseGlobalSlot(session.semaphore)
                     while completionLock do
                         task.wait()
                     end
@@ -433,10 +437,13 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
                     -- that will write to our pre-created node
                     const subSession = {
                         results = session.results,
-                        nodeStack = {},
+                        -- Starts from the ancestors so that their focus and skip
+                        -- modifiers still apply inside this describe block.
+                        nodeStack = table.clone(session.nodeStack),
                         contextStack = {},
                         expectationContextStack = {},
                         hasFocusNodes = session.hasFocusNodes,
+                        semaphore = session.semaphore,
                     }
                     setmetatable(subSession, { __index = TestSession })
 

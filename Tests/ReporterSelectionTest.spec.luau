@@ -15,9 +15,11 @@ const LcovReporter = require("../Source/Testable/Reporters/LcovReporter")
 const ReporterSelection = require("../Source/Testable/Reporters/ReporterSelection")
 const ResultFixture = require("./Helpers/ResultFixture")
 const Subprocess = require("./Helpers/Subprocess")
+const Testable = require("../Source/Testable")
 const Xml = require("./Helpers/Xml")
 const fs = require("@lune/fs")
 const serde = require("@lune/serde")
+const afterEach, describe, expect, it = Testable.afterEach, Testable.describe, Testable.expect, Testable.it
 const COVERAGE_REPORT = {
     Files = {
         {

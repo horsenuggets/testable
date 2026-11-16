@@ -10,6 +10,8 @@ sequential describe paths.
 --]]
 
 const Subprocess = require("./Helpers/Subprocess")
+const Testable = require("../Source/Testable")
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 
 const EXECUTION_MODES = {
     { Name = "parallel", Parallel = true },

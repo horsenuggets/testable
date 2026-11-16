@@ -22,6 +22,7 @@ const SnapshotLogic = require("@self/Snapshots/SnapshotLogic")
 const SnapshotManager = require("@self/Snapshots/SnapshotManager")
 const SnapshotSerializer = require("@self/Snapshots/SnapshotSerializer")
 const SnapshotSummary = require("@self/Snapshots/SnapshotSummary")
+const SpecApi = require("@self/SpecApi")
 const StandardOutputGuard = require("@self/Reporters/StandardOutputGuard")
 const TestBootstrap = require("@self/TestBootstrap")
 const TestEnum = require("@self/TestEnum")
@@ -31,6 +32,11 @@ const TestResults = require("@self/TestResults")
 const TestRunner = require("@self/TestRunner")
 const TestSession = require("@self/TestSession")
 const TextReporter = require("@self/Reporters/TextReporter")
+
+export type Expect<Custom = {}> = SpecApi.Expect<Custom>
+export type Expectation<Custom = {}> = SpecApi.Expectation<Custom>
+export type Matcher = SpecApi.Matcher
+export type MatcherResult = SpecApi.MatcherResult
 
 --[[
     Executes tests from the specified test roots, generates a test plan, runs the tests,
@@ -99,7 +105,7 @@ const function run(testRoots: any): (any, boolean)
     return results, passed
 end
 
-const Testable = {
+const modules = {
     configure = Config.set,
     resetConfig = Config.reset,
     run = run,
@@ -132,4 +138,14 @@ const Testable = {
     TestSession = TestSession,
 }
 
-return Testable
+-- The spec API (describe, it, expect, and so on) is exported alongside the modules above
+-- so that specs can require it instead of relying on injected globals. SpecApi generates
+-- it from the spec environment, so it is merged in rather than listed here.
+const Testable = table.clone(modules) :: { [string]: any }
+
+for key, value in SpecApi.create() :: { [string]: any } do
+    assert(Testable[key] == nil, `The spec API entry "{key}" collides with a Testable export`)
+    Testable[key] = value
+end
+
+return (Testable :: any) :: typeof(modules) & SpecApi.Api
