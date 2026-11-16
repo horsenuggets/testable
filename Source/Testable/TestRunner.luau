@@ -20,15 +20,16 @@ const TestSession = require("./TestSession")
 const RUNNING_GLOBAL = "__TESTABLE_RUNNING_TEST__"
 const RUNNING_COUNT_GLOBAL = "__TESTABLE_RUNNING_COUNT__"
 
--- Global semaphore for limiting concurrent test execution across all describe blocks
-const globalSemaphore = { activeCount = 0, lock = false }
-
 const TestRunner = {
     environment = {},
 }
 
--- Helper to acquire a global semaphore slot
-const function acquireGlobalSlot()
+-- Helper to acquire a slot of the semaphore that limits concurrent test execution across
+-- all describe blocks of one run. Every run has its own semaphore (see TestSession.new),
+-- because a test that starts a nested run holds its slot until the nested run finishes.
+-- If both shared one semaphore, the nested tests could wait forever for slots that are
+-- all held by the tests waiting on them.
+const function acquireGlobalSlot(globalSemaphore: TestSession.Semaphore)
     while true do
         while globalSemaphore.lock do
             task.wait()
@@ -44,8 +45,8 @@ const function acquireGlobalSlot()
     end
 end
 
--- Helper to release a global semaphore slot
-const function releaseGlobalSlot()
+-- Helper to release a slot of a run's semaphore
+const function releaseGlobalSlot(globalSemaphore: TestSession.Semaphore)
     while globalSemaphore.lock do
         task.wait()
     end
@@ -275,7 +276,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
             for i, childPlanNode in ipairs(itTests) do
                 task.spawn(function()
                     -- Wait for a global slot to become available
-                    acquireGlobalSlot()
+                    acquireGlobalSlot(session.semaphore)
 
                     log(string.format("  [%d/%d] Starting: %s", i, total, childPlanNode.phrase))
 
@@ -335,7 +336,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
                     end
 
                     -- Release the global slot and update completion count
-                    releaseGlobalSlot()
+                    releaseGlobalSlot(session.semaphore)
                     while completionLock do
                         task.wait()
                     end
@@ -434,6 +435,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
                         contextStack = {},
                         expectationContextStack = {},
                         hasFocusNodes = session.hasFocusNodes,
+                        semaphore = session.semaphore,
                     }
                     setmetatable(subSession, { __index = TestSession })
 
