@@ -52,7 +52,11 @@ const function runScript(body: string): string
         const store = Testable.Snapshots.MemorySnapshotStore.new()
         const function run(func, options)
             Testable.resetConfig()
-            Testable.configure({ SnapshotStore = store, UpdateSnapshots = options ~= nil and options.Update == true })
+            Testable.configure({
+                Filter = options and options.Filter or "",
+                SnapshotStore = store,
+                UpdateSnapshots = options ~= nil and options.Update == true,
+            })
             const results, passed = Testable.run({
                 { Name = "Spec", Func = func, SnapshotPath = "Spec.snap" },
             })
@@ -891,7 +895,7 @@ return function()
             expect(output:find("RESULT after true", 1, true)).to.be.ok()
         end)
 
-        it("should report obsolete snapshots, skip them in focused runs, and prune on update", function()
+        it("should report obsolete snapshots, skip them in partial runs, and prune on update", function()
             const output = runScript([[
                 local mode = "all"
                 const function spec()
@@ -923,6 +927,8 @@ return function()
                 const skipped = run(spec, { Update = true })
                 print(`RESULT skipped {obsoleteCount(skipped)} {skipped.snapshotSummary.Removed}`)
                 mode = "removed"
+                const filtered = run(spec, { Filter = "stays", Update = true })
+                print(`RESULT filtered {obsoleteCount(filtered)} {filtered.snapshotSummary.Removed}`)
                 const reported, passed = run(spec)
                 print(`RESULT reported {obsoleteCount(reported)} {passed}`)
                 const pruned = run(spec, { Update = true })
@@ -931,6 +937,7 @@ return function()
             ]])
             expect(output:find("RESULT focused 0 0", 1, true)).to.be.ok()
             expect(output:find("RESULT skipped 0 0", 1, true)).to.be.ok()
+            expect(output:find("RESULT filtered 0 0", 1, true)).to.be.ok()
             expect(output:find("RESULT reported 2 true", 1, true)).to.be.ok()
             expect(output:find("2 obsolete snapshots found.", 1, true)).to.be.ok()
             expect(output:find('"Spec > goes away 1" in "Spec.snap"', 1, true)).to.be.ok()

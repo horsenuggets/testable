@@ -218,17 +218,6 @@ function TestNode.new(plan, phrase, nodeType, nodeModifier)
     return setmetatable(node, TestNode)
 end
 
-const function getModifier(name, pattern, modifier)
-    if pattern and (modifier == nil or modifier == TestEnum.NodeModifier.None) then
-        if name:match(pattern) then
-            return TestEnum.NodeModifier.Focus
-        else
-            return TestEnum.NodeModifier.Skip
-        end
-    end
-    return modifier
-end
-
 function TestNode:addChild(phrase, nodeType, nodeModifier)
     if nodeType == TestEnum.NodeType.It then
         for _, child in pairs(self.children) do
@@ -238,8 +227,6 @@ function TestNode:addChild(phrase, nodeType, nodeModifier)
         end
     end
 
-    const childName = self:getFullName() .. " " .. phrase
-    nodeModifier = getModifier(childName, self.plan.testNamePattern, nodeModifier)
     const child = TestNode.new(self.plan, phrase, nodeType, nodeModifier)
     child.parent = self
     table.insert(self.children, child)
@@ -300,13 +287,14 @@ TestPlan.__index = TestPlan
 TestPlan.newEnvironment = newEnvironment
 
 --[[
-    Create a new, empty TestPlan.
+    Create a new, empty TestPlan. The filter is recorded on the plan by TestFilter.apply
+    once the tree has been built, so it is not a parameter here.
 ]]
-function TestPlan.new(testNamePattern, extraEnvironment)
+function TestPlan.new(extraEnvironment)
     const plan = {
         children = {},
-        testNamePattern = testNamePattern,
         extraEnvironment = extraEnvironment,
+        filter = nil,
         -- Snapshot the focus guard before any spec code runs, since a describe block or
         -- a test may call Config.reset() which would turn it back off.
         forbidFocus = Config.ForbidFocus,
@@ -319,7 +307,6 @@ end
     Add a new child under the test plan's root node.
 ]]
 function TestPlan:addChild(phrase, nodeType, nodeModifier)
-    nodeModifier = getModifier(phrase, self.testNamePattern, nodeModifier)
     const child = TestNode.new(self, phrase, nodeType, nodeModifier)
     table.insert(self.children, child)
     return child

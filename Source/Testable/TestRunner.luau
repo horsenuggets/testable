@@ -14,6 +14,7 @@ const SnapshotManager = require("./Snapshots/SnapshotManager")
 const SpecApi = require("./SpecApi")
 const task = if task then task else require("@lune/task")
 const TestEnum = require("./TestEnum")
+const TestFilter = require("./TestFilter")
 const TestResults = require("./TestResults")
 const TestScope = require("./TestScope")
 const TestSession = require("./TestSession")
@@ -80,11 +81,7 @@ function TestRunner.runPlan(plan: any): any
     const planStartTime = os.clock()
     const lifecycleHooks = LifecycleHooks.new()
 
-    const exclusiveNodes = plan:findNodes(function(node)
-        return node.modifier == TestEnum.NodeModifier.Focus
-    end)
-
-    session.hasFocusNodes = #exclusiveNodes > 0
+    session.hasFocusNodes = TestFilter.hasFocus(plan)
 
     -- Read the snapshot settings before tests run, since tests may call Config.reset().
     const snapshots = SnapshotManager.new({ Store = Config.SnapshotStore, Update = Config.UpdateSnapshots })
@@ -105,8 +102,9 @@ function TestRunner.runPlan(plan: any): any
     const results = session:finalize()
     results.duration = os.clock() - planStartTime
 
-    -- A focused run skips tests, so their snapshots must not be mistaken for obsolete.
-    results.snapshotSummary = snapshots:Finish(results, session.hasFocusNodes)
+    -- A focused or filtered run skips tests, so their snapshots must not be mistaken for
+    -- obsolete.
+    results.snapshotSummary = snapshots:Finish(results, session.hasFocusNodes or plan.filter ~= nil)
 
     return results
 end
@@ -235,8 +233,13 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
 
     lifecycleHooks:pushHooksFrom(planNode)
 
+    -- A describe block that the filter left no tests in isn't part of the run, so its
+    -- beforeAll and afterAll hooks don't run. Its tests are still visited below so that
+    -- they are reported as skipped.
+    const filteredOut = TestFilter.excludes(session.results.planNode, planNode)
+
     local halt = false
-    for _, hook in ipairs(lifecycleHooks:getBeforeAllHooks()) do
+    for _, hook in ipairs(if filteredOut then {} else lifecycleHooks:getBeforeAllHooks()) do
         const success, errorMessage = runCallback(session, hook, "beforeAll hook: ")
         if not success then
             session:addDummyError("beforeAll", errorMessage)
@@ -548,7 +551,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
         end
     end
 
-    for _, hook in ipairs(lifecycleHooks:getAfterAllHooks()) do
+    for _, hook in ipairs(if filteredOut then {} else lifecycleHooks:getAfterAllHooks()) do
         const success, errorMessage = runCallback(session, hook, "afterAll hook: ")
         if not success then
             session:addDummyError("afterAll", errorMessage)
