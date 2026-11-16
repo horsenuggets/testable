@@ -46,3 +46,18 @@ Testable.configure({
 | `Verbose` | `boolean` | `false` | Enable detailed logging during test execution |
 
 Reset configuration to defaults with `Testable.resetConfig()`.
+
+## Coverage
+
+In Lune, set `Coverage = true` and `CoverageRoots` to report line coverage for every
+module under the roots, including modules that no test required. Modules that tests load
+with `luau.load` instead of `require` (e.g., inside a sandbox with a custom environment)
+can count too. Register each loaded chunk with its source file path...
+
+```luau
+local chunk = luau.load(fs.readFile(path), { debugName = path, environment = sandbox })
+Testable.Coverage.track(path, chunk)
+local module = chunk()
+```
+
+A file can be tracked any number of times, and hits from every load are merged.
