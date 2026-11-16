@@ -34,7 +34,21 @@ function ExpectationContext.new(parent)
 end
 
 function ExpectationContext:startExpectationChain(...)
-    return Expectation.new(...):extend(self._extensions)
+    const expectation = Expectation.new(...):extend(self._extensions)
+    expectation._snapshotScope = self._snapshotScope
+
+    return expectation
+end
+
+--[[
+    Ties this context to the test it belongs to, so that snapshot assertions made through
+    it know which test is running. Each test has its own context, so the first binding
+    stays for the whole test and its hooks.
+]]
+function ExpectationContext:bindSnapshotScope(snapshots, planNode)
+    if self._snapshotScope == nil and snapshots ~= nil and planNode ~= nil then
+        self._snapshotScope = snapshots:CreateScope(planNode)
+    end
 end
 
 function ExpectationContext:extend(config)

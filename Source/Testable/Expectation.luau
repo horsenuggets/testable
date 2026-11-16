@@ -35,6 +35,7 @@ const MATCHER_NAMES = {
     "lessThan",
     "lessThanOrEqual",
     "match",
+    "matchSnapshot",
     "near",
     "none",
     "ok",
@@ -731,6 +732,30 @@ function Expectation:throw(messageSubstring)
             "Expected function to throw an error, but it did not throw.",
             ("Expected function to succeed, but it threw an error: %s"):format(tostring(errorText))
         )
+    end)
+end
+
+--[[
+    Assert that our expectation value matches the snapshot stored for the running test.
+    A value with no stored snapshot is recorded and passes. An optional hint replaces
+    the snapshot's number in its key.
+
+    expect(render(report)).to.matchSnapshot()
+    expect(render(report)).to.matchSnapshot("compact layout")
+]]
+function Expectation:matchSnapshot(hint)
+    const scope = self._snapshotScope
+
+    if not self.successCondition then
+        misuse("matchSnapshot", "cannot be negated with never.")
+    elseif scope == nil then
+        misuse("matchSnapshot", "can only be used while a test is running.")
+    end
+
+    const passed, message = scope.Manager:Match(scope, self.value, hint)
+
+    return self:_finish(passed, function()
+        return message
     end)
 end
 

@@ -62,6 +62,7 @@ export type Expectation<Custom = {}> = Custom & {
     lessThan: MatcherMethod<Expectation<Custom>, number | string>,
     lessThanOrEqual: MatcherMethod<Expectation<Custom>, number | string>,
     match: MatcherMethod<Expectation<Custom>, string>,
+    matchSnapshot: MatcherMethod<Expectation<Custom>, string?>,
     near: MatcherMethod<Expectation<Custom>, (number, number?)>,
     none: MatcherMethod<Expectation<Custom>, ()>,
     ok: MatcherMethod<Expectation<Custom>, ()>,

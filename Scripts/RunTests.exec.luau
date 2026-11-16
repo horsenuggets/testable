@@ -15,16 +15,19 @@ and where they go...
 > --output <path> - Writes the reporter named just before it to a file instead of
   standard output.
 > --slowest <count> - Lists that many of the slowest tests in the text report.
+> --update-snapshots, -u - Accepts changed snapshots and removes obsolete ones.
 
-[Usage] ./Scripts/RunTests.exec.luau [--filter "<text>"] [reporter flags]
+[Usage] ./Scripts/RunTests.exec.luau [--filter "<text>"] [reporter flags] [snapshot flags]
 
 --]]
 
 const FilterArguments = require("./Helpers/FilterArguments")
 const ReporterArguments = require("./Helpers/ReporterArguments")
+const SnapshotArguments = require("./Helpers/SnapshotArguments")
 const Testable = require("../Source/Testable")
 const process = require("@lune/process")
-const USAGE = `[Usage] ./Scripts/RunTests.exec.luau {FilterArguments.Usage} {ReporterArguments.Usage}`
+const USAGE = `[Usage] ./Scripts/RunTests.exec.luau {FilterArguments.Usage} {ReporterArguments.Usage} `
+    .. SnapshotArguments.Usage
 
 const TESTS = {
     { Name = "CloudPlaceTest", Func = require("../Tests/CloudPlaceTest.spec") },
@@ -53,6 +56,7 @@ const TESTS = {
     { Name = "RobloxCloudTest", Func = require("../Tests/RobloxCloudTest.spec") },
     { Name = "SkipReasonTest", Func = require("../Tests/SkipReasonTest.spec") },
     { Name = "SlowestTestsTest", Func = require("../Tests/SlowestTestsTest.spec") },
+    { Name = "SnapshotTest", Func = require("../Tests/SnapshotTest.spec") },
     { Name = "SpecApiTest", Func = require("../Tests/SpecApiTest.spec") },
     { Name = "TestScopeTest", Func = require("../Tests/TestScopeTest.spec") },
     { Name = "TimeoutTest", Func = require("../Tests/TimeoutTest.spec") },
@@ -64,8 +68,10 @@ const TESTS = {
 const RunTests = {}
 
 function RunTests.exec()
-    -- Each parser takes the flags it knows and hands the rest to the next one
-    const parsed, reporterOptions, filterOptions, remaining = pcall(function()
+    -- Each parser takes the flags it knows and hands the rest to the next one. Snapshot
+    -- flags come last, so a value that belongs to another flag (e.g., an output path) is
+    -- never mistaken for one.
+    const parsed, reporterOptions, filterOptions, unparsed = pcall(function()
         const reporterOptions, unparsed = ReporterArguments.parse(process.args)
         return reporterOptions, FilterArguments.parse(unparsed)
     end)
@@ -74,6 +80,8 @@ function RunTests.exec()
         print(USAGE)
         process.exit(Testable.ExitCode.ToolError)
     end
+
+    const snapshotOptions, remaining = SnapshotArguments.parse(unparsed)
     if #remaining > 0 then
         print(`The argument "{remaining[1]}" is not recognized.`)
         print(USAGE)
@@ -82,6 +90,7 @@ function RunTests.exec()
 
     Testable.configure(reporterOptions)
     Testable.configure(filterOptions)
+    Testable.configure(snapshotOptions)
     for _, reporter in reporterOptions.Reporters or {} do
         if reporter == Testable.TestEnum.Reporter.Lcov then
             Testable.configure({ Coverage = true, CoverageRoots = script.Parent.Parent.Source.Testable })

@@ -338,7 +338,7 @@ end
 
 --[[
     Add a new describe node with the given method as a callback. Generates or
-    reuses all the describe nodes along the path.
+    reuses all the describe nodes along the path. Returns the node that owns the method.
 ]]
 function TestPlan:addRoot(path, method)
     local curNode = self
@@ -361,6 +361,8 @@ function TestPlan:addRoot(path, method)
 
     curNode.callback = method
     curNode:expand()
+
+    return curNode
 end
 
 --[[
