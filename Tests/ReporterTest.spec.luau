@@ -303,6 +303,8 @@ return function()
         const cases = {
             { 0, "0.0%" },
             { 0.08, "0.08%" },
+            { 0.57, "0.57%" },
+            { 0.29, "0.29%" },
             { 0.999, "0.99%" },
             { 1, "1.0%" },
             { 88.36, "88.3%" },
@@ -310,6 +312,14 @@ return function()
         }
         for _, case in cases do
             expect(CoverageReporter.formatPercentage(case[1])).to.equal(case[2])
+        end
+        for hundredths = 1, 99 do
+            expect(CoverageReporter.formatPercentage(hundredths / 100)).to.equal(
+                `0.{string.format("%02d", hundredths)}%`
+            )
+        end
+        for tenths = 10, 1000 do
+            expect(CoverageReporter.formatPercentage(tenths / 10)).to.equal(`{string.format("%.1f", tenths / 10)}%`)
         end
     end)
 

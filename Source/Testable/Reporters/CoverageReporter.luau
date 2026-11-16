@@ -17,6 +17,7 @@ const TestEnum = require("../TestEnum")
 const TextReporter = require("./TextReporter")
 const ALIGNMENTS: { TableRenderer.Alignment } = { "Left", "Right", "Right", "Right" }
 const ELLIPSIS = "..."
+const FLOOR_EPSILON = 1e-9
 const IS_LUNE = Ansi.isLune()
 const MAX_PATH_LENGTH = 40
 const MAX_ROWS = 20
@@ -88,14 +89,16 @@ end
 
 --[[
     Formats a percentage with one decimal, or two below 1% so tiny totals stay visible.
-    Values are floored so the text never claims more coverage than was measured.
+    Values are floored so the text never claims more coverage than was measured. The
+    small epsilon keeps values that are already exact hundredths, like 0.57, from losing
+    a digit because their binary form sits just below the boundary.
 ]]
 function CoverageReporter.formatPercentage(value: number): string
     assert(type(value) == "number")
     if value > 0 and value < 1 then
-        return string.format("%.2f%%", math.floor(value * 100) / 100)
+        return string.format("%.2f%%", math.floor(value * 100 + FLOOR_EPSILON) / 100)
     end
-    return string.format("%.1f%%", math.floor(value * 10) / 10)
+    return string.format("%.1f%%", math.floor(value * 10 + FLOOR_EPSILON) / 10)
 end
 
 --[[

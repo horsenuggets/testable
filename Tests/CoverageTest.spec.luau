@@ -205,6 +205,12 @@ return function()
             expect(Coverage.percentage(1, 1)).to.equal(100)
         end)
 
+        it("should keep exact hundredths instead of flooring them away", function()
+            for hit = 0, 10000 do
+                expect(Coverage.percentage(hit, 10000)).to.equal(hit / 100)
+            end
+        end)
+
         it("should return zero when there are no executable lines", function()
             expect(Coverage.percentage(0, 0)).to.equal(0)
         end)

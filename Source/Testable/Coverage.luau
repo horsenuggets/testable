@@ -154,7 +154,9 @@ end
 function Coverage.percentage(hit: number, executable: number): number
     assert(type(hit) == "number")
     assert(type(executable) == "number")
-    return if executable > 0 then math.floor(hit / executable * 10000) / 100 else 0
+    -- Scale before dividing so exact hundredths like 29 / 10000 don't land just below
+    -- their boundary and floor away.
+    return if executable > 0 then math.floor(hit * 10000 / executable) / 100 else 0
 end
 
 --[[
