@@ -14,11 +14,13 @@ Scripts/PublishE2EPlace.exec.luau to build and publish it.
 
 --]]
 
+const Testable = require("../Source/Testable")
 const fs = require("@lune/fs")
 const net = require("@lune/net")
 const process = require("@lune/process")
 const serde = require("@lune/serde")
 const task = require("@lune/task")
+const describe, it = Testable.describe, Testable.it
 
 const UNIVERSE_ID = "10772475667"
 const PLACE_ID = "114852968773810"

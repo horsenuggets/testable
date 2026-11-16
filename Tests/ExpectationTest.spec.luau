@@ -7,6 +7,9 @@ type assertions, nil checks, numeric comparisons, error throwing, and negation.
 
 --]]
 
+const Testable = require("../Source/Testable")
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
+
 return function()
     describe("expect().to.equal()", function()
         it("should pass when values are equal", function()

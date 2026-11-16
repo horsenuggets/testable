@@ -7,6 +7,11 @@ beforeAll, and afterAll hooks.
 
 --]]
 
+const Testable = require("../Source/Testable")
+const afterAll, afterEach, beforeAll, beforeEach =
+    Testable.afterAll, Testable.afterEach, Testable.beforeAll, Testable.beforeEach
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
+
 return function()
     describe("beforeEach and afterEach", function()
         local beforeEachRan = false
