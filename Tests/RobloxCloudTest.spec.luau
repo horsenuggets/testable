@@ -3,17 +3,21 @@
 RobloxCloudTest.spec
 
 Runs Testable's test suite in a real Roblox cloud environment using
-the Open Cloud Luau Execution API. Submits a test script to a
-published place and maps each remote result to a Testable it() block.
+the Open Cloud Luau Execution API. Submits a test script to the E2E
+place and maps each remote result to a Testable it() block.
 
 Requires TESTABLE_CICD_ROBLOX_API_KEY in the environment. Skips gracefully when
 the key is not available.
 
-The place must have Testable published in ReplicatedStorage. Use
-Scripts/PublishE2EPlace.exec.luau to build and publish it.
+The place is built from the current source and uploaded only when it
+differs from the last upload (see Scripts/Helpers/E2EPlace.luau). The
+execution task is pinned to that exact place version, so a run never
+executes against a stale place or one that another run uploaded.
 
 --]]
 
+const CloudPlace = require("../Scripts/Helpers/CloudPlace")
+const E2EPlace = require("../Scripts/Helpers/E2EPlace")
 const Testable = require("../Source/Testable")
 const fs = require("@lune/fs")
 const net = require("@lune/net")
@@ -22,8 +26,6 @@ const serde = require("@lune/serde")
 const task = require("@lune/task")
 const describe, it = Testable.describe, Testable.it
 
-const UNIVERSE_ID = "10772475667"
-const PLACE_ID = "114852968773810"
 const BASE_URL = "https://apis.roblox.com/cloud/v2"
 const POLL_INTERVAL = 3
 const MAX_POLL_ATTEMPTS = 60
@@ -43,9 +45,9 @@ const function _loadApiKey(): string?
     return key
 end
 
-const function _createTask(apiKey: string, scriptSource: string): string
+const function _createTask(apiKey: string, scriptSource: string, versionNumber: number): string
     const response = net.request({
-        url = `{BASE_URL}/universes/{UNIVERSE_ID}/places/{PLACE_ID}/luau-execution-session-tasks`,
+        url = CloudPlace.getExecutionTaskUrl(E2EPlace.UniverseId, E2EPlace.PlaceId, versionNumber),
         method = "POST",
         headers = {
             ["Content-Type"] = "application/json",
@@ -155,9 +157,11 @@ const function _parseTestResults(logs: { string }): { TestResult }
 end
 
 const function _runRemoteTests(apiKey: string): { TestResult }
-    print("  Submitting Luau execution task...")
+    const versionNumber = E2EPlace.ensureCurrent(apiKey)
+
+    print(`  Submitting Luau execution task pinned to place version {versionNumber}...`)
     const testScript = fs.readFile(REMOTE_SCRIPT_PATH)
-    const taskPath = _createTask(apiKey, testScript)
+    const taskPath = _createTask(apiKey, testScript, versionNumber)
 
     print("  Polling for task completion...")
     const taskResult = _pollTask(apiKey, taskPath)

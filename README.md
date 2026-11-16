@@ -110,9 +110,90 @@ Testable.configure({
 | `MaxConcurrency` | `number` | `4` | Maximum number of tests to run in parallel |
 | `Parallel` | `boolean` | `true` | Enable or disable parallel test execution |
 | `PrintSkipped` | `boolean` | `false` | Include skipped tests in the output |
+| `ReporterOutputs` | `{ [string]: string }` | `{}` | File paths for machine-readable reports, keyed by reporter name (see [Reporters](#reporters)) |
+| `Reporters` | `{ "Text" \| "Json" \| "JUnit" \| "Lcov" }` | `{ "Text" }` | Reports that a run produces (see [Reporters](#reporters)) |
+| `SlowestTests` | `number` | `0` | Number of slowest tests listed after the text report, or `0` to leave the list out |
 | `Verbose` | `boolean` | `false` | Enable detailed logging during test execution |
 
 Reset configuration to defaults with `Testable.resetConfig()`.
+
+## Reporters
+
+A run prints the text report by default. Set `Reporters` to choose which reports it
+produces, and `ReporterOutputs` to send machine-readable reports to files...
+
+```luau
+Testable.configure({
+    Reporters = { "Text", "Json", "JUnit" },
+    ReporterOutputs = { Json = "reports/results.json", JUnit = "reports/junit.xml" },
+    SlowestTests = 5,
+})
+```
+
+- `Text` → The status tree and summary, always on standard output. `SlowestTests` adds a
+  list of the tests that took longest.
+- `Json` → The results tree as a JSON document.
+- `JUnit` → JUnit XML for CI test annotations, with one `testsuite` per spec root and a
+  `classname` built from the describe path.
+- `Lcov` → Coverage as an lcov tracefile for coverage services and editor gutters. It
+  needs `Coverage` and `CoverageRoots` to be set.
+
+A machine-readable reporter without a path in `ReporterOutputs` writes to standard output
+instead. Only one report can use standard output, so that reporter has to be the only one
+without a path, and `Text` has to be left out. In Lune, anything your tests print during
+such a run goes to standard error instead, along with verbose logging, so standard output
+holds nothing but the report. Writing files only works in Lune.
+
+Every reporter is also a pure function from results to a string, which works in Roblox
+too...
+
+```luau
+local results = Testable.run({ testRoot })
+local json = Testable.Reporters.JsonReporter.format(results)
+local xml = Testable.Reporters.JUnitReporter.format(results)
+local tracefile = Testable.Reporters.LcovReporter.format(coverageReport)
+```
+
+**JSON Shape**
+
+The document has a `Version` (currently `1`), the `Totals`, and one node per spec root in
+`Suites`. Keys are always written in the same order...
+
+```json
+{
+  "Version": 1,
+  "Totals": { "Total": 3, "Passed": 1, "Failed": 1, "Skipped": 1, "Duration": 0.25 },
+  "Suites": [
+    {
+      "Name": "MathTest",
+      "FullName": "MathTest",
+      "Type": "Describe",
+      "Status": "Failure",
+      "Duration": 0.25,
+      "Children": [
+        {
+          "Name": "divides",
+          "FullName": "MathTest > divides",
+          "Type": "It",
+          "Status": "Failure",
+          "Duration": 0.125,
+          "ErrorMessage": "Expected 2, got 3",
+          "Children": []
+        }
+      ]
+    }
+  ]
+}
+```
+
+`Type` is `"Describe"` or `"It"`, `Status` is `"Success"`, `"Failure"`, or `"Skipped"`,
+and durations are in seconds. `ErrorMessage` is only present on nodes that failed, and
+`SkipReason` is only present on skipped nodes that gave a reason.
+
+**Durations**
+
+Result nodes carry a `duration` field in seconds. Tests and describe blocks record how
+long they ran, the results object records the whole run, and skipped tests have none.
 
 ## Coverage
 
