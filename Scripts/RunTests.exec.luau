@@ -80,7 +80,8 @@ function RunTests.exec()
         end
     end
 
-    process.exit(Testable.runToExitCode(TESTS))
+    const exitCode = Testable.runToExitCode(TESTS)
+    process.exit(exitCode)
 end
 
 RunTests.exec()

@@ -94,7 +94,8 @@ run, `1` for test failures, and `2` for a tool error (also available as
 `Testable.ExitCode`). It prints tool errors and rethrows any other error.
 
 ```luau
-process.exit(Testable.runToExitCode({ testRoot }))
+local exitCode = Testable.runToExitCode({ testRoot })
+process.exit(exitCode)
 ```
 
 To handle tool errors yourself, catch them with `pcall` and check them with
