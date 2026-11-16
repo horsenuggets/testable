@@ -81,7 +81,7 @@ function ReporterArguments.parse(arguments: { string }): (Options, { string })
             elseif options.ReporterOutputs[lastReporter] ~= nil then
                 usageError(`The "{lastReporter:lower()}" reporter was given more than one "--output" path.`)
             end
-            options.ReporterOutputs[lastReporter] = value
+            options.ReporterOutputs[lastReporter :: string] = value :: string
             index += 2
         elseif argument == "--slowest" then
             const count = if value ~= nil then tonumber(value) else nil

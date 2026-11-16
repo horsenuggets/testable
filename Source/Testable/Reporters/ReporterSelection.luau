@@ -46,11 +46,12 @@ const ReporterSelection = {}
     the reporters were listed. Paths for reporters that aren't selected are ignored, so a
     path can stay configured while its reporter is switched off.
 
-    @param reporters - The reporter names to run
+    @param reporters - The reporter names to run, which are checked here rather than by
+    their type so that a bad name gets a clear message
     @param outputs - Output file paths keyed by reporter name
     @return The reporters to run and where their output goes
 ]]
-function ReporterSelection.resolve(reporters: { string }, outputs: { [string]: string }): Selection
+function ReporterSelection.resolve(reporters: { any }, outputs: { [string]: string }): Selection
     assert(type(reporters) == "table", "Reporters must be an array of reporter names")
     assert(type(outputs) == "table", "ReporterOutputs must be a table of paths keyed by reporter name")
     for name, path in outputs do
@@ -139,7 +140,12 @@ const function writeFile(path: string, contents: string)
     FileWriter.write(path, contents)
 end
 
-const DEFAULT_SINKS: Sinks = { Print = print, WriteFile = writeFile }
+const DEFAULT_SINKS: Sinks = {
+    Print = function(contents: string)
+        print(contents)
+    end,
+    WriteFile = writeFile,
+}
 
 --[[
     Renders every machine-readable report in the selection and delivers it to its file,

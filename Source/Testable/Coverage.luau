@@ -46,8 +46,9 @@ export type FileCoverage = {
     Functions: { FunctionCoverage },
     ExecutableLines: number,
     HitLines: number,
-    -- Hit count of every executable line, keyed by line number.
-    LineHits: { [number]: number },
+    -- Hit count of every executable line, keyed by line number. Coverage.collect always
+    -- sets it, and it's optional so that reports built by hand stay valid without it.
+    LineHits: { [number]: number }?,
     Loaded: boolean,
     Percentage: number,
 }
