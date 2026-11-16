@@ -14,6 +14,7 @@ const Testable = require("../Source/Testable")
 const process = require("@lune/process")
 
 const TESTS = {
+    { Name = "CloudPlaceTest", Func = require("../Tests/CloudPlaceTest.spec") },
     { Name = "ConfigTest", Func = require("../Tests/ConfigTest.spec") },
     { Name = "CoverageTest", Func = require("../Tests/CoverageTest.spec") },
     { Name = "DictSyntaxTest", Func = require("../Tests/DictSyntaxTest.spec") },
