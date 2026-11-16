@@ -12,7 +12,9 @@ const IsolatedRun = require("./Helpers/IsolatedRun")
 const TestEnum = require("../Source/Testable/TestEnum")
 const TestPlan = require("../Source/Testable/TestPlan")
 const TestSession = require("../Source/Testable/TestSession")
+const Testable = require("../Source/Testable")
 const TextReporter = require("../Source/Testable/Reporters/TextReporter")
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 
 const EXECUTION_MODES = {
     { Name = "parallel", Parallel = true },
@@ -28,12 +30,16 @@ const MODIFIERS = { NONE, SKIP, FOCUS }
 const function noop() end
 
 --[[
-    Creates a plan with a single root describe node and returns that node. Its
-    environment holds the same functions a spec file sees as globals.
+    Plans a spec function in this process without running it, and returns the root
+    describe node that the spec registered under.
 ]]
-const function newRoot(): any
+const function newRoot(spec: (() -> ())?): any
     const plan = TestPlan.new()
-    plan:addRoot({ "Root" }, noop)
+    plan:addRoot({ "Root" }, function()
+        if spec then
+            spec()
+        end
+    end)
     return plan.children[1]
 end
 
@@ -59,8 +65,9 @@ end
 return function()
     describe("itTODO", function()
         it("should record a skipped test with the todo reason and no body", function()
-            const root = newRoot()
-            root.environment.itTODO("handles overflow")
+            const root = newRoot(function()
+                Testable.itTODO("handles overflow")
+            end)
 
             const node = root.children[1]
             expect(#root.children).to.equal(1)
@@ -72,8 +79,10 @@ return function()
         end)
 
         it("should reject a body", function()
-            const root = newRoot()
-            const ok, message = pcall(root.environment.itTODO, "handles overflow", noop)
+            local ok, message
+            const root = newRoot(function()
+                ok, message = pcall(Testable.itTODO :: any, "handles overflow", noop)
+            end)
 
             expect(ok).to.equal(false)
             expect(string.find(tostring(message), '"itTODO" only takes a name', 1, true) ~= nil).to.equal(true)
@@ -81,26 +90,46 @@ return function()
         end)
 
         it("should reject any second argument, even nil or a reason", function()
-            const root = newRoot()
-            expect((pcall(root.environment.itTODO, "explicit nil", nil))).to.equal(false)
-            expect((pcall(root.environment.itTODO, "reason", "later"))).to.equal(false)
+            local explicitNil, reason
+            const root = newRoot(function()
+                explicitNil = pcall(Testable.itTODO :: any, "explicit nil", nil)
+                reason = pcall(Testable.itTODO :: any, "reason", "later")
+            end)
+
+            expect(explicitNil).to.equal(false)
+            expect(reason).to.equal(false)
             expect(#root.children).to.equal(0)
         end)
 
+        it("should fail planning when given a body", function()
+            const root = newRoot(function()
+                (Testable.itTODO :: any)("handles overflow", noop)
+            end)
+
+            expect(string.find(tostring(root.loadError), '"itTODO" only takes a name', 1, true) ~= nil).to.equal(true)
+        end)
+
         it("should reject a duplicate name like any other test", function()
-            const root = newRoot()
-            root.environment.itTODO("handles overflow")
-            expect((pcall(root.environment.itTODO, "handles overflow"))).to.equal(false)
-            expect((pcall(root.environment.it, "handles overflow", noop))).to.equal(false)
+            local duplicateTodo, duplicateTest
+            const root = newRoot(function()
+                Testable.itTODO("handles overflow")
+                duplicateTodo = pcall(Testable.itTODO, "handles overflow")
+                duplicateTest = pcall(Testable.it, "handles overflow", noop)
+            end)
+
+            expect(duplicateTodo).to.equal(false)
+            expect(duplicateTest).to.equal(false)
+            expect(#root.children).to.equal(1)
         end)
     end)
 
     describe("skip variants", function()
         it("should store an optional reason on the plan node", function()
             for _, name in { "itSKIP", "xit", "describeSKIP", "xdescribe" } do
-                const root = newRoot()
-                root.environment[name]("with reason", noop, "waiting on the API")
-                root.environment[name]("without reason", noop)
+                const root = newRoot(function()
+                    (Testable :: any)[name]("with reason", function() end, "waiting on the API");
+                    (Testable :: any)[name]("without reason", function() end)
+                end)
 
                 expect(root.children[1].modifier).to.equal(SKIP)
                 expect(root.children[1].skipReason).to.equal("waiting on the API")
@@ -111,57 +140,73 @@ return function()
 
         it("should reject a reason that is not a string", function()
             for _, name in { "itSKIP", "xit", "describeSKIP", "xdescribe", "itFIXME" } do
-                const root = newRoot()
-                for _, reason in { 1, true, {}, noop } :: { any } do
-                    const ok, message = pcall(root.environment[name], "bad reason", noop, reason)
-                    expect(ok).to.equal(false)
-                    expect(string.find(tostring(message), "must be a string", 1, true) ~= nil).to.equal(true)
+                const messages = {}
+                const root = newRoot(function()
+                    for _, reason in { 1, true, {}, noop } :: { any } do
+                        const ok, message = pcall((Testable :: any)[name], "bad reason", function() end, reason)
+                        table.insert(messages, if ok then "no error" else tostring(message))
+                    end
+                end)
+
+                expect(#messages).to.equal(4)
+                for _, message in messages do
+                    expect(string.find(message, "must be a string", 1, true) ~= nil).to.equal(true)
                 end
                 expect(#root.children).to.equal(0)
             end
         end)
 
         it("should let SKIP mark the enclosing block with an optional reason", function()
-            const withReason = newRoot()
-            withReason.environment.SKIP("needs a server")
+            const withReason = newRoot(function()
+                Testable.SKIP("needs a server")
+            end)
             expect(withReason.modifier).to.equal(SKIP)
             expect(withReason.skipReason).to.equal("needs a server")
 
-            const withoutReason = newRoot()
-            withoutReason.environment.SKIP()
+            const withoutReason = newRoot(function()
+                Testable.SKIP()
+            end)
             expect(withoutReason.modifier).to.equal(SKIP)
             expect(withoutReason.skipReason).to.equal(nil)
 
-            const badReason = newRoot()
-            expect((pcall(badReason.environment.SKIP, 5))).to.equal(false)
+            local badReasonOk
+            const badReason = newRoot(function()
+                badReasonOk = pcall(Testable.SKIP :: any, 5)
+            end)
+            expect(badReasonOk).to.equal(false)
             expect(badReason.modifier).to.equal(NONE)
         end)
 
         it("should give itFIXME and FIXME a fixme reason instead of warning", function()
-            const root = newRoot()
-            root.environment.itFIXME("broken", noop)
-            root.environment.itFIXME("broken with message", noop, "times out")
+            const root = newRoot(function()
+                Testable.itFIXME("broken", noop)
+                Testable.itFIXME("broken with message", noop, "times out")
+            end)
             expect(root.children[1].modifier).to.equal(SKIP)
             expect(root.children[1].skipReason).to.equal("fixme")
             expect(root.children[1].callback).to.equal(noop)
             expect(root.children[2].skipReason).to.equal("fixme, times out")
 
-            const block = newRoot()
-            block.environment.FIXME()
+            const block = newRoot(function()
+                Testable.FIXME()
+            end)
             expect(block.modifier).to.equal(SKIP)
             expect(block.skipReason).to.equal("fixme")
 
-            const blockWithMessage = newRoot()
-            blockWithMessage.environment.FIXME("times out")
+            const blockWithMessage = newRoot(function()
+                Testable.FIXME("times out")
+            end)
             expect(blockWithMessage.skipReason).to.equal("fixme, times out")
         end)
 
         it("should not attach a reason to tests that are not skipped", function()
-            const root = newRoot()
-            root.environment.it("plain", noop)
-            root.environment.itFOCUS("focused", noop)
-            root.environment.describe("block", noop)
-            root.environment.describeFOCUS("focused block", noop)
+            const root = newRoot(function()
+                Testable.it("plain", noop)
+                Testable.itFOCUS("focused", noop)
+                Testable.describe("block", function() end)
+                Testable.describeFOCUS("focused block", function() end)
+            end)
+            expect(#root.children).to.equal(4)
 
             for _, child in root.children do
                 expect(child.skipReason).to.equal(nil)
@@ -200,12 +245,15 @@ return function()
         end)
 
         it("should propagate a block's reason to its tests", function()
-            const root = newRoot()
-            root.environment.describeSKIP("block", noop, "needs a server")
+            const root = newRoot(function()
+                Testable.describeSKIP("block", function()
+                    Testable.describe("nested", function()
+                        Testable.it("deep", noop)
+                    end)
+                    Testable.it("direct", noop)
+                end, "needs a server")
+            end)
             const block = root.children[1]
-            block.environment.describe("nested", noop)
-            block.children[1].environment.it("deep", noop)
-            block.environment.it("direct", noop)
 
             for _, hasFocusNodes in { false, true } do
                 for _, test in { block.children[1].children[1], block.children[2] } do
@@ -218,17 +266,21 @@ return function()
         end)
 
         it("should prefer the nearest reason and fall back to an outer one", function()
-            const root = newRoot()
-            root.environment.describeSKIP("outer", noop, "outer reason")
+            const root = newRoot(function()
+                Testable.describeSKIP("outer", function()
+                    Testable.describeSKIP("inner", function()
+                        Testable.itSKIP("own", noop, "own reason")
+                        Testable.it("inherits inner", noop)
+                        Testable.itSKIP("bare", noop)
+                        Testable.itTODO("unwritten")
+                    end, "inner reason")
+                    Testable.describeSKIP("silent", function()
+                        Testable.it("inherits outer", noop)
+                    end)
+                end, "outer reason")
+            end)
             const outer = root.children[1]
-            outer.environment.describeSKIP("inner", noop, "inner reason")
-            outer.environment.describeSKIP("silent", noop)
             const inner, silent = outer.children[1], outer.children[2]
-            inner.environment.itSKIP("own", noop, "own reason")
-            inner.environment.it("inherits inner", noop)
-            inner.environment.itSKIP("bare", noop)
-            inner.environment.itTODO("unwritten")
-            silent.environment.it("inherits outer", noop)
 
             const expected = {
                 { Node = inner.children[1], Reason = "own reason" },
@@ -245,8 +297,9 @@ return function()
         end)
 
         it("should return the same decision when asked twice", function()
-            const root = newRoot()
-            root.environment.itSKIP("skipped", noop, "flaky")
+            const root = newRoot(function()
+                Testable.itSKIP("skipped", noop, "flaky")
+            end)
             const session = TestSession.new(root.plan)
             session:pushNode(root.children[1])
 
@@ -258,8 +311,9 @@ return function()
         end)
 
         it("should store the reason on the result node", function()
-            const root = newRoot()
-            root.environment.itSKIP("skipped", noop, "flaky")
+            const root = newRoot(function()
+                Testable.itSKIP("skipped", noop, "flaky")
+            end)
             const session = TestSession.new(root.plan)
             session:pushNode(root.children[1])
             const _, reason, excludedByFocus = session:shouldSkip()

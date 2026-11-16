@@ -11,7 +11,9 @@ and sequential paths.
 
 const IsolatedRun = require("./Helpers/IsolatedRun")
 const TestSession = require("../Source/Testable/TestSession")
+const Testable = require("../Source/Testable")
 const TextReporter = require("../Source/Testable/Reporters/TextReporter")
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 
 const BOOLEANS = { false, true }
 const EXECUTION_MODES = {

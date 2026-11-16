@@ -10,7 +10,9 @@ checked by structure, which also proves that they are well formed and correctly 
 const JUnitReporter = require("../Source/Testable/Reporters/JUnitReporter")
 const ResultFixture = require("./Helpers/ResultFixture")
 const TestEnum = require("../Source/Testable/TestEnum")
+const Testable = require("../Source/Testable")
 const Xml = require("./Helpers/Xml")
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 const FAILURE = TestEnum.TestStatus.Failure
 const SKIPPED = TestEnum.TestStatus.Skipped
 const SUCCESS = TestEnum.TestStatus.Success

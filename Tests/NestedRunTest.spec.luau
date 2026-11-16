@@ -10,6 +10,8 @@ regression fails this spec instead of hanging the whole suite.
 --]]
 
 const Subprocess = require("./Helpers/Subprocess")
+const Testable = require("../Source/Testable")
+const expect, it = Testable.expect, Testable.it
 
 const CASES = {
     { MaxConcurrency = 1, Name = "one nesting test and one slot", Tests = 1 },
