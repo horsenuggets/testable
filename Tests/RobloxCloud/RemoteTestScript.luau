@@ -1,4 +1,5 @@
 --!nocheck
+--!nolint UnknownGlobal
 
 --[[
 

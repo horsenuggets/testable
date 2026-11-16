@@ -14,7 +14,8 @@ const Subprocess = require("./Helpers/Subprocess")
 const Testable = require("../Source/Testable")
 const fs = require("@lune/fs")
 const process = require("@lune/process")
-const roblox = require("@lune/roblox")
+-- The datatypes that Lune creates at run time aren't all part of the library's type.
+const roblox = require("@lune/roblox") :: any
 const task = require("@lune/task")
 
 const MemorySnapshotStore = Testable.Snapshots.MemorySnapshotStore
@@ -182,7 +183,7 @@ return function()
             expect(serialize(roblox.Vector3.new(1, 2, 3))).never.to.equal(serialize(roblox.Vector3.new(3, 2, 1)))
             expect(serialize({
                 Color = roblox.Color3.new(1, 0, 0),
-                Key = (roblox.Enum :: any).KeyCode.A,
+                Key = roblox.Enum.KeyCode.A,
             })).to.equal(table.concat({
                 "{",
                 "    Color = Color3(1, 0, 0),",
