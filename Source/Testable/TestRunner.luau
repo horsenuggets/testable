@@ -99,9 +99,9 @@ function TestRunner.runPlan(plan: any): any
 
     session.hasFocusNodes = #exclusiveNodes > 0
 
-    -- Snapshot the focus guard before tests run, since tests may call Config.reset()
-    -- which would turn it back off.
-    session.forbidFocus = Config.ForbidFocus
+    -- The plan captured the focus guard before any spec code ran, so neither planning nor
+    -- the tests themselves can turn it off.
+    session.forbidFocus = plan.forbidFocus == true
 
     if session.hasFocusNodes then
         log("Focus nodes detected, other tests will be skipped.")

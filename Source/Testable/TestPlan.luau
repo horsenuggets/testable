@@ -7,6 +7,7 @@ TestPlan objects are produced by TestPlanner.
 
 --]]
 
+const Config = require("./Config")
 const Expectation = require("./Expectation")
 const TestEnum = require("./TestEnum")
 
@@ -270,6 +271,9 @@ function TestPlan.new(testNamePattern, extraEnvironment)
         children = {},
         testNamePattern = testNamePattern,
         extraEnvironment = extraEnvironment,
+        -- Snapshot the focus guard before any spec code runs, since a describe block or
+        -- a test may call Config.reset() which would turn it back off.
+        forbidFocus = Config.ForbidFocus,
     }
 
     return setmetatable(plan, TestPlan)

@@ -230,6 +230,40 @@ return function()
                 expect(outcome.Passed).to.equal(false)
                 expect(outcome.FailureCount).to.equal(1)
             end)
+
+            it("should keep guarding when planning resets the configuration", function()
+                const outcome = IsolatedRun.run(
+                    [[
+                        Testable.resetConfig()
+                        describe("block", function()
+                            Testable.configure({ ForbidFocus = false })
+                            itFOCUS("focused", function() end)
+                        end)
+                        it("excluded", function() end)
+                    ]],
+                    { ForbidFocus = true, Parallel = mode.Parallel, PrintSkipped = false }
+                )
+
+                expect(outcome.Nodes["focused"].Status).to.equal("Success")
+                expect(outcome.Passed).to.equal(false)
+                expect(outcome.FailureCount).to.equal(1)
+                expect(outcome.FocusExcludedCount).to.equal(1)
+            end)
+
+            it("should stay off when planning turns the option on too late", function()
+                const outcome = IsolatedRun.run(
+                    [[
+                        Testable.configure({ ForbidFocus = true })
+                        itFOCUS("focused", function() end)
+                        it("excluded", function() end)
+                    ]],
+                    { ForbidFocus = false, Parallel = mode.Parallel, PrintSkipped = false }
+                )
+
+                expect(outcome.Passed).to.equal(true)
+                expect(outcome.FailureCount).to.equal(0)
+                expect(outcome.FocusExcludedCount).to.equal(1)
+            end)
         end)
     end
 
