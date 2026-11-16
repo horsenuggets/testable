@@ -155,6 +155,10 @@ function TextReporter.formatSlowest(results, count: number, color: boolean): { s
     assert(type(results) == "table")
     assert(type(count) == "number" and count >= 0 and count % 1 == 0)
     assert(type(color) == "boolean")
+    -- The block is off by default, so a run that doesn't want it skips the traversal.
+    if count == 0 then
+        return {}
+    end
     const ran = {}
     for index, case in ResultTree.collectCases(results) do
         if case.Status ~= TestEnum.TestStatus.Skipped then
