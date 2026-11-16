@@ -13,6 +13,10 @@ Modules that no test required have no runtime coverage data, so they are compile
 without running to count their executable lines, and every line counts as missed. A
 module that fails to compile counts as zero lines.
 
+Chunks loaded outside of require (e.g., with luau.load in a sandbox) can be registered
+with Coverage.track. Every tracked chunk for a file merges with its runtime coverage, so
+a line counts as hit when any load of the file ran it.
+
 --]]
 
 const IS_LUNE = pcall(function()
@@ -54,6 +58,100 @@ export type CoverageReport = {
 }
 
 const Coverage = {}
+
+-- Chunks registered with Coverage.track, keyed by normalized file path. Lives outside of
+-- Config so that Config.reset doesn't discard coverage recorded earlier in the session.
+const trackedChunks: { [string]: { (...any) -> ...any } } = {}
+
+--[[
+    Normalizes a filesystem path so that different spellings of the same file share one
+    key. Converts backslashes to slashes, resolves relative paths against the working
+    directory, and collapses empty, "." and "segment/.." parts.
+
+    @param path - The filesystem path to normalize
+    @return The normalized path
+]]
+function Coverage.normalizePath(path: string): string
+    assert(type(path) == "string")
+    local unified = path:gsub("\\", "/")
+    const isAbsolute = unified:sub(1, 1) == "/" or unified:match("^%a:/") ~= nil
+    if not isAbsolute and IS_LUNE then
+        unified = `{require("@lune/process").cwd}/{unified}`
+    end
+
+    const segments: { string } = {}
+    for _, segment in string.split(unified, "/") do
+        if segment == "" or segment == "." then
+            continue
+        end
+        if segment ~= ".." then
+            table.insert(segments, segment)
+            continue
+        end
+        -- The filesystem treats ".." at the root as the root itself, so it never climbs
+        -- past "/" or a drive letter.
+        const previous = segments[#segments]
+        if previous ~= nil and previous ~= ".." and not previous:match("^%a:$") then
+            table.remove(segments)
+        elseif not isAbsolute and not IS_LUNE then
+            table.insert(segments, segment)
+        end
+    end
+
+    const joined = table.concat(segments, "/")
+    return if unified:sub(1, 1) == "/" then `/{joined}` else joined
+end
+
+--[[
+    Registers a chunk loaded outside of require so its hits count toward the coverage of
+    the file at the given path. The same file can be tracked any number of times.
+
+    @param path - The filesystem path of the chunk's source file
+    @param chunk - The compiled chunk function, e.g. the result of luau.load
+]]
+function Coverage.track(path: string, chunk: (...any) -> ...any)
+    assert(type(path) == "string")
+    assert(type(chunk) == "function")
+    const key = Coverage.normalizePath(path)
+    const chunks = trackedChunks[key] or {}
+    trackedChunks[key] = chunks
+    table.insert(chunks, chunk)
+end
+
+--[[
+    Merges coverage entries from several loads of the same source. Loads of one source
+    share their function order, so hits merge elementwise and the highest count wins.
+    Sources with a different function layout than the first are skipped.
+
+    @param sources - Arrays of debug.getcoverage entries
+    @return The merged entries
+]]
+const function mergeEntries(sources: { { any } }): { any }
+    const merged = {}
+    for index, entry in sources[1] do
+        merged[index] = { Function = entry.Function, Hits = table.clone(entry.Hits) }
+    end
+    for sourceIndex = 2, #sources do
+        const source = sources[sourceIndex]
+        local matches = #source == #merged
+        for index, entry in source do
+            if not matches or entry.Function ~= merged[index].Function then
+                matches = false
+                break
+            end
+        end
+        if not matches then
+            continue
+        end
+        for index, entry in source do
+            const hits = merged[index].Hits
+            for line, hitCount in entry.Hits do
+                hits[line] = math.max(hits[line] or -1, hitCount)
+            end
+        end
+    end
+    return merged
+end
 
 --[[
     Checks if a module name should be excluded based on its suffix.
@@ -180,7 +278,8 @@ end
     Collects coverage data for a single file by passing its script
     instance to debug.getcoverage. Returns per-function coverage
     entries for ALL functions in the file, including local ones.
-    Modules that were never required are compiled instead, with
+    Hits from chunks registered with Coverage.track merge in. Modules
+    that were never required or tracked are compiled instead, with
     every executable line counted as missed.
 
     @param scriptInstance - The script instance to collect coverage for
@@ -191,8 +290,18 @@ end
     @return loaded - Whether the module ran during the test session
 ]]
 const function collectFileCoverage(scriptInstance: any, path: string): ({ FunctionCoverage }, number, number, boolean)
-    local ok, entries = pcall(debug.getcoverage, scriptInstance)
-    const loaded = ok and type(entries) == "table"
+    const sources: { { any } } = {}
+    const ok, runtimeEntries = pcall(debug.getcoverage, scriptInstance)
+    if ok and type(runtimeEntries) == "table" then
+        table.insert(sources, runtimeEntries)
+    end
+    const chunks: { (...any) -> ...any } = trackedChunks[Coverage.normalizePath(path)] or {}
+    for _, chunk in chunks do
+        table.insert(sources, debug.getcoverage(chunk))
+    end
+
+    const loaded = #sources > 0
+    local entries = if loaded then mergeEntries(sources) else nil
     if not loaded then
         entries = compileCoverageEntries(path)
         if entries == nil then

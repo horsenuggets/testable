@@ -7,10 +7,15 @@ default values.
 
 --]]
 
+-- How coverage report rows are ordered, by coverage percentage or by hit lines.
+export type CoverageSort = "HitLines" | "Percentage"
+
 export type ConfigOptions = {
     AlphabeticalSort: boolean?,
     Coverage: boolean?,
     CoverageRoots: any?,
+    CoverageRows: number?,
+    CoverageSort: CoverageSort?,
     CoverageThreshold: number?,
     Indent: string?,
     MaxConcurrency: number?,
@@ -23,6 +28,8 @@ const Config = {
     AlphabeticalSort = false,
     Coverage = false,
     CoverageRoots = nil :: any?,
+    CoverageRows = 20,
+    CoverageSort = "Percentage" :: CoverageSort,
     CoverageThreshold = 0,
     Indent = "   ",
     MaxConcurrency = 4,
@@ -70,6 +77,20 @@ function Config.set(options: ConfigOptions)
         Config.CoverageRoots = options.CoverageRoots
     end
 
+    if options.CoverageRows ~= nil then
+        assert(type(options.CoverageRows) == "number", "CoverageRows must be a number")
+        assert(options.CoverageRows >= 1 and options.CoverageRows % 1 == 0, "CoverageRows must be a positive integer")
+        Config.CoverageRows = options.CoverageRows
+    end
+
+    if options.CoverageSort ~= nil then
+        assert(
+            options.CoverageSort == "HitLines" or options.CoverageSort == "Percentage",
+            'CoverageSort must be "HitLines" or "Percentage"'
+        )
+        Config.CoverageSort = options.CoverageSort
+    end
+
     if options.CoverageThreshold ~= nil then
         assert(type(options.CoverageThreshold) == "number", "CoverageThreshold must be a number")
         assert(
@@ -113,6 +134,8 @@ function Config.reset()
     Config.AlphabeticalSort = false
     Config.Coverage = false
     Config.CoverageRoots = nil
+    Config.CoverageRows = 20
+    Config.CoverageSort = "Percentage"
     Config.CoverageThreshold = 0
     Config.Indent = "   "
     Config.MaxConcurrency = 4

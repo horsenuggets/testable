@@ -41,6 +41,7 @@ const function run(testRoots: any): (any, boolean)
     -- Snapshot coverage config before tests run, since tests may call
     -- Config.reset() which would wipe the coverage settings
     const coverageEnabled = Config.Coverage
+    const coverageLayout = { Rows = Config.CoverageRows, Sort = Config.CoverageSort }
     const coverageRoots = Config.CoverageRoots
     const coverageThreshold = Config.CoverageThreshold
 
@@ -56,7 +57,7 @@ const function run(testRoots: any): (any, boolean)
         const coverageReport = Coverage.collect(coverageRoots)
 
         if coverageReport ~= nil then
-            CoverageReporter.report(coverageReport, coverageThreshold)
+            CoverageReporter.report(coverageReport, coverageThreshold, coverageLayout)
 
             if coverageReport.TotalPercentage < coverageThreshold then
                 passed = false

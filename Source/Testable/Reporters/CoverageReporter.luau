@@ -3,8 +3,8 @@
 CoverageReporter
 
 Formats coverage as a bordered table followed by a tree-style threshold result. Rows are
-sorted by coverage percentage, modules without executable lines are left out, and rows
-past the limit are folded into a single summary row.
+sorted by coverage percentage or by hit lines, modules without executable lines are left
+out, and rows past the limit are folded into a single summary row.
 
 --]]
 
@@ -18,9 +18,16 @@ const TextReporter = require("./TextReporter")
 const ALIGNMENTS: { TableRenderer.Alignment } = { "Left", "Right", "Right", "Right" }
 const ELLIPSIS = "..."
 const FLOOR_EPSILON = 1e-9
+const GREEN_FROM = 75
 const IS_LUNE = Ansi.isLune()
 const MAX_PATH_LENGTH = 40
-const MAX_ROWS = 20
+const YELLOW_FROM = 25
+
+-- How the table orders its rows and how many file rows it lists before the summary row.
+export type Layout = {
+    Rows: number,
+    Sort: Config.CoverageSort,
+}
 
 const CoverageReporter = {}
 
@@ -102,11 +109,16 @@ function CoverageReporter.formatPercentage(value: number): string
 end
 
 --[[
-    Returns the files worth listing, ordered by percentage, then executable lines, then
-    path. Files without executable lines are left out. The input is not modified.
+    Returns the files worth listing, ordered by percentage or by hit lines as the sort
+    asks, then executable lines, then path. Files without executable lines are left out.
+    The input is not modified.
 ]]
-function CoverageReporter.sortFiles(files: { Coverage.FileCoverage }): { Coverage.FileCoverage }
+function CoverageReporter.sortFiles(
+    files: { Coverage.FileCoverage },
+    sort: Config.CoverageSort
+): { Coverage.FileCoverage }
     assert(type(files) == "table")
+    assert(sort == "HitLines" or sort == "Percentage")
     const sorted = {}
     for _, file in files do
         if file.ExecutableLines > 0 then
@@ -114,8 +126,10 @@ function CoverageReporter.sortFiles(files: { Coverage.FileCoverage }): { Coverag
         end
     end
     table.sort(sorted, function(a, b)
-        if a.Percentage ~= b.Percentage then
-            return a.Percentage > b.Percentage
+        const first = if sort == "HitLines" then a.HitLines else a.Percentage
+        const second = if sort == "HitLines" then b.HitLines else b.Percentage
+        if first ~= second then
+            return first > second
         end
         if a.ExecutableLines ~= b.ExecutableLines then
             return a.ExecutableLines > b.ExecutableLines
@@ -128,31 +142,49 @@ end
 const percentage = CoverageReporter.formatPercentage
 
 --[[
+    Colors a file's percentage by band with the terminal's stock colors. Below 25% is red,
+    from 25% up to 75% is yellow, and 75% or more is green.
+]]
+function CoverageReporter.colorPercentage(value: number, text: string): string
+    assert(type(value) == "number")
+    assert(type(text) == "string")
+    if value < YELLOW_FROM then
+        return Ansi.brightRed(text)
+    elseif value < GREEN_FROM then
+        return Ansi.brightYellow(text)
+    end
+    return Ansi.brightGreen(text)
+end
+
+--[[
     Returns formatted lines without emitting output. The color argument makes terminal
-    and plain output independently testable.
+    and plain output independently testable, and the layout picks the row order and how
+    many file rows to list before folding the rest into a summary row.
 ]]
 function CoverageReporter.format(
     report: Coverage.CoverageReport,
     threshold: number,
     color: boolean,
-    indent: string
+    indent: string,
+    layout: Layout
 ): { string }
     assert(type(report) == "table")
     assert(type(threshold) == "number")
     assert(type(color) == "boolean")
     assert(type(indent) == "string")
+    assert(type(layout) == "table")
+    assert(type(layout.Rows) == "number" and layout.Rows >= 1 and layout.Rows % 1 == 0)
+    const maxRows = layout.Rows
     const lines = TextReporter.formatSeparator(color)
     table.insert(lines, if color then Ansi.bold("Code Coverage") else "Code Coverage")
     table.insert(lines, "")
     const rows: { TableRenderer.TableRow } = {}
-    const sorted = CoverageReporter.sortFiles(report.Files)
-    for index = 1, math.min(#sorted, MAX_ROWS) do
+    const sorted = CoverageReporter.sortFiles(report.Files, layout.Sort)
+    for index = 1, math.min(#sorted, maxRows) do
         const file = sorted[index]
         const path, rawPath = CoverageReporter.formatPath(file.Path, color)
         const pct = percentage(file.Percentage)
-        const styledPct = if not color
-            then pct
-            else if file.Percentage >= threshold then Ansi.brightGreen(pct) else Ansi.dim(pct)
+        const styledPct = if color then CoverageReporter.colorPercentage(file.Percentage, pct) else pct
         const executable = CoverageReporter.formatCount(file.ExecutableLines)
         const hit = CoverageReporter.formatCount(file.HitLines)
         table.insert(rows, {
@@ -160,11 +192,11 @@ function CoverageReporter.format(
             Raw = { rawPath, executable, hit, pct },
         })
     end
-    const hiddenCount = #sorted - MAX_ROWS
+    const hiddenCount = #sorted - maxRows
     if hiddenCount > 0 then
         local hiddenExecutable = 0
         local hiddenHit = 0
-        for index = MAX_ROWS + 1, #sorted do
+        for index = maxRows + 1, #sorted do
             hiddenExecutable += sorted[index].ExecutableLines
             hiddenHit += sorted[index].HitLines
         end
@@ -231,10 +263,11 @@ function CoverageReporter.format(
     return lines
 end
 
-function CoverageReporter.report(report: Coverage.CoverageReport, threshold: number)
+function CoverageReporter.report(report: Coverage.CoverageReport, threshold: number, layout: Layout)
     assert(type(report) == "table")
     assert(type(threshold) == "number")
-    for _, line in CoverageReporter.format(report, threshold, IS_LUNE, Config.Indent) do
+    assert(type(layout) == "table")
+    for _, line in CoverageReporter.format(report, threshold, IS_LUNE, Config.Indent, layout) do
         print(line)
     end
 end
