@@ -340,8 +340,25 @@ return function()
             expect(Coverage.normalizePath("//server/share/a/..")).to.equal("//server/share/")
         end)
 
+        it("should resolve relative paths against a root working directory", function()
+            expect(Coverage.normalizePath("Tests/Module.luau", "/")).to.equal("/Tests/Module.luau")
+            expect(Coverage.normalizePath("Tests/Module.luau", "C:\\")).to.equal("C:/Tests/Module.luau")
+            expect(Coverage.normalizePath("Tests/Module.luau", "//server/share/")).to.equal(
+                "//server/share/Tests/Module.luau"
+            )
+            expect(Coverage.normalizePath("Tests/Module.luau", "/home/dev/")).to.equal("/home/dev/Tests/Module.luau")
+        end)
+
         it("should return every result unchanged when normalized again", function()
-            const workingDirectories = { "/home/dev/project", "C:\\Users\\dev\\project", "//server/share/project" }
+            const workingDirectories = {
+                "/",
+                "/home/dev/project",
+                "/home/dev/project/",
+                "C:/",
+                "C:\\Users\\dev\\project",
+                "//server/share/",
+                "//server/share/project",
+            }
             const paths = {
                 "Module.luau",
                 "../Module.luau",

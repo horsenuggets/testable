@@ -100,8 +100,10 @@ function Coverage.normalizePath(path: string, workingDirectory: string?): string
     local root, rest = splitRoot((path:gsub("\\", "/")))
     const base = workingDirectory or (if IS_LUNE then require("@lune/process").cwd else nil)
     if root == "" and base then
-        -- The working directory uses backslashes on Windows, so it's unified too.
-        root, rest = splitRoot(`{base:gsub("\\", "/")}/{rest}`)
+        -- The working directory uses backslashes on Windows, so it's unified too. Its
+        -- trailing slashes go first, so a root like "/" doesn't join into "//".
+        const unifiedBase = base:gsub("\\", "/"):gsub("/+$", "")
+        root, rest = splitRoot(`{unifiedBase}/{rest}`)
     end
 
     const segments: { string } = {}
