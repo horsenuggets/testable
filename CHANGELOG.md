@@ -2,7 +2,7 @@
 
 ## 1.2.0
 - Added `Coverage.track` so chunks loaded with `luau.load` count toward the coverage of their source files, merging hits from every load.
-- Added `Coverage.normalizePath` so different spellings of one path share coverage, including either case of a drive letter and Windows working directories, without climbing above the root.
+- Added `Coverage.normalizePath` so different spellings of one path share coverage, including either case of a drive letter, Windows working directories, and network shares. Paths never climb above their root, and normalizing a result again leaves it unchanged.
 - Added the `CoverageRows` option to set how many file rows the coverage table lists before folding the rest.
 - Added the `CoverageSort` option to order coverage rows by hit lines instead of percentage.
 - Added an optional layout argument to `CoverageReporter.format` and `CoverageReporter.report`, and an optional sort argument to `CoverageReporter.sortFiles`, so existing calls keep working.
