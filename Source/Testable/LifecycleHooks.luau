@@ -62,6 +62,21 @@ function LifecycleHooks:getAfterEachHooks(): { any }
 end
 
 --[[
+    Returns a manager with its own copy of the current stack. Describe blocks that run in
+    parallel each need one, because pushing onto a shared stack would hand one block the
+    hooks of whichever block pushed last.
+
+    @return A new LifecycleHooks object that shares the current levels
+]]
+function LifecycleHooks:fork(): any
+    const forked = LifecycleHooks.new()
+    for _, level in ipairs(self._stack) do
+        table.insert(forked._stack, level)
+    end
+    return forked
+end
+
+--[[
     Pushes uncalled beforeAll and afterAll hooks back up the stack.
 ]]
 function LifecycleHooks:popHooks(): ()

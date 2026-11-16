@@ -21,6 +21,7 @@ const TESTS = {
     { Name = "ExpectationTest", Func = require("../Tests/ExpectationTest.spec") },
     { Name = "FailTest", Func = require("../Tests/FailTest.spec") },
     { Name = "LifecycleTest", Func = require("../Tests/LifecycleTest.spec") },
+    { Name = "ParallelHooksTest", Func = require("../Tests/ParallelHooksTest.spec") },
     { Name = "PlanningErrorTest", Func = require("../Tests/PlanningErrorTest.spec") },
     { Name = "ReporterTest", Func = require("../Tests/ReporterTest.spec") },
     { Name = "RobloxCloudTest", Func = require("../Tests/RobloxCloudTest.spec") },

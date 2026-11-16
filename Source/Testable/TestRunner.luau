@@ -447,8 +447,8 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
                     table.insert(subSession.expectationContextStack, expectationContext)
                     mutex.locked = false
 
-                    -- Run the describe block with its own isolated session
-                    TestRunner.runPlanNode(subSession, childPlanNode, lifecycleHooks)
+                    -- Run the describe block with its own isolated session and hook stack
+                    TestRunner.runPlanNode(subSession, childPlanNode, lifecycleHooks:fork())
 
                     -- Handle results
                     while mutex.locked do
