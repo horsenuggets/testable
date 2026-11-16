@@ -7,39 +7,42 @@ beforeAll, and afterAll hooks.
 
 --]]
 
+const Testable = require("../Source/Testable")
+const afterAll, afterEach, beforeAll, beforeEach =
+    Testable.afterAll, Testable.afterEach, Testable.beforeAll, Testable.beforeEach
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
+
 return function()
     describe("beforeEach and afterEach", function()
-        local beforeEachRan = false
-        local afterEachCount = 0
-        local testCount = 0
+        local beforeEachRuns = 0
+        local afterEachRuns = 0
+        local testRuns = 0
 
         beforeEach(function()
-            beforeEachRan = true
+            beforeEachRuns += 1
         end)
 
         afterEach(function()
-            afterEachCount += 1
+            afterEachRuns += 1
         end)
 
-        -- Tests in a describe block can start in any order when they run in parallel, so
-        -- no test can rely on another's afterEach having run. The count is checked here
-        -- instead, once every test has finished, against the tests that actually ran
-        -- (a filter may leave some out). A failing afterAll fails the run.
+        -- The afterEach count is checked once every test is done, because tests in a
+        -- block can start in any order when they compete for concurrency slots. It is
+        -- compared with the tests that ran, since a filter may leave one of them out.
         afterAll(function()
-            assert(
-                afterEachCount == testCount,
-                `afterEach should have run after each of the {testCount} tests, but it ran {afterEachCount} times`
-            )
+            expect(beforeEachRuns).to.equal(testRuns)
+            expect(afterEachRuns).to.equal(testRuns)
         end)
 
         it("should run beforeEach before the test", function()
-            testCount += 1
-            expect(beforeEachRan).to.equal(true)
+            testRuns += 1
+            expect(beforeEachRuns >= 1).to.equal(true)
         end)
 
-        it("should run afterEach after every test", function()
-            testCount += 1
-            expect(beforeEachRan).to.equal(true)
+        it("should run both hooks around every test", function()
+            testRuns += 1
+            expect(beforeEachRuns >= 1).to.equal(true)
+            expect(afterEachRuns <= 1).to.equal(true)
         end)
     end)
 

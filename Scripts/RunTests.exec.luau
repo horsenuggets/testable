@@ -40,6 +40,7 @@ const TESTS = {
     { Name = "JUnitReporterTest", Func = require("../Tests/JUnitReporterTest.spec") },
     { Name = "JsonReporterTest", Func = require("../Tests/JsonReporterTest.spec") },
     { Name = "LcovReporterTest", Func = require("../Tests/LcovReporterTest.spec") },
+    { Name = "LegacyGlobalsTest", Func = require("../Tests/LegacyGlobalsTest.spec") },
     { Name = "LifecycleTest", Func = require("../Tests/LifecycleTest.spec") },
     { Name = "NestedRunTest", Func = require("../Tests/NestedRunTest.spec") },
     { Name = "ParallelHooksTest", Func = require("../Tests/ParallelHooksTest.spec") },
@@ -49,6 +50,8 @@ const TESTS = {
     { Name = "ReporterTest", Func = require("../Tests/ReporterTest.spec") },
     { Name = "RobloxCloudTest", Func = require("../Tests/RobloxCloudTest.spec") },
     { Name = "SlowestTestsTest", Func = require("../Tests/SlowestTestsTest.spec") },
+    { Name = "SpecApiTest", Func = require("../Tests/SpecApiTest.spec") },
+    { Name = "TestScopeTest", Func = require("../Tests/TestScopeTest.spec") },
     { Name = "ToolErrorTest", Func = require("../Tests/ToolErrorTest.spec") },
     { Name = "VersionUpdateTest", Func = require("../Tests/VersionUpdateTest.spec") },
 }

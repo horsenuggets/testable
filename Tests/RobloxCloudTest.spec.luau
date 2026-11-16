@@ -18,11 +18,13 @@ executes against a stale place or one that another run uploaded.
 
 const CloudPlace = require("../Scripts/Helpers/CloudPlace")
 const E2EPlace = require("../Scripts/Helpers/E2EPlace")
+const Testable = require("../Source/Testable")
 const fs = require("@lune/fs")
 const net = require("@lune/net")
 const process = require("@lune/process")
 const serde = require("@lune/serde")
 const task = require("@lune/task")
+const describe, it = Testable.describe, Testable.it
 
 const BASE_URL = "https://apis.roblox.com/cloud/v2"
 const POLL_INTERVAL = 3
