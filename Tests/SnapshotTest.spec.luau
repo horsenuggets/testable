@@ -89,7 +89,8 @@ return function()
         end)
 
         it("should sort keys and write the array part positionally", function()
-            const value = { "first", "second", Zeta = 1, Alpha = 2, [10] = "sparse", [true] = "yes", ["two words"] = 3 }
+            const value: { [any]: any } =
+                { "first", "second", Zeta = 1, Alpha = 2, [10] = "sparse", [true] = "yes", ["two words"] = 3 }
             expect(serialize(value)).to.equal(table.concat({
                 "{",
                 '    "first",',
