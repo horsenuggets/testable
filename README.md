@@ -140,6 +140,7 @@ Testable.configure({
 | `CoverageRows` | `number` | `20` | File rows listed in the coverage table before the rest fold into a summary row |
 | `CoverageSort` | `"Percentage" \| "HitLines"` | `"Percentage"` | Order coverage rows by percentage or by hit lines, both descending |
 | `Filter` | `string?` | `nil` | Only run tests whose full name contains this text (see [Filtering Tests](#filtering-tests)) |
+| `ForbidFocus` | `boolean` | `false` | Fail the run when a focus modifier excluded any test |
 | `Indent` | `string` | `"   "` | Indentation string used for nested test output |
 | `InjectGlobals` | `boolean` | `true` | Inject `describe`, `it`, `expect`, and the rest into spec functions as globals |
 | `MaxConcurrency` | `number` | `4` | Maximum number of tests to run in parallel |
@@ -169,9 +170,9 @@ an empty string clears the filter.
 The filter narrows the run first, and focus (`fit`, `fdescribe`) then narrows what the
 filter left. A focus on tests that the filter excluded has no effect, and a `describe`
 block with no selected tests doesn't run its `beforeAll` and `afterAll` hooks. Tests that
-the filter excluded are reported as skipped with the skip reason
-`Excluded by the filter.`, and the summary and `results.filteredCount` say how many of
-the skipped tests it accounts for...
+the filter excluded are reported as skipped with the reason `excluded by filter`, and they
+never count as excluded by focus. The summary and `results.filteredCount` say how many of
+the skipped tests the filter accounts for...
 
 ```text
 3 passed, 0 failed, 12 skipped (11 filtered out).
@@ -209,6 +210,51 @@ if not ok and Testable.ToolError.is(results) then
     print(results.Kind, results.Message)
 end
 ```
+
+## Skipping, Todo Tests & Focus
+
+Skipped tests never affect whether a run passes. Every skip variant takes an optional
+reason as its last argument, and the reason is shown next to the test when `PrintSkipped`
+is on...
+
+```luau
+itSKIP("retries the upload", function() end, "waiting on the new API")
+
+describeSKIP("matchmaking", function()
+    it("fills a lobby", function() end)
+end, "needs a live server")
+
+describe("trading", function()
+    SKIP("blocked on the inventory rewrite")
+end)
+
+itFIXME("rounds prices", function() end, "off by one cent")
+itTODO("rejects expired offers")
+```
+
+- `itSKIP` and `xit` → Skip one test.
+- `describeSKIP`, `xdescribe`, and `SKIP()` → Skip a whole block. Its tests inherit the
+  block's reason unless they carry their own.
+- `itFIXME` and `FIXME()` → Skip a broken test with the reason `fixme`, followed by the
+  optional message.
+- `itTODO` → Record a test you intend to write. It takes a name only, so passing a body
+  is an error, and it is reported as skipped with the reason `todo`.
+
+**Focus Guard**
+
+Focusing with `itFOCUS`, `fit`, `describeFOCUS`, `fdescribe`, or `FOCUS()` skips every
+other test, and those tests get the reason `excluded by focus`. The summary always says
+how many tests focus excluded. Because a focus modifier that gets committed by accident
+would otherwise leave the run green, set `ForbidFocus` in CI to fail the run whenever
+focus excluded a test...
+
+```luau
+Testable.configure({ ForbidFocus = process.env.CI ~= nil })
+```
+
+The failure counts as one failed test in the results, so `passed` is `false` and
+`results.failureCount` goes up by one. Results also expose `results.focusExcludedCount`,
+and each skipped result node carries its reason in `skipReason`.
 
 ## Reporters
 

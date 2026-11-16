@@ -12,7 +12,6 @@ const Context = require("./Context")
 const ExpectationContext = require("./ExpectationContext")
 const TestEnum = require("./TestEnum")
 const TestResults = require("./TestResults")
-const FILTERED_SKIP_REASON = "Excluded by the filter."
 
 -- Limits how many tests of one run execute at the same time. The lowercase keys match the
 -- other session fields.
@@ -39,6 +38,7 @@ function TestSession.new(plan: any): any
         nodeStack = {},
         contextStack = {},
         expectationContextStack = {},
+        forbidFocus = false,
         hasFocusNodes = false,
         -- Owned by this run alone, so a run nested inside one of its tests gets its own.
         semaphore = { activeCount = 0, lock = false } :: Semaphore,
@@ -63,6 +63,7 @@ function TestSession:calculateTotals(): ()
     results.failureCount = 0
     results.skippedCount = 0
     results.filteredCount = 0
+    results.focusExcludedCount = 0
 
     results:visitAllNodes(function(node)
         const status = node.status
@@ -75,9 +76,12 @@ function TestSession:calculateTotals(): ()
                 results.failureCount += 1
             elseif status == TestEnum.TestStatus.Skipped then
                 results.skippedCount += 1
-                -- Filtered-out tests are a subset of the skipped ones
+                -- Filtered-out and focus-excluded tests are subsets of the skipped ones
                 if node.planNode.filteredOut then
                     results.filteredCount += 1
+                end
+                if node.excludedByFocus then
+                    results.focusExcludedCount += 1
                 end
             end
         elseif
@@ -109,6 +113,35 @@ function TestSession:gatherErrors(): ()
 end
 
 --[[
+    Fails the run when focus is forbidden and a focus modifier excluded at least one
+    test. The failure is recorded like a failed test, with one extra failure and an error
+    message, so every consumer of the results sees the run as failed.
+]]
+function TestSession:applyFocusGuard(): ()
+    const results = self.results
+
+    results.focusGuardFailed = self.forbidFocus == true and results.focusExcludedCount > 0
+
+    if results.focusGuardFailed then
+        results.failureCount += 1
+        table.insert(results.errors, TestSession.formatFocusGuardError(results.focusExcludedCount))
+    end
+end
+
+--[[
+    Builds the error reported when the focus guard fails a run.
+
+    @param excludedCount - How many tests were excluded by focus
+    @return The error message
+]]
+function TestSession.formatFocusGuardError(excludedCount: number): string
+    assert(type(excludedCount) == "number", "excludedCount must be a number")
+    const tests = if excludedCount == 1 then "1 test was" else `{excludedCount} tests were`
+    return `Focus is forbidden by "ForbidFocus", but {tests} excluded by a focus modifier. `
+        .. 'Remove every "itFOCUS", "fit", "describeFOCUS", "fdescribe", and "FOCUS" before committing.'
+end
+
+--[[
     Calculates test totals, verifies the tree is valid, and returns results.
 
     @return The final TestResults object
@@ -120,6 +153,7 @@ function TestSession:finalize(): any
 
     self:calculateTotals()
     self:gatherErrors()
+    self:applyFocusGuard()
 
     return self.results
 end
@@ -175,38 +209,55 @@ function TestSession:getExpectationContext(): any
 end
 
 --[[
-    Tells whether the current test we're in should be skipped.
+    Tells whether the current test we're in should be skipped, and why.
 
-    @return True if the current test should be skipped
+    The decision walks the plan tree from the current test up to its root rather than
+    the node stack, because the sessions that run tests in parallel only hold the test's
+    own node.
+
+    @return skip - True if the current test should be skipped
+    @return reason - Why the test is skipped, if a reason is known
+    @return excludedByFocus - True if the test is only skipped because other tests are
+        focused
 ]]
-function TestSession:shouldSkip(): boolean
-    -- The filter narrows first, so a test it excluded is skipped whatever its modifiers
-    const current = self.nodeStack[#self.nodeStack]
-    if current ~= nil and current.planNode.filteredOut then
-        return true
+function TestSession:shouldSkip(): (boolean, string?, boolean)
+    assert(#self.nodeStack > 0, "Attempting to check skip status on empty stack")
+    local planNode = self.nodeStack[#self.nodeStack].planNode
+
+    -- The filter narrows first, so a test it excluded is skipped whatever its modifiers,
+    -- and it never counts as excluded by focus
+    if planNode.filteredOut then
+        return true, TestEnum.SkipReason.Filter, false
     end
 
-    -- Walk up the plan tree instead of the node stack. Parallel execution gives every
-    -- test and describe block its own stack that starts at that node, so the stack
-    -- alone would miss modifiers on enclosing describe blocks.
-    local planNode = if current ~= nil then current.planNode else nil
-
     while planNode ~= nil do
-        -- Skipped tests are still skipped
+        -- Skipped tests are still skipped. The nearest reason wins, so a test's own
+        -- reason overrides its describe block's reason.
         if planNode.modifier == TestEnum.NodeModifier.Skip then
-            return true
+            local reasonNode = planNode
+            while reasonNode ~= nil do
+                if reasonNode.modifier == TestEnum.NodeModifier.Skip and reasonNode.skipReason ~= nil then
+                    return true, reasonNode.skipReason, false
+                end
+                reasonNode = reasonNode.parent
+            end
+            return true, nil, false
         end
 
-        -- If our test tree had any exclusive tests, then focused tests are the only
-        -- ones that aren't skipped
+        -- Focused tests are the only ones that aren't skipped
         if self.hasFocusNodes and planNode.modifier == TestEnum.NodeModifier.Focus then
-            return false
+            return false, nil, false
         end
 
         planNode = planNode.parent
     end
 
-    return self.hasFocusNodes
+    -- If our test tree had any exclusive tests, then normal tests are skipped!
+    if self.hasFocusNodes then
+        return true, TestEnum.SkipReason.Focus, true
+    end
+
+    return false, nil, false
 end
 
 --[[
@@ -219,15 +270,17 @@ end
 
 --[[
     Set the current node's status to Skipped.
+
+    @param reason - Why the test was skipped, if a reason is known
+    @param excludedByFocus - True if the test was only skipped because other tests are
+        focused
 ]]
-function TestSession:setSkipped()
+function TestSession:setSkipped(reason: string?, excludedByFocus: boolean?)
     assert(#self.nodeStack > 0, "Attempting to set skipped status on empty stack")
-    const node = self.nodeStack[#self.nodeStack]
-    node.status = TestEnum.TestStatus.Skipped
-    -- Reporters that show skip reasons can tell filtered-out tests from other skips
-    if node.planNode.filteredOut then
-        node.skipReason = FILTERED_SKIP_REASON
-    end
+    const last = self.nodeStack[#self.nodeStack]
+    last.status = TestEnum.TestStatus.Skipped
+    last.skipReason = reason
+    last.excludedByFocus = excludedByFocus == true
 end
 
 --[[

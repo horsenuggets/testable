@@ -24,6 +24,7 @@ export type ConfigOptions = {
     CoverageSort: CoverageSort?,
     CoverageThreshold: number?,
     Filter: string?,
+    ForbidFocus: boolean?,
     Indent: string?,
     InjectGlobals: boolean?,
     MaxConcurrency: number?,
@@ -43,6 +44,7 @@ const Config = {
     CoverageSort = "Percentage" :: CoverageSort,
     CoverageThreshold = 0,
     Filter = nil :: string?,
+    ForbidFocus = false,
     Indent = "   ",
     InjectGlobals = true,
     MaxConcurrency = 4,
@@ -122,6 +124,11 @@ function Config.set(options: ConfigOptions)
         Config.Filter = if options.Filter == "" then nil else options.Filter
     end
 
+    if options.ForbidFocus ~= nil then
+        assert(type(options.ForbidFocus) == "boolean", "ForbidFocus must be a boolean")
+        Config.ForbidFocus = options.ForbidFocus
+    end
+
     if options.Indent ~= nil then
         assert(type(options.Indent) == "string", "Indent must be a string")
         Config.Indent = options.Indent
@@ -198,6 +205,7 @@ function Config.reset()
     Config.CoverageSort = "Percentage"
     Config.CoverageThreshold = 0
     Config.Filter = nil
+    Config.ForbidFocus = false
     Config.Indent = "   "
     Config.InjectGlobals = true
     Config.MaxConcurrency = 4

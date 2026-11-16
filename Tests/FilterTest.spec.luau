@@ -154,7 +154,8 @@ return function()
                 reasons[node.planNode.phrase] = node.skipReason
             end)
 
-            expect(reasons["is left out"]).to.equal("Excluded by the filter.")
+            expect(reasons["is left out"]).to.equal(TestEnum.SkipReason.Filter)
+            expect(TestEnum.SkipReason.Filter).to.equal("excluded by filter")
             expect(reasons["runs later"]).to.equal(nil)
             expect(reasons["runs"]).to.equal(nil)
         end)

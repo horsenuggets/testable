@@ -37,6 +37,7 @@ const TESTS = {
     { Name = "FailTest", Func = require("../Tests/FailTest.spec") },
     { Name = "FilterArgumentsTest", Func = require("../Tests/FilterArgumentsTest.spec") },
     { Name = "FilterTest", Func = require("../Tests/FilterTest.spec") },
+    { Name = "FocusGuardTest", Func = require("../Tests/FocusGuardTest.spec") },
     { Name = "JUnitReporterTest", Func = require("../Tests/JUnitReporterTest.spec") },
     { Name = "JsonReporterTest", Func = require("../Tests/JsonReporterTest.spec") },
     { Name = "LcovReporterTest", Func = require("../Tests/LcovReporterTest.spec") },
@@ -50,6 +51,7 @@ const TESTS = {
     { Name = "ReporterSelectionTest", Func = require("../Tests/ReporterSelectionTest.spec") },
     { Name = "ReporterTest", Func = require("../Tests/ReporterTest.spec") },
     { Name = "RobloxCloudTest", Func = require("../Tests/RobloxCloudTest.spec") },
+    { Name = "SkipReasonTest", Func = require("../Tests/SkipReasonTest.spec") },
     { Name = "SlowestTestsTest", Func = require("../Tests/SlowestTestsTest.spec") },
     { Name = "SpecApiTest", Func = require("../Tests/SpecApiTest.spec") },
     { Name = "TestScopeTest", Func = require("../Tests/TestScopeTest.spec") },
@@ -84,6 +86,11 @@ function RunTests.exec()
             Testable.configure({ Coverage = true, CoverageRoots = script.Parent.Parent.Source.Testable })
         end
     end
+
+    -- A focus modifier left in a spec would silently skip every other test, so CI fails
+    -- the run instead.
+    const ci = process.env.CI
+    Testable.configure({ ForbidFocus = ci ~= nil and ci ~= "" })
 
     const exitCode = Testable.runToExitCode(TESTS)
     process.exit(exitCode)
