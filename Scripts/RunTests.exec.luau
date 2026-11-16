@@ -42,6 +42,7 @@ const TESTS = {
     { Name = "LcovReporterTest", Func = require("../Tests/LcovReporterTest.spec") },
     { Name = "LegacyGlobalsTest", Func = require("../Tests/LegacyGlobalsTest.spec") },
     { Name = "LifecycleTest", Func = require("../Tests/LifecycleTest.spec") },
+    { Name = "MatcherTest", Func = require("../Tests/MatcherTest.spec") },
     { Name = "NestedRunTest", Func = require("../Tests/NestedRunTest.spec") },
     { Name = "ParallelHooksTest", Func = require("../Tests/ParallelHooksTest.spec") },
     { Name = "PlanningErrorTest", Func = require("../Tests/PlanningErrorTest.spec") },
@@ -53,6 +54,7 @@ const TESTS = {
     { Name = "SpecApiTest", Func = require("../Tests/SpecApiTest.spec") },
     { Name = "TestScopeTest", Func = require("../Tests/TestScopeTest.spec") },
     { Name = "ToolErrorTest", Func = require("../Tests/ToolErrorTest.spec") },
+    { Name = "ValueInspectorTest", Func = require("../Tests/ValueInspectorTest.spec") },
     { Name = "VersionUpdateTest", Func = require("../Tests/VersionUpdateTest.spec") },
 }
 
