@@ -7,6 +7,8 @@ default values.
 
 --]]
 
+const TestTimeout = require("./TestTimeout")
+
 -- How coverage report rows are ordered, by coverage percentage or by hit lines.
 export type CoverageSort = "HitLines" | "Percentage"
 
@@ -21,6 +23,7 @@ export type ConfigOptions = {
     MaxConcurrency: number?,
     Parallel: boolean?,
     PrintSkipped: boolean?,
+    Timeout: number?,
     Verbose: boolean?,
 }
 
@@ -35,6 +38,7 @@ const Config = {
     MaxConcurrency = 4,
     Parallel = true,
     PrintSkipped = false,
+    Timeout = nil :: number?,
     Verbose = false,
 }
 
@@ -121,6 +125,11 @@ function Config.set(options: ConfigOptions)
         Config.PrintSkipped = options.PrintSkipped
     end
 
+    if options.Timeout ~= nil then
+        assert(TestTimeout.isValid(options.Timeout), "Timeout must be a positive number of seconds")
+        Config.Timeout = options.Timeout
+    end
+
     if options.Verbose ~= nil then
         assert(type(options.Verbose) == "boolean", "Verbose must be a boolean")
         Config.Verbose = options.Verbose
@@ -141,6 +150,7 @@ function Config.reset()
     Config.MaxConcurrency = 4
     Config.Parallel = true
     Config.PrintSkipped = false
+    Config.Timeout = nil
     Config.Verbose = false
 end
 
