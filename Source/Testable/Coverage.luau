@@ -69,9 +69,11 @@ const trackedChunks: { [string]: { (...any) -> ...any } } = {}
     uppercased since drive letters are case-insensitive, "/", or "" for a relative path.
 ]]
 const function splitRoot(path: string): (string, string)
-    const share, afterShare = path:match("^(//[^/]+/[^/]+)(.*)$")
-    if share then
-        return `{share}/`, afterShare :: string
+    -- Exactly two leading slashes start a share, and repeated slashes between the server
+    -- and share names still name the same share.
+    const server, share, afterShare = path:match("^//([^/]+)/+([^/]+)(.*)$")
+    if server then
+        return `//{server}/{share}/`, afterShare :: string
     end
     const drive, afterDrive = path:match("^(%a):/(.*)$")
     if drive then

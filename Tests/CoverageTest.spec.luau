@@ -331,6 +331,10 @@ return function()
             expect(Coverage.normalizePath("\\\\server\\share\\x\\..\\Module.luau")).to.equal(
                 "//server/share/Module.luau"
             )
+            expect(Coverage.normalizePath("//server//share/Module.luau")).to.equal("//server/share/Module.luau")
+            expect(Coverage.normalizePath("//server///share/../Module.luau")).to.equal("//server/share/Module.luau")
+            -- Three or more leading slashes are a POSIX root, not a share.
+            expect(Coverage.normalizePath("///a/b.luau")).to.equal("/a/b.luau")
         end)
 
         it("should keep the slash on a drive or POSIX root", function()
@@ -373,6 +377,8 @@ return function()
                 "//server/share",
                 "//server/share/a/../..",
                 "\\\\server\\share\\x.luau",
+                "//server//share/../x.luau",
+                "///a//b/../c.luau",
             }
             for _, workingDirectory in workingDirectories do
                 for _, path in paths do
