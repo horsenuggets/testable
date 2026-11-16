@@ -57,12 +57,15 @@ const TESTS = {
 const RunTests = {}
 
 function RunTests.exec()
-    const snapshotOptions, otherArguments = SnapshotArguments.parse(process.args)
-    const parsed, options, remaining = pcall(ReporterArguments.parse, otherArguments)
+    const parsed, options, unparsed = pcall(ReporterArguments.parse, process.args)
     if not parsed then
         print(tostring(options))
         process.exit(1)
     end
+
+    -- Snapshot flags are read from what the reporter flags left over, so a value that
+    -- belongs to a reporter flag (e.g., an output path) is never mistaken for one.
+    const snapshotOptions, remaining = SnapshotArguments.parse(unparsed)
     if #remaining > 0 then
         print(`The argument "{remaining[1]}" is not recognized.`)
         print(`[Usage] ./Scripts/RunTests.exec.luau {ReporterArguments.Usage} {SnapshotArguments.Usage}`)

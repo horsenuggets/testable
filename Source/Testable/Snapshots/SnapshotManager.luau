@@ -63,9 +63,23 @@ type File = {
     Entries: SnapshotFormat.Entries,
     Error: string?,
     IsDirty: boolean,
+    -- Set when a run that used the file skipped or failed tests that belong to it.
+    IsIncomplete: boolean,
     Path: string,
     UsedKeys: { [string]: boolean },
+    -- How many unfinished runs are using the file.
+    Users: number,
 }
+
+--[[
+    The files that unfinished runs have loaded, by store and then by path. A test can
+    start a nested run whose spec shares a snapshot file with the outer one (e.g., a spec
+    function defined inside the outer spec's file). Both runs then work on one copy of the
+    file, so neither overwrites the other's snapshots with a stale copy, and obsolete
+    detection waits until the last of them finishes and every key has had its chance to
+    be used. A file leaves this table when its last run finishes.
+]]
+const openFiles: { [Store]: { [string]: File } } = setmetatable({}, { __mode = "k" }) :: any
 
 export type SnapshotManager = typeof(setmetatable(
     {} :: {
@@ -132,17 +146,15 @@ end
     from the spec's names.
 ]]
 function SnapshotManager._resolvePath(self: SnapshotManager, planNode: any): string
-    const modules = planNode.plan and planNode.plan.modulesByMethod
-
-    -- The spec is the closest ancestor that came from a test root. Plans built by hand
-    -- have no record of their roots, so those use the outermost node instead.
+    -- The spec is the closest ancestor that TestPlanner tagged as a test root. Plans built
+    -- by hand have no tagged roots, so those use the outermost node instead.
     local specNode = planNode
     local module = nil
     local node = planNode
     while node ~= nil do
         specNode = node
-        if modules ~= nil and node.callback ~= nil and modules[node.callback] ~= nil then
-            module = modules[node.callback]
+        if node.specModule ~= nil then
+            module = node.specModule
             break
         end
         node = node.parent
@@ -174,9 +186,10 @@ function SnapshotManager._resolvePath(self: SnapshotManager, planNode: any): str
 end
 
 --[[
-    Loads a snapshot file from the store the first time it is needed. The store may
-    yield, so another test can finish loading the same file first, in which case that
-    copy is the one everybody shares.
+    Loads a snapshot file from the store the first time it is needed, or joins the copy
+    that another unfinished run already loaded. The store may yield, so another test can
+    finish loading the same file first, in which case that copy is the one everybody
+    shares.
 ]]
 function SnapshotManager._load(self: SnapshotManager, store: Store, path: string): File
     const existing = self._files[path]
@@ -184,26 +197,48 @@ function SnapshotManager._load(self: SnapshotManager, store: Store, path: string
         return existing
     end
 
-    const file: File = { Entries = {}, Error = nil, IsDirty = false, Path = path, UsedKeys = {} }
-    const ok, contents = pcall(store.read, path)
-    if not ok then
-        file.Error = `Snapshot file "{self:GetDisplayPath(path)}" could not be read. {tostring(contents)}`
-    elseif contents ~= nil then
-        const entries, message = SnapshotFormat.parse(contents)
-        if entries ~= nil then
-            file.Entries = entries
-        else
-            file.Error = `Snapshot file "{self:GetDisplayPath(path)}" is not valid. {message}`
+    local storeFiles = openFiles[store]
+    if storeFiles == nil then
+        storeFiles = {}
+        openFiles[store] = storeFiles
+    end
+
+    if storeFiles[path] == nil then
+        const file: File = {
+            Entries = {},
+            Error = nil,
+            IsDirty = false,
+            IsIncomplete = false,
+            Path = path,
+            UsedKeys = {},
+            Users = 0,
+        }
+        const ok, contents = pcall(store.read, path)
+        if not ok then
+            file.Error = `Snapshot file "{self:GetDisplayPath(path)}" could not be read. {tostring(contents)}`
+        elseif contents ~= nil then
+            const entries, message = SnapshotFormat.parse(contents)
+            if entries ~= nil then
+                file.Entries = entries
+            else
+                file.Error = `Snapshot file "{self:GetDisplayPath(path)}" is not valid. {message}`
+            end
+        end
+
+        const loadedMeanwhile = self._files[path]
+        if loadedMeanwhile ~= nil then
+            return loadedMeanwhile
+        end
+        if storeFiles[path] == nil then
+            storeFiles[path] = file
         end
     end
 
-    const loadedMeanwhile = self._files[path]
-    if loadedMeanwhile ~= nil then
-        return loadedMeanwhile
-    end
-    self._files[path] = file
+    const shared = storeFiles[path]
+    shared.Users += 1
+    self._files[path] = shared
 
-    return file
+    return shared
 end
 
 --[[
@@ -316,10 +351,11 @@ end
     Finishes the run by detecting obsolete snapshots and flushing every changed file to
     the store. Obsolete snapshots are stored keys that no test produced. They are removed
     in update mode and reported otherwise. Detection is skipped for the whole run when it
-    was filtered or focused, and for any file whose spec had a test that did not pass,
-    because such tests may not have reached their snapshot assertions.
+    was filtered or focused, and for any file whose spec had a test or describe block that
+    did not pass, because their tests may not have reached their snapshot assertions. A
+    file shared with another unfinished run is left for that run to check.
 
-    @param results - The results of the run, used to find tests that did not pass
+    @param results - The results of the run, used to find what did not pass
     @param isPartialRun - Whether the run was filtered or focused
     @return A summary of what happened to snapshots during the run
 ]]
@@ -337,7 +373,11 @@ function SnapshotManager.Finish(self: SnapshotManager, results: any?, isPartialR
     if results ~= nil and #paths > 0 and not isPartialRun then
         results:visitAllNodes(function(node)
             const planNode = node.planNode
-            if planNode.type == TestEnum.NodeType.It and node.status ~= TestEnum.TestStatus.Success then
+
+            -- Hook errors are recorded on placeholder tests that are not part of the
+            -- plan. Their describe block fails with them, and it identifies the file.
+            const isPlaceholder = planNode.type == TestEnum.NodeType.It and planNode.parent == nil
+            if node.status ~= TestEnum.TestStatus.Success and not isPlaceholder then
                 incompletePaths[self:_resolvePath(planNode)] = true
             end
         end)
@@ -346,11 +386,20 @@ function SnapshotManager.Finish(self: SnapshotManager, results: any?, isPartialR
     const store = self._store :: Store
     for _, path in paths do
         const file = self._files[path]
+        if isPartialRun or incompletePaths[path] then
+            file.IsIncomplete = true
+        end
+
+        file.Users -= 1
+        const isLastUser = file.Users == 0
+        if isLastUser then
+            openFiles[store][path] = nil
+        end
         if file.Error ~= nil then
             continue
         end
 
-        if not isPartialRun and not incompletePaths[path] then
+        if isLastUser and not file.IsIncomplete then
             for _, key in SnapshotLogic.findObsolete(file.Entries, file.UsedKeys) do
                 if self._isUpdating then
                     file.Entries[key] = nil
@@ -369,6 +418,9 @@ function SnapshotManager.Finish(self: SnapshotManager, results: any?, isPartialR
             file.IsDirty = false
         end
     end
+
+    -- The files are released, so finishing again does nothing.
+    self._files = {}
 
     return self._summary
 end

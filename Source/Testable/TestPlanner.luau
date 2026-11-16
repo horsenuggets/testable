@@ -38,12 +38,11 @@ function TestPlanner.createPlan(
         return a.pathStringForSorting < b.pathStringForSorting
     end)
 
-    -- Snapshots look their spec up by its function to find where its file lives.
-    plan.modulesByMethod = {}
-
     for _, module in ipairs(modulesList) do
-        plan.modulesByMethod[module.method] = module
-        plan:addRoot(module.path, module.method)
+        -- Snapshots find the spec a test belongs to, and where its file lives, through
+        -- this tag on the spec's own node.
+        const specNode = plan:addRoot(module.path, module.method)
+        specNode.specModule = module
     end
 
     return plan

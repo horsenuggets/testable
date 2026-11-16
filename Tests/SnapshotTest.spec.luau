@@ -614,6 +614,82 @@ return function()
             expect(store.Files["__snapshots__/Other.snap"]).to.equal(untouched)
         end)
 
+        it("should skip obsolete detection when a describe block did not pass", function()
+            const contents = "testable snapshot v1\n\nSpec > gone 1 1\n1\n\nSpec > test 1 1\n1\n"
+            const describeNode = { parent = { phrase = "Spec" }, phrase = "group", type = TestEnum.NodeType.Describe }
+            const placeholder = { phrase = "beforeAll", type = TestEnum.NodeType.It }
+            const cases = {
+                { Detects = true, Node = { planNode = describeNode, status = TestEnum.TestStatus.Success } },
+                { Detects = false, Node = { planNode = describeNode, status = TestEnum.TestStatus.Failure } },
+                { Detects = false, Node = { planNode = describeNode, status = TestEnum.TestStatus.Skipped } },
+                { Detects = false, Node = { planNode = describeNode, status = nil } },
+                -- A hook error sits on a placeholder that belongs to no spec, so it is
+                -- the failed describe block that protects the file, not the placeholder.
+                { Detects = true, Node = { planNode = placeholder, status = TestEnum.TestStatus.Failure } },
+            }
+            for _, case in cases do
+                const store = MemorySnapshotStore.new({ [SPEC_PATH] = contents })
+                const manager = SnapshotManager.new({ Store = store, Update = true })
+                manager:Match(manager:CreateScope(testNode()), 1)
+                const summary = manager:Finish(resultsOf({ case.Node }), false)
+                expect(summary.Removed).to.equal(if case.Detects then 1 else 0)
+                expect(store.Files[SPEC_PATH] == contents).to.equal(not case.Detects)
+            end
+        end)
+
+        it("should share a file between runs that overlap, such as nested runs", function()
+            for _, isUpdating in { false, true } do
+                const store = MemorySnapshotStore.new({
+                    [SPEC_PATH] = "testable snapshot v1\n\nSpec > gone 1 1\n1\n\nSpec > outer 1 1\n1\n",
+                })
+                const outer = SnapshotManager.new({ Store = store, Update = isUpdating })
+                const nested = SnapshotManager.new({ Store = store, Update = isUpdating })
+
+                expect(outer:Match(outer:CreateScope(testNode("outer early")), "a")).to.equal(true)
+                expect(nested:Match(nested:CreateScope(testNode("nested")), "b")).to.equal(true)
+
+                -- The nested run finishes while the outer one still has snapshots to
+                -- check, so it must neither drop the outer run's buffered snapshot nor
+                -- judge the keys the outer run has yet to use.
+                const nestedSummary = nested:Finish(nil, false)
+                expect(#nestedSummary.Obsolete).to.equal(0)
+                expect(nestedSummary.Removed).to.equal(0)
+                const afterNested = SnapshotFormat.parse(store.Files[SPEC_PATH]) :: { [string]: string }
+                expect(afterNested["Spec > outer early 1"]).to.equal('"a"')
+                expect(afterNested["Spec > nested 1"]).to.equal('"b"')
+                expect(afterNested["Spec > gone 1"]).to.equal("1")
+
+                expect(outer:Match(outer:CreateScope(testNode("outer")), 1)).to.equal(true)
+                const outerSummary = outer:Finish(nil, false)
+                expect(#outerSummary.Obsolete).to.equal(if isUpdating then 0 else 1)
+                expect(outerSummary.Removed).to.equal(if isUpdating then 1 else 0)
+                const afterOuter = SnapshotFormat.parse(store.Files[SPEC_PATH]) :: { [string]: string }
+                expect(afterOuter["Spec > outer early 1"]).to.equal('"a"')
+                expect(afterOuter["Spec > nested 1"]).to.equal('"b"')
+                expect(afterOuter["Spec > outer 1"]).to.equal("1")
+                expect(afterOuter["Spec > gone 1"]).to.equal(if isUpdating then nil else "1")
+
+                -- Once both runs are done the file is released, so a later run starts
+                -- from what is stored.
+                const later = SnapshotManager.new({ Store = store })
+                later:Match(later:CreateScope(testNode("outer")), 1)
+                expect(#later:Finish(nil, false).Obsolete).to.equal(if isUpdating then 2 else 3)
+            end
+        end)
+
+        it("should keep overlapping runs apart when they use different stores", function()
+            const first = MemorySnapshotStore.new()
+            const second = MemorySnapshotStore.new()
+            const firstManager = SnapshotManager.new({ Store = first })
+            const secondManager = SnapshotManager.new({ Store = second })
+            firstManager:Match(firstManager:CreateScope(testNode()), 1)
+            secondManager:Match(secondManager:CreateScope(testNode()), 2)
+            secondManager:Finish(nil, false)
+            firstManager:Finish(nil, false)
+            expect(first.Files[SPEC_PATH]).to.equal("testable snapshot v1\n\nSpec > test 1 1\n1\n")
+            expect(second.Files[SPEC_PATH]).to.equal("testable snapshot v1\n\nSpec > test 1 1\n2\n")
+        end)
+
         it("should share one copy of a file when concurrent tests use a yielding store", function()
             local reads = 0
             const store = MemorySnapshotStore.new({ [SPEC_PATH] = "testable snapshot v1\n\nSpec > test 1 1\n1\n" })
@@ -660,15 +736,16 @@ return function()
             const manager = SnapshotManager.new({ Store = store })
             const function specFunction() end
 
-            const explicitPlan = { modulesByMethod = { [specFunction] = { snapshotPath = "custom/Explicit.snap" } } }
-            const explicitSpec = { callback = specFunction, phrase = "Explicit", plan = explicitPlan }
-            const explicitGroup =
-                { callback = function() end, parent = explicitSpec, phrase = "group", plan = explicitPlan }
-            manager:Match(manager:CreateScope({ parent = explicitGroup, phrase = "test", plan = explicitPlan }), 1)
+            const explicitSpec = {
+                callback = specFunction,
+                phrase = "Explicit",
+                specModule = { snapshotPath = "custom/Explicit.snap" },
+            }
+            const explicitGroup = { callback = function() end, parent = explicitSpec, phrase = "group" }
+            manager:Match(manager:CreateScope({ parent = explicitGroup, phrase = "test" }), 1)
 
-            const sourcePlan = { modulesByMethod = { [specFunction] = {} } }
-            const sourceSpec = { callback = specFunction, phrase = "FromSource", plan = sourcePlan }
-            manager:Match(manager:CreateScope({ parent = sourceSpec, phrase = "test", plan = sourcePlan }), 1)
+            const sourceSpec = { callback = specFunction, phrase = "FromSource", specModule = {} }
+            manager:Match(manager:CreateScope({ parent = sourceSpec, phrase = "test" }), 1)
 
             manager:Match(manager:CreateScope(testNode()), 1)
             manager:Finish(nil, false)
@@ -860,6 +937,28 @@ return function()
             expect(output:find("RESULT pruned 0 2", 1, true)).to.be.ok()
             expect(output:find("2 obsolete snapshots removed.", 1, true)).to.be.ok()
             expect(output:find("testable snapshot v1\n\nSpec > stays 1 1\n1\n\n", 1, true)).to.be.ok()
+        end)
+
+        it("should give each test root its own path even when roots share a spec function", function()
+            const output = runScript([[
+                const function spec()
+                    it("renders", function()
+                        expect(1).to.matchSnapshot()
+                    end)
+                end
+                Testable.resetConfig()
+                Testable.configure({ SnapshotStore = store })
+                const _, passed = Testable.run({
+                    { Name = "First", Func = spec, SnapshotPath = "First.snap" },
+                    { Name = "Second", Func = spec, SnapshotPath = "Second.snap" },
+                })
+                print(`RESULT passed {passed}`)
+                print(`RESULT first {store.Files["First.snap"]}`)
+                print(`RESULT second {store.Files["Second.snap"]}`)
+            ]])
+            expect(output:find("RESULT passed true", 1, true)).to.be.ok()
+            expect(output:find("RESULT first testable snapshot v1\n\nFirst > renders 1 1\n1\n\n", 1, true)).to.be.ok()
+            expect(output:find("RESULT second testable snapshot v1\n\nSecond > renders 1 1\n1\n\n", 1, true)).to.be.ok()
         end)
 
         it("should fail for unsupported uses", function()
