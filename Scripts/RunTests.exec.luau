@@ -17,7 +17,7 @@ and where they go...
 > --slowest <count> - Lists that many of the slowest tests in the text report.
 > --update-snapshots, -u - Accepts changed snapshots and removes obsolete ones.
 
-[Usage] ./Scripts/RunTests.exec.luau [--filter "<text>"] [reporter flags] [--update-snapshots]
+[Usage] ./Scripts/RunTests.exec.luau [--filter "<text>"] [reporter flags] [snapshot flags]
 
 --]]
 
