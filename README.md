@@ -39,6 +39,8 @@ Testable.configure({
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `AlphabeticalSort` | `boolean` | `false` | Sort test results alphabetically instead of definition order |
+| `CoverageRows` | `number` | `20` | File rows listed in the coverage table before the rest fold into a summary row |
+| `CoverageSort` | `"Percentage" \| "HitLines"` | `"Percentage"` | Order coverage rows by percentage or by hit lines, both descending |
 | `Indent` | `string` | `"   "` | Indentation string used for nested test output |
 | `MaxConcurrency` | `number` | `4` | Maximum number of tests to run in parallel |
 | `Parallel` | `boolean` | `true` | Enable or disable parallel test execution |

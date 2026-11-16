@@ -3,6 +3,8 @@
 ## 1.2.0
 - Added `Coverage.track` so chunks loaded with `luau.load` count toward the coverage of their source files, merging hits from every load.
 - Added `Coverage.normalizePath` so different spellings of one path share coverage.
+- Added the `CoverageRows` option to set how many file rows the coverage table lists before folding the rest.
+- Added the `CoverageSort` option to order coverage rows by hit lines instead of percentage.
 
 ## 1.1.6
 - Counted modules that no test required as uncovered by compiling them for their executable lines.
