@@ -79,7 +79,9 @@ on. Here's what else to know...
 - The `beforeAll` and `afterAll` hooks have no budget, since they often do slow one-time
   setup and belong to no single test.
 - Only code that yields can be interrupted. A busy loop that never yields blocks the Luau
-  scheduler, so the budget can't stop it and the run still hangs.
+  scheduler, so the budget can't stop it and the run still hangs. Work that doesn't yield
+  but does return still counts against the budget, so a test that finishes over budget is
+  reported as timed out.
 - Cancelling a test stops its own thread only. Threads that the test started with
   `task.spawn` or `task.delay` keep running.
 

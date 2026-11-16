@@ -218,6 +218,10 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
         local timedOut = false
         local waiting = false
 
+        -- The clock starts before the callback does, because task.spawn runs the callback
+        -- up to its first yield before it returns.
+        const startTime = os.clock()
+
         const thread = task.spawn(function()
             success, errorMessage = runCallback(callback, messagePrefix)
             finished = true
@@ -226,27 +230,29 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
             end
         end)
 
-        if finished then
-            return success, errorMessage
+        if not finished then
+            const timer = task.delay(math.max(budget - (os.clock() - startTime), 0), function()
+                finished = true
+                timedOut = true
+                -- The cancelled thread never reaches the end of runCallback, so the
+                -- running flag it raised has to be released here instead.
+                pcall(task.cancel, thread)
+                releaseRunningFlag()
+                task.spawn(waiter)
+            end)
+
+            waiting = true
+            coroutine.yield()
+
+            if not timedOut then
+                task.cancel(timer)
+            end
         end
 
-        const timer = task.delay(budget, function()
-            finished = true
-            timedOut = true
-            -- The cancelled thread never reaches the end of runCallback, so the running
-            -- flag it raised has to be released here instead.
-            pcall(task.cancel, thread)
-            releaseRunningFlag()
-            success = false
-            errorMessage = TestTimeout.formatMessage(subject, budget, source :: string)
-            task.spawn(waiter)
-        end)
-
-        waiting = true
-        coroutine.yield()
-
-        if not timedOut then
-            task.cancel(timer)
+        -- A callback that finished on its own can still be over budget, since work that
+        -- never yields cannot be interrupted. An error it raised itself is kept.
+        if timedOut or (success and os.clock() - startTime > budget) then
+            return false, TestTimeout.formatMessage(subject, budget, source :: string)
         end
 
         return success, errorMessage

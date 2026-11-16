@@ -27,6 +27,19 @@ const SCRIPT_HEADER = [[
 
     const startTime = os.clock()
 
+    -- Bounds the script on its own, so that a regression in timeout handling fails the
+    -- test instead of hanging the outer run.
+    task.delay(5, function()
+        print("WATCHDOG_FIRED")
+        process.exit(2)
+    end)
+
+    const function busyWait(seconds: number)
+        const busyStart = os.clock()
+        while os.clock() - busyStart < seconds do
+        end
+    end
+
     const function finish(results: any, passed: boolean)
         print("PASSED:" .. tostring(passed))
         print("SUCCESS_COUNT:" .. results.successCount)
@@ -81,6 +94,42 @@ const TEST_SCRIPT_TEMPLATE = SCRIPT_HEADER
     -- Gives a test that was not really cancelled the time to keep running.
     task.wait(0.1)
     print("AFTER_EACH_COUNT:" .. afterEachCount)
+    print("RAN_PAST_CANCEL:" .. tostring(ranPastCancel))
+    finish(results, passed)
+]]
+const BUSY_SCRIPT_TEMPLATE = SCRIPT_HEADER
+    .. [[
+    Testable.configure({ Parallel = %s })
+
+    local ranPastCancel = false
+
+    const results, passed = Testable.run({
+        {
+            Name = "Busy",
+            Func = function()
+                it("overruns without yielding", function()
+                    busyWait(0.03)
+                end, { Timeout = 0.01 })
+
+                it("works and then yields past its budget", function()
+                    busyWait(0.03)
+                    task.wait(0.03)
+                    ranPastCancel = true
+                end, { Timeout = 0.04 })
+
+                it("fails on its own while over budget", function()
+                    busyWait(0.03)
+                    error("own failure")
+                end, { Timeout = 0.02 })
+
+                it("does quick work within its budget", function()
+                    busyWait(0.002)
+                end, { Timeout = 2 })
+            end,
+        },
+    })
+
+    task.wait(0.1)
     print("RAN_PAST_CANCEL:" .. tostring(ranPastCancel))
     finish(results, passed)
 ]]
@@ -331,6 +380,20 @@ return function()
                 expect(contains(output, "AFTER_EACH_COUNT:6")).to.equal(true)
                 expect(contains(output, "RAN_PAST_CANCEL:false")).to.equal(true)
                 expect(contains(output, "RUNNING_FLAG:nil")).to.equal(true)
+            end)
+
+            it("counts work done before the first yield against the budget", function()
+                const ok, output = Subprocess.runScript(string.format(BUSY_SCRIPT_TEMPLATE, tostring(mode.Parallel)))
+
+                expect(ok).to.equal(false)
+                expect(contains(output, "WATCHDOG_FIRED")).to.equal(false)
+                expect(contains(output, "SUCCESS_COUNT:1")).to.equal(true)
+                expect(contains(output, "FAIL_COUNT:3")).to.equal(true)
+                expect(contains(output, "The test timed out after exceeding its budget of 0.01 seconds")).to.equal(true)
+                expect(contains(output, "The test timed out after exceeding its budget of 0.04 seconds")).to.equal(true)
+                expect(contains(output, "RAN_PAST_CANCEL:false")).to.equal(true)
+                expect(contains(output, "own failure")).to.equal(true)
+                expect(contains(output, "budget of 0.02 seconds")).to.equal(false)
             end)
 
             it("gives beforeEach and afterEach hooks the budget but not beforeAll and afterAll", function()
