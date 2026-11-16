@@ -9,6 +9,7 @@ snapshot file.
 
 --]]
 
+const SnapshotArguments = require("../Scripts/Helpers/SnapshotArguments")
 const Subprocess = require("./Helpers/Subprocess")
 const Testable = require("../Source/Testable")
 const fs = require("@lune/fs")
@@ -695,6 +696,19 @@ return function()
     end)
 
     describe("configuration", function()
+        it("should parse the update flag and hand back other arguments", function()
+            for _, flag in { "--update-snapshots", "-u" } do
+                const options, remaining = SnapshotArguments.parse({ "--reporter", flag, "json" })
+                expect(options.UpdateSnapshots).to.equal(true)
+                expect(table.concat(remaining, " ")).to.equal("--reporter json")
+            end
+
+            const options, remaining = SnapshotArguments.parse({ "--update", "u", "-U" })
+            expect(options.UpdateSnapshots).to.equal(nil)
+            expect(#remaining).to.equal(3)
+            expect(next((SnapshotArguments.parse({})))).to.equal(nil)
+        end)
+
         it("should set and reset the store and update flag", function()
             const store = MemorySnapshotStore.new()
             expect(Testable.Config.SnapshotStore).to.equal(nil)
