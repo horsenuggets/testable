@@ -14,6 +14,7 @@ machine-readable reporter wants it too. Every other reporter needs an output pat
 --]]
 
 const Ansi = require("../Ansi")
+const Coverage = require("../Coverage")
 const JUnitReporter = require("./JUnitReporter")
 const JsonReporter = require("./JsonReporter")
 const LcovReporter = require("./LcovReporter")
@@ -27,9 +28,12 @@ export type Output = {
     Reporter: string,
 }
 
+-- StandardOutput names the machine-readable reporter that writes to standard output, if
+-- there is one.
 export type Selection = {
     NeedsCoverage: boolean,
     Outputs: { Output },
+    StandardOutput: string?,
     Text: boolean,
 }
 
@@ -91,10 +95,15 @@ function ReporterSelection.resolve(reporters: { any }, outputs: { [string]: stri
                 )
             end
             standardOutputReporter = name
-        elseif reporterByPath[path] ~= nil then
-            error(`The "{reporterByPath[path]}" and "{name}" reporters would both write to "{path}".`)
         else
-            reporterByPath[path] = name
+            -- Different spellings of one file, like "out.xml" and "./out.xml", have to
+            -- collide too, or the second report would silently replace the first. The
+            -- configured spelling is still the one that's written to and reported.
+            const key = Coverage.normalizePath(path)
+            if reporterByPath[key] ~= nil then
+                error(`The "{reporterByPath[key]}" and "{name}" reporters would both write to "{path}".`)
+            end
+            reporterByPath[key] = name
         end
         table.insert(selection.Outputs, { Path = path, Reporter = name })
     end
@@ -104,6 +113,7 @@ function ReporterSelection.resolve(reporters: { any }, outputs: { [string]: stri
                 .. `Give the "{standardOutputReporter}" reporter a path in ReporterOutputs, or leave "Text" out.`
         )
     end
+    selection.StandardOutput = standardOutputReporter
     return selection
 end
 
