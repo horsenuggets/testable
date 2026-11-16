@@ -82,10 +82,10 @@ return function()
             expect(report.Files[1].Percentage).to.be.a("number")
             expect(report.Files[1].Path:match("SampleModule%.luau$") ~= nil).to.equal(true)
             const file = report.Files[1]
-            expect(file.Percentage).to.equal(math.floor(file.HitLines / file.ExecutableLines * 1000) / 10)
+            expect(file.Percentage).to.equal(math.floor(file.HitLines / file.ExecutableLines * 10000) / 100)
             for _, fn in file.Functions do
                 const expected = if fn.ExecutableLines > 0
-                    then math.floor(fn.HitLines / fn.ExecutableLines * 1000) / 10
+                    then math.floor(fn.HitLines / fn.ExecutableLines * 10000) / 100
                     else 0
                 expect(fn.Percentage).to.equal(expected)
             end
@@ -133,9 +133,80 @@ return function()
             expect(report.TotalPercentage <= 100).to.equal(true)
 
             if report.TotalExecutableLines > 0 then
-                const expected = math.floor((report.TotalHitLines / report.TotalExecutableLines) * 1000) / 10
+                const expected = math.floor((report.TotalHitLines / report.TotalExecutableLines) * 10000) / 100
                 expect(report.TotalPercentage).to.equal(expected)
             end
+        end)
+
+        it("should count every line of a module that was never required as missed", function()
+            const report = Coverage.collect(fixturesDir.UnrequiredModule)
+
+            if report == nil then
+                return
+            end
+
+            const file = report.Files[1]
+            expect(file.Loaded).to.equal(false)
+            expect(file.ExecutableLines > 0).to.equal(true)
+            expect(file.HitLines).to.equal(0)
+            expect(file.Percentage).to.equal(0)
+            expect(#file.Functions > 0).to.equal(true)
+            for _, fn in file.Functions do
+                expect(fn.HitLines).to.equal(0)
+            end
+            expect(report.TotalExecutableLines).to.equal(file.ExecutableLines)
+        end)
+
+        it("should mark required modules as loaded", function()
+            SampleModule.add(1, 2)
+
+            const report = Coverage.collect(sampleScript)
+
+            if report == nil then
+                return
+            end
+
+            expect(report.Files[1].Loaded).to.equal(true)
+            expect(report.Files[1].HitLines > 0).to.equal(true)
+        end)
+
+        it("should count a module that fails to compile as zero lines", function()
+            const fs = require("@lune/fs")
+            const brokenPath = `{tostring(fixturesDir)}/GeneratedBroken.luau`
+            fs.writeFile(brokenPath, "return function(\n")
+            const ok, report = pcall(Coverage.collect, fixturesDir.GeneratedBroken)
+            fs.removeFile(brokenPath)
+            assert(ok, report)
+
+            if report == nil then
+                return
+            end
+
+            expect(report.Files[1].Loaded).to.equal(false)
+            expect(report.Files[1].ExecutableLines).to.equal(0)
+            expect(report.Files[1].HitLines).to.equal(0)
+        end)
+
+        it("should report paths relative to the working directory", function()
+            const report = Coverage.collect(sampleScript)
+
+            if report == nil then
+                return
+            end
+
+            expect(report.Files[1].Path).to.equal("Tests/CoverageFixtures/SampleModule.luau")
+        end)
+    end)
+
+    describe("Coverage.percentage", function()
+        it("should floor to two decimals", function()
+            expect(Coverage.percentage(480, 543126)).to.equal(0.08)
+            expect(Coverage.percentage(2, 3)).to.equal(66.66)
+            expect(Coverage.percentage(1, 1)).to.equal(100)
+        end)
+
+        it("should return zero when there are no executable lines", function()
+            expect(Coverage.percentage(0, 0)).to.equal(0)
         end)
     end)
 

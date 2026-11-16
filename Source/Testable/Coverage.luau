@@ -9,6 +9,10 @@ debug.getcoverage for full-file coverage including local functions.
 Coverage is enabled by default in Lune; set LUNE_COVERAGE=0 to
 disable.
 
+Modules that no test required have no runtime coverage data, so they are compiled
+without running to count their executable lines, and every line counts as missed. A
+module that fails to compile counts as zero lines.
+
 --]]
 
 const IS_LUNE = pcall(function()
@@ -38,6 +42,7 @@ export type FileCoverage = {
     Functions: { FunctionCoverage },
     ExecutableLines: number,
     HitLines: number,
+    Loaded: boolean,
     Percentage: number,
 }
 
@@ -143,19 +148,54 @@ const function discoverModules(dirScript: any, results: { { Name: string, Script
 end
 
 --[[
+    Returns the share of hit lines as a percentage floored to two decimals, so small
+    totals like 0.09% don't round away to zero. Zero executable lines yields 0.
+]]
+function Coverage.percentage(hit: number, executable: number): number
+    assert(type(hit) == "number")
+    assert(type(executable) == "number")
+    return if executable > 0 then math.floor(hit / executable * 10000) / 100 else 0
+end
+
+--[[
+    Compiles a module that never ran and returns its coverage entries without executing
+    it. Returns nil when the file can't be read or compiled.
+
+    @param path - The filesystem path of the module source
+    @return entries - The debug.getcoverage entries, or nil
+]]
+const function compileCoverageEntries(path: string): { any }?
+    const fs = require("@lune/fs")
+    const luau = require("@lune/luau")
+    const ok, entries = pcall(function()
+        const bytecode = luau.compile(fs.readFile(path), { coverageLevel = 1 })
+        return debug.getcoverage(luau.load(bytecode, { debugName = path }))
+    end)
+    return if ok and type(entries) == "table" then entries else nil
+end
+
+--[[
     Collects coverage data for a single file by passing its script
     instance to debug.getcoverage. Returns per-function coverage
     entries for ALL functions in the file, including local ones.
+    Modules that were never required are compiled instead, with
+    every executable line counted as missed.
 
     @param scriptInstance - The script instance to collect coverage for
+    @param path - The filesystem path of the module source
     @return fileFunctions - Array of FunctionCoverage entries
     @return fileHit - Total hit lines across all functions
     @return fileExecutable - Total executable lines across all functions
+    @return loaded - Whether the module ran during the test session
 ]]
-const function collectFileCoverage(scriptInstance: any): ({ FunctionCoverage }, number, number)
-    const ok, entries = pcall(debug.getcoverage, scriptInstance)
-    if not ok or type(entries) ~= "table" then
-        return {}, 0, 0
+const function collectFileCoverage(scriptInstance: any, path: string): ({ FunctionCoverage }, number, number, boolean)
+    local ok, entries = pcall(debug.getcoverage, scriptInstance)
+    const loaded = ok and type(entries) == "table"
+    if not loaded then
+        entries = compileCoverageEntries(path)
+        if entries == nil then
+            return {}, 0, 0, false
+        end
     end
 
     const fileFunctions: { FunctionCoverage } = {}
@@ -169,7 +209,7 @@ const function collectFileCoverage(scriptInstance: any): ({ FunctionCoverage }, 
         for _, hitCount in entry.Hits do
             if hitCount >= 0 then
                 funcExecutable += 1
-                if hitCount > 0 then
+                if loaded and hitCount > 0 then
                     funcHit += 1
                 end
             end
@@ -178,7 +218,7 @@ const function collectFileCoverage(scriptInstance: any): ({ FunctionCoverage }, 
         fileHit += funcHit
         fileExecutable += funcExecutable
 
-        const pct = if funcExecutable > 0 then math.floor((funcHit / funcExecutable) * 1000) / 10 else 0
+        const pct = Coverage.percentage(funcHit, funcExecutable)
 
         local funcName = entry.Function
         if funcName == "" then
@@ -193,7 +233,7 @@ const function collectFileCoverage(scriptInstance: any): ({ FunctionCoverage }, 
         })
     end
 
-    return fileFunctions, fileHit, fileExecutable
+    return fileFunctions, fileHit, fileExecutable, loaded
 end
 
 --[[
@@ -294,19 +334,13 @@ function Coverage.collect(roots: any): CoverageReport?
     end
 
     const fs = require("@lune/fs")
+    const cwd = require("@lune/process").cwd
     const scripts = Coverage.resolveRoots(roots)
     const files: { FileCoverage } = {}
     local grandTotalHit = 0
     local grandTotalExecutable = 0
 
     for _, entry in scripts do
-        const fileFunctions, fileHit, fileExecutable = collectFileCoverage(entry.Script)
-
-        grandTotalHit += fileHit
-        grandTotalExecutable += fileExecutable
-
-        const filePct = if fileExecutable > 0 then math.floor((fileHit / fileExecutable) * 1000) / 10 else 0
-
         local path = tostring(entry.Script)
         if fs.isDir(path) then
             path = `{path}/init.luau`
@@ -314,25 +348,27 @@ function Coverage.collect(roots: any): CoverageReport?
             path = if fs.isFile(`{path}.luau`) then `{path}.luau` else `{path}.lua`
         end
 
+        const fileFunctions, fileHit, fileExecutable, loaded = collectFileCoverage(entry.Script, path)
+
+        grandTotalHit += fileHit
+        grandTotalExecutable += fileExecutable
+
         table.insert(files, {
             Name = entry.Name,
-            Path = path,
+            Path = if path:sub(1, #cwd) == cwd then path:sub(#cwd + 1) else path,
             Functions = fileFunctions,
             ExecutableLines = fileExecutable,
             HitLines = fileHit,
-            Percentage = filePct,
+            Loaded = loaded,
+            Percentage = Coverage.percentage(fileHit, fileExecutable),
         })
     end
-
-    const totalPct = if grandTotalExecutable > 0
-        then math.floor((grandTotalHit / grandTotalExecutable) * 1000) / 10
-        else 0
 
     return {
         Files = files,
         TotalExecutableLines = grandTotalExecutable,
         TotalHitLines = grandTotalHit,
-        TotalPercentage = totalPct,
+        TotalPercentage = Coverage.percentage(grandTotalHit, grandTotalExecutable),
     }
 end
 
