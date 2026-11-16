@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.6
+- Counted modules that no test required as uncovered by compiling them for their executable lines.
+- Added a `Loaded` field to file coverage and two-decimal coverage percentages.
+- Reported coverage paths relative to the working directory and capped them at 40 columns, keeping the end of long file names.
+- Sorted coverage rows by percentage, hid modules without executable lines, and folded rows past the first 20 into a summary row.
+- Added comma thousands separators and right-aligned number columns to coverage tables.
+
 ## 1.1.5
 - Added tree-style test reports with check and cross symbols and aggregated suite outcomes.
 - Added section dividers and configurable tree indentation.
