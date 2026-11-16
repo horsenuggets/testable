@@ -6,7 +6,9 @@ RunTests.exec
 
 Executes all test suites and exits with appropriate status code.
 
-[Usage] ./Scripts/RunTests.exec.luau
+[Usage] ./Scripts/RunTests.exec.luau [--update-snapshots]
+
+Pass "--update-snapshots" (or "-u") to accept changed snapshots and remove obsolete ones.
 
 --]]
 
@@ -25,12 +27,19 @@ const TESTS = {
     { Name = "PlanningErrorTest", Func = require("../Tests/PlanningErrorTest.spec") },
     { Name = "ReporterTest", Func = require("../Tests/ReporterTest.spec") },
     { Name = "RobloxCloudTest", Func = require("../Tests/RobloxCloudTest.spec") },
+    { Name = "SnapshotTest", Func = require("../Tests/SnapshotTest.spec") },
     { Name = "VersionUpdateTest", Func = require("../Tests/VersionUpdateTest.spec") },
 }
 
 const RunTests = {}
 
 function RunTests.exec()
+    for _, argument in process.args do
+        if argument == "--update-snapshots" or argument == "-u" then
+            Testable.configure({ UpdateSnapshots = true })
+        end
+    end
+
     const _, passed = Testable.run(TESTS)
     process.exit(if passed then 0 else 1)
 end

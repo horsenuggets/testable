@@ -84,6 +84,7 @@ function Expectation.new(value)
     self.equal = bindSelf(self, self.equal)
     self.throw = bindSelf(self, self.throw)
     self.near = bindSelf(self, self.near)
+    self.matchSnapshot = bindSelf(self, self.matchSnapshot)
 
     return self
 end
@@ -280,6 +281,32 @@ function Expectation:throw(messageSubstring)
             "Expected function to throw an error, but it did not throw.",
             ("Expected function to succeed, but it threw an error: %s"):format(tostring(err))
         )
+    end
+
+    assertLevel(result, message, 3)
+    self:_resetModifiers()
+
+    return self
+end
+
+--[[
+    Assert that our expectation value matches the snapshot stored for the running test.
+    A value with no stored snapshot is recorded and passes. An optional hint replaces
+    the snapshot's number in its key.
+
+    expect(render(report)).to.matchSnapshot()
+    expect(render(report)).to.matchSnapshot("compact layout")
+]]
+function Expectation:matchSnapshot(hint)
+    const scope = self._snapshotScope
+    local result, message
+
+    if not self.successCondition then
+        result, message = false, "matchSnapshot cannot be negated with never."
+    elseif scope == nil then
+        result, message = false, "matchSnapshot can only be used while a test is running."
+    else
+        result, message = scope.Manager:Match(scope, self.value, hint)
     end
 
     assertLevel(result, message, 3)

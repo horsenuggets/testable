@@ -155,7 +155,14 @@ end
 ]]
 function TestSession:getExpectationContext(): any
     assert(#self.expectationContextStack > 0, "Tried to get expectationContext from an empty stack!")
-    return self.expectationContextStack[#self.expectationContextStack]
+    const expectationContext = self.expectationContextStack[#self.expectationContextStack]
+
+    -- Snapshot assertions need to know which test they run in. Tests run concurrently, so
+    -- that identity travels with each test's own context instead of a global.
+    const node = self.nodeStack[#self.nodeStack]
+    expectationContext:bindSnapshotScope(self.results.snapshots, node and node.planNode)
+
+    return expectationContext
 end
 
 --[[

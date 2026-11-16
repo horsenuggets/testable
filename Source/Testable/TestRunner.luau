@@ -10,6 +10,7 @@ parallel test execution via task.spawn.
 
 const Config = require("./Config")
 const LifecycleHooks = require("./LifecycleHooks")
+const SnapshotManager = require("./Snapshots/SnapshotManager")
 const task = if task then task else require("@lune/task")
 const TestEnum = require("./TestEnum")
 const TestResults = require("./TestResults")
@@ -99,6 +100,10 @@ function TestRunner.runPlan(plan: any): any
 
     session.hasFocusNodes = #exclusiveNodes > 0
 
+    -- Read the snapshot settings before tests run, since tests may call Config.reset().
+    const snapshots = SnapshotManager.new({ Store = Config.SnapshotStore, Update = Config.UpdateSnapshots })
+    session.results.snapshots = snapshots
+
     if session.hasFocusNodes then
         log("Focus nodes detected, other tests will be skipped.")
     end
@@ -107,7 +112,12 @@ function TestRunner.runPlan(plan: any): any
 
     log("Test plan execution complete.")
 
-    return session:finalize()
+    const results = session:finalize()
+
+    -- A focused run skips tests, so their snapshots must not be mistaken for obsolete.
+    results.snapshotSummary = snapshots:Finish(results, session.hasFocusNodes)
+
+    return results
 end
 
 --[[
@@ -122,11 +132,16 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
     --[[
         Runs a callback function in a protected environment with error handling.
 
+        @param callbackSession - The session whose current node the callback belongs to
         @param callback - The function to execute
         @param messagePrefix - Optional prefix for error messages
         @return success: boolean, errorMessage: string?
     ]]
-    const function runCallback(callback: (any) -> (), inputMessagePrefix: string?): (boolean, string?)
+    const function runCallback(
+        callbackSession: any,
+        callback: (any) -> (),
+        inputMessagePrefix: string?
+    ): (boolean, string?)
         local success = true
         local errorMessage
         -- Any code can check RUNNING_GLOBAL to fork behavior based on
@@ -153,9 +168,9 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
             errorMessage = messagePrefix .. debug.traceback(tostring(message), 2)
         end
 
-        testEnvironment.expect = wrapExpectContextWithPublicApi(session:getExpectationContext())
+        testEnvironment.expect = wrapExpectContextWithPublicApi(callbackSession:getExpectationContext())
 
-        const context = session:getContext()
+        const context = callbackSession:getContext()
 
         const nodeSuccess, nodeResult = xpcall(function()
             callback(context)
@@ -180,21 +195,21 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
         return success, errorMessage
     end
 
-    const function runNode(childPlanNode)
+    const function runNode(testSession, childPlanNode)
         -- Errors can be set either via `error` propagating upwards or
         -- by a test calling fail([message]).
 
         for _, hook in ipairs(lifecycleHooks:getBeforeEachHooks()) do
-            const success, errorMessage = runCallback(hook, "beforeEach hook: ")
+            const success, errorMessage = runCallback(testSession, hook, "beforeEach hook: ")
             if not success then
                 return false, errorMessage
             end
         end
 
-        const testSuccess, testErrorMessage = runCallback(childPlanNode.callback)
+        const testSuccess, testErrorMessage = runCallback(testSession, childPlanNode.callback)
 
         for _, hook in ipairs(lifecycleHooks:getAfterEachHooks()) do
-            const success, errorMessage = runCallback(hook, "afterEach hook: ")
+            const success, errorMessage = runCallback(testSession, hook, "afterEach hook: ")
             if not success then
                 if not testSuccess then
                     return false,
@@ -217,7 +232,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
 
     local halt = false
     for _, hook in ipairs(lifecycleHooks:getBeforeAllHooks()) do
-        const success, errorMessage = runCallback(hook, "beforeAll hook: ")
+        const success, errorMessage = runCallback(session, hook, "beforeAll hook: ")
         if not success then
             session:addDummyError("beforeAll", errorMessage)
             halt = true
@@ -290,7 +305,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
                     else
                         -- Run the test (parallel execution here)
                         const testStartTime = os.clock()
-                        const success, errorMessage = runNode(childPlanNode)
+                        const success, errorMessage = runNode(testSession, childPlanNode)
                         const testDuration = os.clock() - testStartTime
 
                         if success then
@@ -357,7 +372,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
                     session:setSkipped()
                     log(string.format("  [%d/%d] Skipped: %s", i, #itTests, childPlanNode.phrase))
                 else
-                    const success, errorMessage = runNode(childPlanNode)
+                    const success, errorMessage = runNode(session, childPlanNode)
                     const testDuration = os.clock() - testStartTime
 
                     if success then
@@ -515,7 +530,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
     end
 
     for _, hook in ipairs(lifecycleHooks:getAfterAllHooks()) do
-        const success, errorMessage = runCallback(hook, "afterAll hook: ")
+        const success, errorMessage = runCallback(session, hook, "afterAll hook: ")
         if not success then
             session:addDummyError("afterAll", errorMessage)
         end

@@ -21,7 +21,15 @@ export type ConfigOptions = {
     MaxConcurrency: number?,
     Parallel: boolean?,
     PrintSkipped: boolean?,
+    SnapshotStore: SnapshotStore?,
+    UpdateSnapshots: boolean?,
     Verbose: boolean?,
+}
+
+-- Where snapshot files are kept. Lune uses the filesystem when no store is set.
+export type SnapshotStore = {
+    read: (path: string) -> string?,
+    write: (path: string, contents: string) -> (),
 }
 
 const Config = {
@@ -35,6 +43,8 @@ const Config = {
     MaxConcurrency = 4,
     Parallel = true,
     PrintSkipped = false,
+    SnapshotStore = nil :: SnapshotStore?,
+    UpdateSnapshots = false,
     Verbose = false,
 }
 
@@ -121,6 +131,20 @@ function Config.set(options: ConfigOptions)
         Config.PrintSkipped = options.PrintSkipped
     end
 
+    if options.SnapshotStore ~= nil then
+        const store = options.SnapshotStore
+        assert(
+            type(store) == "table" and type(store.read) == "function" and type(store.write) == "function",
+            "SnapshotStore must be a table with read and write functions"
+        )
+        Config.SnapshotStore = store
+    end
+
+    if options.UpdateSnapshots ~= nil then
+        assert(type(options.UpdateSnapshots) == "boolean", "UpdateSnapshots must be a boolean")
+        Config.UpdateSnapshots = options.UpdateSnapshots
+    end
+
     if options.Verbose ~= nil then
         assert(type(options.Verbose) == "boolean", "Verbose must be a boolean")
         Config.Verbose = options.Verbose
@@ -141,6 +165,8 @@ function Config.reset()
     Config.MaxConcurrency = 4
     Config.Parallel = true
     Config.PrintSkipped = false
+    Config.SnapshotStore = nil
+    Config.UpdateSnapshots = false
     Config.Verbose = false
 end
 
