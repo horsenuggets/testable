@@ -13,8 +13,12 @@ const TestEnum = require("../Source/Testable/TestEnum")
 const TestFilter = require("../Source/Testable/TestFilter")
 const TestPlanner = require("../Source/Testable/TestPlanner")
 const TestRunner = require("../Source/Testable/TestRunner")
+const Testable = require("../Source/Testable")
 const TextReporter = require("../Source/Testable/Reporters/TextReporter")
 const ToolError = require("../Source/Testable/ToolError")
+const afterEach, describe, expect, it = Testable.afterEach, Testable.describe, Testable.expect, Testable.it
+const fdescribe, fit, xit = Testable.fdescribe, Testable.fit, Testable.xit
+
 const REPORTER_OPTIONS: TextReporter.Options = {
     AlphabeticalSort = false,
     Color = false,

@@ -7,6 +7,8 @@ Tests for parsing the command-line flag that filters tests by name.
 --]]
 
 const FilterArguments = require("../Scripts/Helpers/FilterArguments")
+const Testable = require("../Source/Testable")
+const expect, it = Testable.expect, Testable.it
 
 return function()
     it("should accept no arguments", function()

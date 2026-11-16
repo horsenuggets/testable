@@ -10,8 +10,11 @@ own Testable instance) the exit codes of Testable.runToExitCode and the RunTests
 
 const Coverage = require("../Source/Testable/Coverage")
 const Subprocess = require("./Helpers/Subprocess")
+const Testable = require("../Source/Testable")
 const ToolError = require("../Source/Testable/ToolError")
 const process = require("@lune/process")
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
+
 const EXECUTION_MODES = {
     { Name = "parallel", Parallel = true },
     { Name = "sequential", Parallel = false },
