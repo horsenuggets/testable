@@ -11,6 +11,28 @@ const Config = require("./Config")
 const Expectation = require("./Expectation")
 const TestEnum = require("./TestEnum")
 const TestScope = require("./TestScope")
+const TestTimeout = require("./TestTimeout")
+
+--[[
+    Reads the time budget in seconds out of the options table passed as the third argument
+    of an it block. Throws when the options are invalid, which has to happen before the
+    test is added to the plan so that an invalid test never runs.
+]]
+const function readTimeoutOption(phrase, options)
+    if options == nil then
+        return nil
+    end
+
+    if type(options) ~= "table" then
+        error(`The options of "{phrase}" must be a table, got {typeof(options)}.`, 3)
+    end
+
+    if options.Timeout ~= nil and not TestTimeout.isValid(options.Timeout) then
+        error(`The Timeout option of "{phrase}" must be a positive number of seconds.`, 3)
+    end
+
+    return options.Timeout
+end
 
 --[[
     Builds the skip reason for a test marked as broken, with or without a message.
@@ -100,8 +122,9 @@ const function newEnvironment(currentNode, extraEnvironment)
         addChild(phrase, callback, TestEnum.NodeType.Describe, TestEnum.NodeModifier.None)
     end
 
-    function env.itFOCUS(phrase, callback)
-        addChild(phrase, callback, TestEnum.NodeType.It, TestEnum.NodeModifier.Focus)
+    function env.itFOCUS(phrase, callback, options)
+        const timeout = readTimeoutOption(phrase, options)
+        addChild(phrase, callback, TestEnum.NodeType.It, TestEnum.NodeModifier.Focus).timeout = timeout
     end
 
     function env.itSKIP(phrase, callback, reason)
@@ -128,8 +151,9 @@ const function newEnvironment(currentNode, extraEnvironment)
         addChild(phrase, nil, TestEnum.NodeType.It, TestEnum.NodeModifier.Skip, TestEnum.SkipReason.Todo)
     end
 
-    function env.it(phrase, callback, nodeModifier)
-        addChild(phrase, callback, TestEnum.NodeType.It, TestEnum.NodeModifier.None)
+    function env.it(phrase, callback, options)
+        const timeout = readTimeoutOption(phrase, options)
+        addChild(phrase, callback, TestEnum.NodeType.It, TestEnum.NodeModifier.None).timeout = timeout
     end
 
     -- Incrementing counter used to ensure that beforeAll, afterAll, beforeEach, afterEach have unique phrases

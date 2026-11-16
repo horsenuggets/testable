@@ -18,6 +18,7 @@ const TestFilter = require("./TestFilter")
 const TestResults = require("./TestResults")
 const TestScope = require("./TestScope")
 const TestSession = require("./TestSession")
+const TestTimeout = require("./TestTimeout")
 
 const RUNNING_GLOBAL = "__TESTABLE_RUNNING_TEST__"
 const RUNNING_COUNT_GLOBAL = "__TESTABLE_RUNNING_COUNT__"
@@ -55,6 +56,15 @@ const function releaseGlobalSlot(globalSemaphore: TestSession.Semaphore)
     globalSemaphore.lock = true
     globalSemaphore.activeCount = globalSemaphore.activeCount - 1
     globalSemaphore.lock = false
+end
+
+-- Lowers the count of running tests and only clears the flag when no tests are running
+const function releaseRunningFlag()
+    _G[RUNNING_COUNT_GLOBAL] = (_G[RUNNING_COUNT_GLOBAL] or 1) - 1
+    if _G[RUNNING_COUNT_GLOBAL] <= 0 then
+        _G[RUNNING_GLOBAL] = nil
+        _G[RUNNING_COUNT_GLOBAL] = nil
+    end
 end
 
 --[[
@@ -188,11 +198,81 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
             errorMessage = nodeResult
         end
 
-        -- Decrement the counter and only clear the flag when no tests are running
-        _G[RUNNING_COUNT_GLOBAL] = (_G[RUNNING_COUNT_GLOBAL] or 1) - 1
-        if _G[RUNNING_COUNT_GLOBAL] <= 0 then
-            _G[RUNNING_GLOBAL] = nil
-            _G[RUNNING_COUNT_GLOBAL] = nil
+        releaseRunningFlag()
+
+        return success, errorMessage
+    end
+
+    --[[
+        Runs a callback like runCallback, but gives up on it once it has been running for
+        longer than the given budget. The callback runs in its own thread so that it can
+        be cancelled while the calling thread waits for whichever comes first, the
+        callback finishing or the budget running out. Only a callback that yields can be
+        interrupted. One that never yields blocks the scheduler, so nothing else gets a
+        chance to run until it returns on its own.
+
+        @param callbackSession - The session whose current node the callback belongs to
+        @param callback - The function to execute
+        @param subject - What is running, for the timeout message
+        @param messagePrefix - Optional prefix for error messages
+        @param budget - The budget in seconds, or nil to run without a limit
+        @param source - Where the budget came from, for the timeout message
+        @return success: boolean, errorMessage: string?
+    ]]
+    const function runCallbackWithBudget(
+        callbackSession: any,
+        callback: (any) -> (),
+        subject: string,
+        messagePrefix: string?,
+        budget: number?,
+        source: string?
+    ): (boolean, string?)
+        if budget == nil then
+            return runCallback(callbackSession, callback, messagePrefix)
+        end
+
+        const waiter = coroutine.running()
+        local finished = false
+        local success = false
+        local errorMessage: string? = nil
+        local timedOut = false
+        local waiting = false
+
+        -- The clock starts before the callback does, because task.spawn runs the callback
+        -- up to its first yield before it returns.
+        const startTime = os.clock()
+
+        const thread = task.spawn(function()
+            success, errorMessage = runCallback(callbackSession, callback, messagePrefix)
+            finished = true
+            if waiting then
+                task.spawn(waiter)
+            end
+        end)
+
+        if not finished then
+            const timer = task.delay(math.max(budget - (os.clock() - startTime), 0), function()
+                finished = true
+                timedOut = true
+                -- The cancelled thread never reaches the end of runCallback, so the
+                -- running flag it raised has to be released here instead.
+                pcall(task.cancel, thread)
+                releaseRunningFlag()
+                task.spawn(waiter)
+            end)
+
+            waiting = true
+            coroutine.yield()
+
+            if not timedOut then
+                task.cancel(timer)
+            end
+        end
+
+        -- A callback that finished on its own can still be over budget, since work that
+        -- never yields cannot be interrupted. An error it raised itself is kept.
+        if timedOut or (success and os.clock() - startTime > budget) then
+            return false, TestTimeout.formatMessage(subject, budget, source :: string)
         end
 
         return success, errorMessage
@@ -202,17 +282,30 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
         -- Errors can be set either via `error` propagating upwards or
         -- by a test calling fail([message]).
 
+        -- The test and each of its beforeEach and afterEach hooks get the budget
+        -- separately, so a slow hook cannot use up the time of the test itself.
+        const budget, budgetSource = TestTimeout.resolve(childPlanNode.timeout, Config.Timeout)
+
         for _, hook in ipairs(lifecycleHooks:getBeforeEachHooks()) do
-            const success, errorMessage = runCallback(testSession, hook, "beforeEach hook: ")
+            const success, errorMessage = runCallbackWithBudget(
+                testSession,
+                hook,
+                "The beforeEach hook",
+                "beforeEach hook: ",
+                budget,
+                budgetSource
+            )
             if not success then
                 return false, errorMessage
             end
         end
 
-        const testSuccess, testErrorMessage = runCallback(testSession, childPlanNode.callback)
+        const testSuccess, testErrorMessage =
+            runCallbackWithBudget(testSession, childPlanNode.callback, "The test", nil, budget, budgetSource)
 
         for _, hook in ipairs(lifecycleHooks:getAfterEachHooks()) do
-            const success, errorMessage = runCallback(testSession, hook, "afterEach hook: ")
+            const success, errorMessage =
+                runCallbackWithBudget(testSession, hook, "The afterEach hook", "afterEach hook: ", budget, budgetSource)
             if not success then
                 if not testSuccess then
                     return false,

@@ -59,6 +59,7 @@ const TESTS = {
     { Name = "SnapshotTest", Func = require("../Tests/SnapshotTest.spec") },
     { Name = "SpecApiTest", Func = require("../Tests/SpecApiTest.spec") },
     { Name = "TestScopeTest", Func = require("../Tests/TestScopeTest.spec") },
+    { Name = "TimeoutTest", Func = require("../Tests/TimeoutTest.spec") },
     { Name = "ToolErrorTest", Func = require("../Tests/ToolErrorTest.spec") },
     { Name = "ValueInspectorTest", Func = require("../Tests/ValueInspectorTest.spec") },
     { Name = "VersionUpdateTest", Func = require("../Tests/VersionUpdateTest.spec") },
