@@ -7,6 +7,10 @@ matchers, lifecycle hooks, and parallel test execution support.
 
 --]]
 
+const IS_LUNE = pcall(function()
+    require("@lune/fs")
+end)
+
 const Config = require("@self/Config")
 const Coverage = require("@self/Coverage")
 const CoverageReporter = require("@self/Reporters/CoverageReporter")
@@ -68,6 +72,11 @@ const function run(testRoots: any): (any, boolean)
     return results, passed
 end
 
+-- Discovery needs Lune's filesystem and process libraries, so it is only required on Lune
+-- and is nil everywhere else. Requiring it unconditionally would stop this package from
+-- loading on Roblox.
+const Discovery = if IS_LUNE then require("@self/Discovery") else nil
+
 const Testable = {
     configure = Config.set,
     resetConfig = Config.reset,
@@ -75,6 +84,7 @@ const Testable = {
 
     Config = Config,
     Coverage = Coverage,
+    Discovery = Discovery :: typeof(require("@self/Discovery")),
     Expectation = Expectation,
     Reporters = {
         CoverageReporter = CoverageReporter,
