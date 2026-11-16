@@ -75,8 +75,9 @@ Testable.configure({
 
 A machine-readable reporter without a path in `ReporterOutputs` writes to standard output
 instead. Only one report can use standard output, so that reporter has to be the only one
-without a path, and `Text` has to be left out. The run then prints nothing but that
-report, apart from whatever your own tests print. Writing files only works in Lune.
+without a path, and `Text` has to be left out. In Lune, anything your tests print during
+such a run goes to standard error instead, along with verbose logging, so standard output
+holds nothing but the report. Writing files only works in Lune.
 
 Every reporter is also a pure function from results to a string, which works in Roblox
 too...

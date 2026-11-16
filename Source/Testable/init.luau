@@ -15,6 +15,7 @@ const JUnitReporter = require("@self/Reporters/JUnitReporter")
 const JsonReporter = require("@self/Reporters/JsonReporter")
 const LcovReporter = require("@self/Reporters/LcovReporter")
 const ReporterSelection = require("@self/Reporters/ReporterSelection")
+const StandardOutputGuard = require("@self/Reporters/StandardOutputGuard")
 const TestBootstrap = require("@self/TestBootstrap")
 const TestEnum = require("@self/TestEnum")
 const TestPlan = require("@self/TestPlan")
@@ -57,9 +58,13 @@ const function run(testRoots: any): (any, boolean)
         error('The "Lcov" reporter needs Coverage enabled and CoverageRoots set.')
     end
 
-    const modules = TestBootstrap:getModulesFromMultipleRoots(testRoots)
-    const plan = TestPlanner.createPlan(modules)
-    const results = TestRunner.runPlan(plan)
+    -- A machine-readable report on standard output has to be the only thing there, so
+    -- whatever is printed while tests are planned and run goes to standard error.
+    const results = StandardOutputGuard.run(selection.StandardOutput ~= nil, function()
+        const modules = TestBootstrap:getModulesFromMultipleRoots(testRoots)
+        const plan = TestPlanner.createPlan(modules)
+        return TestRunner.runPlan(plan)
+    end)
 
     if selection.Text then
         TextReporter.report(results, slowestTests)

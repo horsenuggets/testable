@@ -34,6 +34,64 @@ const COVERAGE_REPORT = {
     TotalPercentage = 100,
 }
 const MACHINE_REPORTERS = { "JUnit", "Json", "Lcov" }
+const GUARD_SCRIPT = [[
+    const StandardOutputGuard = require("./Source/Testable/Reporters/StandardOutputGuard")
+
+    print("BEFORE")
+    const value = StandardOutputGuard.run(true, function()
+        print("INSIDE")
+        return "RESULT"
+    end)
+    print(value)
+    const ok, message = pcall(StandardOutputGuard.run, true, function()
+        print("FAILING")
+        error("guarded failure", 0)
+    end)
+    print(`AFTER|{tostring(ok)}|{tostring(message)}`)
+    StandardOutputGuard.run(false, function()
+        print("INACTIVE")
+    end)
+
+    const outer = StandardOutputGuard.redirect()
+    const inner = StandardOutputGuard.redirect()
+    inner()
+    inner()
+    print("STILL GUARDED")
+    outer()
+    print("RELEASED")
+]]
+const NOISY_TEMPLATE = [[
+    const process = require("@lune/process")
+    const task = require("@lune/task")
+    const Testable = require("./Source/Testable")
+
+    Testable.configure({ Parallel = %s, Reporters = { "%s" }, Verbose = true })
+
+    const _, passed = Testable.run({
+        {
+            Name = "NoisySpec",
+            Func = function()
+                print("PLANNING NOISE")
+                it("prints", function()
+                    task.wait(0.01)
+                    print("TEST NOISE", { Nested = true })
+                end)
+                it("runs a nested suite", function()
+                    Testable.configure({ Reporters = { "Text" }, Verbose = false })
+                    Testable.run({
+                        {
+                            Name = "NestedSpec",
+                            Func = function()
+                                it("nested test", function() end)
+                            end,
+                        },
+                    })
+                end)
+            end,
+        },
+    })
+    process.exit(if passed then 0 else 1)
+]]
 const RUN_TEMPLATE = [[
     const process = require("@lune/process")
     const Testable = require("./Source/Testable")
@@ -214,6 +272,37 @@ return function()
             end, 'would both write to "same.out"')).to.equal(true)
         end)
 
+        it("should name the reporter that owns standard output", function()
+            expect(ReporterSelection.resolve({ "Text" }, {}).StandardOutput).to.equal(nil)
+            expect(ReporterSelection.resolve({ "Json" }, {}).StandardOutput).to.equal("Json")
+            expect(ReporterSelection.resolve({ "Json" }, { Json = "results.json" }).StandardOutput).to.equal(nil)
+            expect(ReporterSelection.resolve({ "Json", "JUnit" }, { Json = "results.json" }).StandardOutput).to.equal(
+                "JUnit"
+            )
+        end)
+
+        it("should treat different spellings of one file as the same output", function()
+            const spellings = {
+                "./reports/same.out",
+                "reports//same.out",
+                "reports/./same.out",
+                "reports/nested/../same.out",
+                "reports\\same.out",
+            }
+            for _, spelling in spellings do
+                expect(hasError(function()
+                    ReporterSelection.resolve({ "Json", "JUnit" }, { JUnit = spelling, Json = "reports/same.out" })
+                end, `would both write to "{spelling}"`)).to.equal(true)
+            end
+        end)
+
+        it("should keep the configured spelling of distinct output paths", function()
+            const outputs = { JUnit = "./reports/junit.out", Json = "reports/nested/../json.out" }
+            const selection = ReporterSelection.resolve({ "Json", "JUnit" }, outputs)
+            expect(selection.Outputs[1].Path).to.equal("reports/nested/../json.out")
+            expect(selection.Outputs[2].Path).to.equal("./reports/junit.out")
+        end)
+
         it("should return equal selections for equal input", function()
             const first = ReporterSelection.resolve({ "Text", "Json" }, { Json = "results.json" })
             const second = ReporterSelection.resolve({ "Text", "Json" }, { Json = "results.json" })
@@ -330,6 +419,15 @@ return function()
         end)
     end)
 
+    describe("StandardOutputGuard", function()
+        it("should redirect printed output only while it is active", function()
+            const ok, standardOutput, standardError = Subprocess.runScriptStreams(GUARD_SCRIPT)
+            expect(ok).to.equal(true)
+            expect(standardOutput).to.equal("BEFORE\nRESULT\nAFTER|false|guarded failure\nINACTIVE\nRELEASED\n")
+            expect(standardError).to.equal("INSIDE\nFAILING\nSTILL GUARDED\n")
+        end)
+    end)
+
     describe("Testable.run", function()
         it("should print only JSON to standard output when it is the only reporter", function()
             const ok, output = run('{ Reporters = { "Json" } }')
@@ -363,6 +461,52 @@ return function()
             expect(root.Attributes.failures).to.equal("1")
             expect(root.Attributes.skipped).to.equal("1")
             expect(root.Children[1].Children[1].Attributes.classname).to.equal("SampleSpec > group <&>")
+        end)
+
+        for _, parallel in { true, false } do
+            const mode = if parallel then "parallel" else "sequential"
+
+            it(`should keep printed output off standard output with {mode} execution`, function()
+                const script = string.format(NOISY_TEMPLATE, tostring(parallel), "Json")
+                const ok, standardOutput, standardError = Subprocess.runScriptStreams(script)
+                expect(ok).to.equal(true)
+
+                -- Planning output, test output, verbose logging, and the nested run's
+                -- text report would each make this fail to decode.
+                const document = serde.decode("json", standardOutput)
+                expect(document.Totals.Total).to.equal(2)
+                expect(document.Totals.Passed).to.equal(2)
+                expect(document.Suites[1].Name).to.equal("NoisySpec")
+                expect(standardOutput:sub(1, 1)).to.equal("{")
+
+                for _, noise in { "PLANNING NOISE", "TEST NOISE", "Nested", "[Testable]", "NestedSpec", "1 passed" } do
+                    expect(standardError:find(noise, 1, true) ~= nil).to.equal(true)
+                    expect(standardOutput:find(noise, 1, true)).to.equal(nil)
+                end
+            end)
+        end
+
+        it("should keep printed output out of JUnit XML on standard output", function()
+            const script = string.format(NOISY_TEMPLATE, "true", "JUnit")
+            const ok, standardOutput, standardError = Subprocess.runScriptStreams(script)
+            expect(ok).to.equal(true)
+            expect(Xml.parse(standardOutput).Attributes.tests).to.equal("2")
+            expect(standardError:find("TEST NOISE", 1, true) ~= nil).to.equal(true)
+        end)
+
+        it("should leave printed output alone when no report uses standard output", function()
+            withReportFolder(function(folder)
+                const script = string.format(NOISY_TEMPLATE, "true", "Json"):gsub(
+                    'Reporters = { "Json" }, Verbose = true',
+                    `ReporterOutputs = \{ Json = "{folder}/results.json" }, Reporters = \{ "Json" }`
+                )
+                const ok, standardOutput, standardError = Subprocess.runScriptStreams(script)
+                expect(ok).to.equal(true)
+                expect(standardOutput:find("PLANNING NOISE", 1, true) ~= nil).to.equal(true)
+                expect(standardOutput:find("TEST NOISE", 1, true) ~= nil).to.equal(true)
+                expect(standardError).to.equal("")
+                expect(serde.decode("json", fs.readFile(`{folder}/results.json`)).Totals.Total).to.equal(2)
+            end)
         end)
 
         it("should keep the text report and write the other reports to files", function()
