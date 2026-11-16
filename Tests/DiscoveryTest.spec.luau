@@ -99,6 +99,18 @@ const function withProject(label: string, body: (root: string) -> ())
 end
 
 --[[
+    Writes the script that child process tests run into a project. The project also gets
+    a copy of this repository's tool manifest, since the scratch directory is outside the
+    repository and the tool manager picks the Lune version from the nearest manifest.
+
+    @param root - The project root
+]]
+const function writeChildScript(root: string)
+    TempDirectory.write(root, "Run.luau", CHILD_SCRIPT)
+    TempDirectory.write(root, "rokit.toml", fs.readFile("rokit.toml"))
+end
+
+--[[
     Waits until a condition holds, failing the test if it never does.
 
     @param condition - Returns true once the awaited state is reached
@@ -384,7 +396,7 @@ return function()
     describe("Discovery.runInChild()", function()
         it("should pass the arguments and then the spec files to the script", function()
             withProject("child_arguments", function(root)
-                TempDirectory.write(root, "Run.luau", CHILD_SCRIPT)
+                writeChildScript(root)
                 const ok = Discovery.runInChild({
                     Arguments = { "--flag" },
                     Files = { "Tests/A.spec.luau", "Tests/B.spec.luau" },
@@ -398,7 +410,7 @@ return function()
 
         it("should load the code that is on disk for every pass", function()
             withProject("child_fresh", function(root)
-                TempDirectory.write(root, "Run.luau", CHILD_SCRIPT)
+                writeChildScript(root)
                 Discovery.runInChild({ Files = {}, Root = root, Script = "Run.luau" })
                 expect(fs.readFile(`{root}/Output.txt`)).to.equal("first|")
 
@@ -410,7 +422,7 @@ return function()
 
         it("should report a failing child", function()
             withProject("child_failure", function(root)
-                TempDirectory.write(root, "Run.luau", CHILD_SCRIPT)
+                writeChildScript(root)
                 TempDirectory.write(root, "Source/Library.luau", 'return "fail"\n')
                 expect(Discovery.runInChild({ Files = {}, Root = root, Script = "Run.luau" })).to.equal(false)
             end)

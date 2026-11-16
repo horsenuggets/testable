@@ -18,7 +18,7 @@ they go...
   standard output.
 > --slowest <count> - Lists that many of the slowest tests in the text report.
 
-[Usage] ./Scripts/RunTests.exec.luau [--changed <ref>] [--watch] [reporter flags] [spec files...]
+[Usage] ./Scripts/RunTests.exec.luau [flags] [spec files...]
 
 --]]
 
