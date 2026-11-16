@@ -64,9 +64,32 @@ const Coverage = {}
 const trackedChunks: { [string]: { (...any) -> ...any } } = {}
 
 --[[
+    Splits a path that already uses forward slashes into its root and the rest. The root
+    is a network share like "//server/share", a drive like "C:/" with its letter
+    uppercased since drive letters are case-insensitive, "/", or "" for a relative path.
+]]
+const function splitRoot(path: string): (string, string)
+    -- Exactly two leading slashes start a share, and repeated slashes between the server
+    -- and share names still name the same share.
+    const server, share, afterShare = path:match("^//([^/]+)/+([^/]+)(.*)$")
+    if server then
+        return `//{server}/{share}/`, afterShare :: string
+    end
+    const drive, afterDrive = path:match("^(%a):/(.*)$")
+    if drive then
+        return `{string.upper(drive)}:/`, afterDrive :: string
+    end
+    if path:sub(1, 1) == "/" then
+        return "/", path:sub(2)
+    end
+    return "", path
+end
+
+--[[
     Normalizes a filesystem path so that different spellings of the same file share one
     key. Converts backslashes to slashes, resolves relative paths against the working
-    directory, and collapses empty, "." and "segment/.." parts.
+    directory, and collapses empty, "." and "segment/.." parts. Parent segments never
+    climb past a root, and normalizing a result again returns it unchanged.
 
     @param path - The filesystem path to normalize
     @param workingDirectory - The folder relative paths start from, defaulting to the
@@ -76,39 +99,33 @@ const trackedChunks: { [string]: { (...any) -> ...any } } = {}
 function Coverage.normalizePath(path: string, workingDirectory: string?): string
     assert(type(path) == "string")
     assert(workingDirectory == nil or type(workingDirectory) == "string")
-    local unified = path:gsub("\\", "/")
-    const isAbsolute = unified:sub(1, 1) == "/" or unified:match("^%a:/") ~= nil
+    local root, rest = splitRoot((path:gsub("\\", "/")))
     const base = workingDirectory or (if IS_LUNE then require("@lune/process").cwd else nil)
-    if not isAbsolute and base then
-        -- The working directory uses backslashes on Windows, so it's unified too.
-        unified = `{base:gsub("\\", "/")}/{unified}`
+    if root == "" and base then
+        -- The working directory uses backslashes on Windows, so it's unified too. Its
+        -- trailing slashes go first, so a root like "/" doesn't join into "//".
+        const unifiedBase = base:gsub("\\", "/"):gsub("/+$", "")
+        root, rest = splitRoot(`{unifiedBase}/{rest}`)
     end
-    -- Drive letters are case-insensitive, so "c:" and "C:" must share a key.
-    unified = unified:gsub("^(%a):/", function(drive: string)
-        return `{string.upper(drive)}:/`
-    end)
 
     const segments: { string } = {}
-    for _, segment in string.split(unified, "/") do
+    for _, segment in string.split(rest, "/") do
         if segment == "" or segment == "." then
             continue
         end
+        const previous = segments[#segments]
         if segment ~= ".." then
             table.insert(segments, segment)
-            continue
-        end
-        -- The filesystem treats ".." at the root as the root itself, so it never climbs
-        -- past "/" or a drive letter.
-        const previous = segments[#segments]
-        if previous ~= nil and previous ~= ".." and not previous:match("^%a:$") then
+        elseif previous ~= nil and previous ~= ".." then
             table.remove(segments)
-        elseif not isAbsolute and base == nil then
+        elseif root == "" then
+            -- A relative path keeps the parent segments it can't resolve, while ".." at
+            -- a root stays at the root, like the filesystem.
             table.insert(segments, segment)
         end
     end
 
-    const joined = table.concat(segments, "/")
-    return if unified:sub(1, 1) == "/" then `/{joined}` else joined
+    return `{root}{table.concat(segments, "/")}`
 end
 
 --[[
