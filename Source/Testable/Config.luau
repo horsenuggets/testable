@@ -24,6 +24,7 @@ export type ConfigOptions = {
     CoverageSort: CoverageSort?,
     CoverageThreshold: number?,
     Indent: string?,
+    InjectGlobals: boolean?,
     MaxConcurrency: number?,
     Parallel: boolean?,
     PrintSkipped: boolean?,
@@ -41,6 +42,7 @@ const Config = {
     CoverageSort = "Percentage" :: CoverageSort,
     CoverageThreshold = 0,
     Indent = "   ",
+    InjectGlobals = true,
     MaxConcurrency = 4,
     Parallel = true,
     PrintSkipped = false,
@@ -117,6 +119,11 @@ function Config.set(options: ConfigOptions)
         Config.Indent = options.Indent
     end
 
+    if options.InjectGlobals ~= nil then
+        assert(type(options.InjectGlobals) == "boolean", "InjectGlobals must be a boolean")
+        Config.InjectGlobals = options.InjectGlobals
+    end
+
     if options.MaxConcurrency ~= nil then
         assert(type(options.MaxConcurrency) == "number", "MaxConcurrency must be a number")
         assert(options.MaxConcurrency >= 1, "MaxConcurrency must be at least 1")
@@ -183,6 +190,7 @@ function Config.reset()
     Config.CoverageSort = "Percentage"
     Config.CoverageThreshold = 0
     Config.Indent = "   "
+    Config.InjectGlobals = true
     Config.MaxConcurrency = 4
     Config.Parallel = true
     Config.PrintSkipped = false

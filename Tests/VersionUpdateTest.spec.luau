@@ -7,8 +7,10 @@ version bump validation, and edge cases for version format handling.
 
 --]]
 
+const Testable = require("../Source/Testable")
 const fs = require("@lune/fs")
 const process = require("@lune/process")
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 
 -- Atomic counter for unique test IDs (works with parallel execution)
 local testCounter = 0

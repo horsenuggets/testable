@@ -8,6 +8,8 @@ verify that fail() actually causes tests to fail with the expected exit codes.
 --]]
 
 const Subprocess = require("./Helpers/Subprocess")
+const Testable = require("../Source/Testable")
+const describe, expect, fail, it = Testable.describe, Testable.expect, Testable.fail, Testable.it
 
 const runTestScript = Subprocess.runScript
 
