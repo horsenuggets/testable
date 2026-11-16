@@ -27,6 +27,10 @@ export type MatcherResult = {
 -- A custom matcher passed to `expect.extend`, called with the received value first.
 export type Matcher = (received: any, ...any) -> MatcherResult
 
+-- A built-in matcher, which can be called with a dot (`expect(1).to.equal(1)`) or with a
+-- colon (`expect(1).to:equal(1)`) and returns the expectation so that chains can continue.
+type MatcherMethod<Self, Arguments...> = ((Arguments...) -> Self) & ((self: Self, Arguments...) -> Self)
+
 --[[
     The chain returned by `expect(value)`. Pass the shape of any custom matchers as
     `Custom` to have them typed too, e.g. `Expectation<{ beEven: () -> any }>`.
@@ -45,13 +49,13 @@ export type Expectation<Custom = {}> = Custom & {
     -- Inverts the matcher that follows.
     never: Expectation<Custom>,
 
-    -- Matchers.
-    a: (typeName: string) -> Expectation<Custom>,
-    an: (typeName: string) -> Expectation<Custom>,
-    equal: (expected: any) -> Expectation<Custom>,
-    near: (expected: number, limit: number?) -> Expectation<Custom>,
-    ok: () -> Expectation<Custom>,
-    throw: (messageSubstring: string?) -> Expectation<Custom>,
+    -- Matchers, each listed with the arguments it takes after the expectation itself.
+    a: MatcherMethod<Expectation<Custom>, string>,
+    an: MatcherMethod<Expectation<Custom>, string>,
+    equal: MatcherMethod<Expectation<Custom>, any>,
+    near: MatcherMethod<Expectation<Custom>, (number, number?)>,
+    ok: MatcherMethod<Expectation<Custom>, ()>,
+    throw: MatcherMethod<Expectation<Custom>, string?>,
 }
 
 -- The `expect` function, which also carries `expect.extend` for adding custom matchers.

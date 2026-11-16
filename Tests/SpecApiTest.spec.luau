@@ -156,7 +156,7 @@ return function()
                     and not EXPECTATION_INTERNALS[name]
                     and string.sub(name, 1, 1) ~= "_"
 
-                if isMatcher and string.find(source, `\n    {name}: (`, 1, true) == nil then
+                if isMatcher and string.find(source, `\n    {name}: MatcherMethod<`, 1, true) == nil then
                     error(
                         `The matcher "{name}" is missing from the Expectation type in "{SPEC_API_PATH}". `
                             .. "Add it there, or to EXPECTATION_INTERNALS in this spec if it is not a matcher."
