@@ -239,7 +239,7 @@ return function()
         expect(combining:find(combiningPath, 1, true) ~= nil).to.equal(true)
     end)
 
-    it("truncates paths only at folder boundaries and preserves long filenames", function()
+    it("truncates paths at folder boundaries", function()
         for _, path in
             {
                 "Source/VeryLongDirectoryName/LobbySystems/ShopSystem/init.luau",
@@ -249,8 +249,152 @@ return function()
             const text = table.concat(CoverageReporter.format(coverage(path, 100), 70, false, "   "), "\n")
             expect(text:find(".../LobbySystems/ShopSystem/init.luau", 1, true) ~= nil).to.equal(true)
         end
-        const filename = string.rep("a", 50) .. ".luau"
-        const text = table.concat(CoverageReporter.format(coverage(`Source/{filename}`, 0), 70, false, "   "), "\n")
-        expect(text:find(`.../{filename}`, 1, true) ~= nil).to.equal(true)
+    end)
+
+    it("keeps the end of a file name that can't fit on its own", function()
+        const filename = `{string.rep("a", 50)}_Tail.luau`
+        const shown = CoverageReporter.formatPath(`Source/{filename}`, false)
+        expect(shown).to.equal(`...{string.sub(filename, -37)}`)
+        expect(#shown).to.equal(40)
+        const wide = CoverageReporter.formatPath(`Source/{string.rep("界", 30)}.luau`, false)
+        expect(wide).to.equal(`...{string.rep("界", 16)}.luau`)
+        expect(DisplayWidth.measure(wide) <= 40).to.equal(true)
+    end)
+
+    it("leaves short paths untouched and dims only their folders", function()
+        expect(CoverageReporter.formatPath("Source/Session.luau", false)).to.equal("Source/Session.luau")
+        const colored, raw = CoverageReporter.formatPath("Source/Session.luau", true)
+        expect(colored).to.equal(`{Ansi.dim("Source/")}Session.luau`)
+        expect(raw).to.equal("Source/Session.luau")
+    end)
+
+    it("never shows a path wider than 40 columns", function()
+        for folderLength = 1, 45, 4 do
+            for nameLength = 1, 60, 3 do
+                for depth = 1, 4 do
+                    const folders = table.create(depth, string.rep("d", folderLength))
+                    const path = `{table.concat(folders, "/")}/{string.rep("n", nameLength)}.luau`
+                    const _, raw = CoverageReporter.formatPath(path, false)
+                    expect(DisplayWidth.measure(raw) <= 40).to.equal(true)
+                    if DisplayWidth.measure(path) <= 40 then
+                        expect(raw).to.equal(path)
+                    else
+                        expect(raw:sub(1, 3)).to.equal("...")
+                    end
+                end
+            end
+        end
+    end)
+
+    it("formats counts with comma thousands separators", function()
+        const cases = {
+            { 0, "0" },
+            { 999, "999" },
+            { 1000, "1,000" },
+            { 543126, "543,126" },
+            { 1234567, "1,234,567" },
+        }
+        for _, case in cases do
+            expect(CoverageReporter.formatCount(case[1])).to.equal(case[2])
+        end
+    end)
+
+    it("formats percentages with two decimals only below one percent", function()
+        const cases = {
+            { 0, "0.0%" },
+            { 0.08, "0.08%" },
+            { 0.57, "0.57%" },
+            { 0.29, "0.29%" },
+            { 0.999, "0.99%" },
+            { 1, "1.0%" },
+            { 88.36, "88.3%" },
+            { 100, "100.0%" },
+        }
+        for _, case in cases do
+            expect(CoverageReporter.formatPercentage(case[1])).to.equal(case[2])
+        end
+        for hundredths = 1, 99 do
+            expect(CoverageReporter.formatPercentage(hundredths / 100)).to.equal(
+                `0.{string.format("%02d", hundredths)}%`
+            )
+        end
+        for tenths = 10, 1000 do
+            expect(CoverageReporter.formatPercentage(tenths / 10)).to.equal(`{string.format("%.1f", tenths / 10)}%`)
+        end
+    end)
+
+    it("sorts files by percentage, then lines, then path, without empty files", function()
+        const function file(path: string, executable: number, hit: number): any
+            return {
+                ExecutableLines = executable,
+                Functions = {},
+                HitLines = hit,
+                Loaded = hit > 0,
+                Name = path,
+                Path = path,
+                Percentage = if executable > 0 then math.floor(hit / executable * 10000) / 100 else 0,
+            }
+        end
+        const files = {
+            file("B.luau", 100, 0),
+            file("Empty.luau", 0, 0),
+            file("Full.luau", 10, 10),
+            file("A.luau", 100, 0),
+            file("Big.luau", 3000, 0),
+            file("Half.luau", 10, 5),
+        }
+        const order = {}
+        for _, entry in CoverageReporter.sortFiles(files) do
+            table.insert(order, entry.Path)
+        end
+        expect(table.concat(order, ",")).to.equal("Full.luau,Half.luau,Big.luau,A.luau,B.luau")
+        expect(files[1].Path).to.equal("B.luau")
+        expect(#files).to.equal(6)
+        const again = {}
+        for _, entry in CoverageReporter.sortFiles(files) do
+            table.insert(again, entry.Path)
+        end
+        expect(table.concat(again, ",")).to.equal(table.concat(order, ","))
+    end)
+
+    it("folds rows past the limit into a summary row", function()
+        for _, count in { 0, 1, 20, 21, 22, 45 } do
+            const files = {}
+            for index = 1, count do
+                table.insert(files, {
+                    ExecutableLines = 1000 + index,
+                    Functions = {},
+                    HitLines = 0,
+                    Loaded = false,
+                    Name = `M{index}`,
+                    Path = `Source/M{index}.luau`,
+                    Percentage = 0,
+                })
+            end
+            const report = { Files = files, TotalExecutableLines = 0, TotalHitLines = 0, TotalPercentage = 0 }
+            const text = table.concat(CoverageReporter.format(report, 0, false, "   "), "\n")
+            const listed = select(2, text:gsub("Source/M%d+%.luau", ""))
+            expect(listed).to.equal(math.min(count, 20))
+            const hidden = count - 20
+            if hidden <= 0 then
+                expect(text:find("more module", 1, true)).to.equal(nil)
+            else
+                local hiddenLines = 0
+                for index = 1, hidden do
+                    hiddenLines += 1000 + index
+                end
+                const lines = CoverageReporter.formatCount(hiddenLines)
+                const label = `{hidden} more {if hidden == 1 then "module" else "modules"}`
+                expect(text:find(`│ {label} +│ +{lines} │ +0 │ +0%.0%% │`) ~= nil).to.equal(true)
+            end
+            expect(strip(table.concat(CoverageReporter.format(report, 0, true, "   "), "\n"))).to.equal(text)
+        end
+    end)
+
+    it("right-aligns columns when asked", function()
+        const rows = { { Colored = { "a", "1" }, Raw = { "a", "1" } } }
+        const lines = TableRenderer.format({ "Name", "Count" }, rows, false, { "Left", "Right" })
+        expect(lines[2]).to.equal("│ Name │ Count │")
+        expect(lines[4]).to.equal("│ a    │     1 │")
     end)
 end
