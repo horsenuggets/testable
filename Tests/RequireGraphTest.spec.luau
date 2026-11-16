@@ -11,6 +11,8 @@ affected by a set of changed files.
 const FakeFileSystem = require("./Helpers/FakeFileSystem")
 const RequireGraph = require("../Source/Testable/Discovery/RequireGraph")
 const RequireParser = require("../Source/Testable/Discovery/RequireParser")
+const Testable = require("../Source/Testable")
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 
 const LONG_OPEN = "[" .. "["
 const LONG_CLOSE = "]" .. "]"
@@ -83,6 +85,24 @@ return function()
 
         it("should find requires nested inside expressions", function()
             expect(parse('const value = (require("./A") :: any).Field + require("./B").Count')).to.equal("./A,./B")
+        end)
+
+        it("should skip comments around the argument", function()
+            expect(parse(`require(--{LONG_OPEN}reason{LONG_CLOSE} "./A")`)).to.equal("./A")
+            expect(parse(`require("./A" --{LONG_OPEN}reason{LONG_CLOSE})`)).to.equal("./A")
+            expect(parse('require( -- reason\n    "./A" -- more\n)')).to.equal("./A")
+            expect(parse(`require --{LONG_OPEN}reason{LONG_CLOSE} "./A"`)).to.equal("./A")
+        end)
+
+        it("should find requires inside the expressions of an interpolated string", function()
+            expect(parse('const text = `value {require("./A").Name} and {require("./B")}`')).to.equal("./A,./B")
+            expect(parse('const text = `{ { Key = require("./A") }.Key } require("./B")`')).to.equal("./A")
+            expect(parse('const text = `outer {`inner {require("./A")}`}`\nrequire("./B")')).to.equal("./A,./B")
+        end)
+
+        it("should not treat escaped braces or plain text in an interpolated string as code", function()
+            expect(parse('const text = `\\{require("./A")}`')).to.equal("")
+            expect(parse('const text = `require("./A")`\nrequire("./B")')).to.equal("./B")
         end)
 
         it("should ignore requires inside comments", function()
@@ -218,17 +238,34 @@ return function()
     describe("RequireGraph.build()", function()
         it("should follow requires transitively from the entry files", function()
             const graph = RequireGraph.build(FakeFileSystem.new(FILES), { "/root/Tests/Library.spec.luau" })
-            expect(table.concat(RequireGraph.files(graph), ",")).to.equal(
+            const scanned = {}
+            for file in graph do
+                table.insert(scanned, file)
+            end
+            table.sort(scanned)
+
+            expect(table.concat(scanned, ",")).to.equal(
                 "/root/Packages/Dependency.luau,/root/Source/Library/Child.luau,/root/Source/Library/init.luau,"
                     .. "/root/Source/Shared.luau,/root/Source/Sibling.luau,/root/Tests/Library.spec.luau"
             )
         end)
 
-        it("should sort the dependencies of each file", function()
+        it("should record every candidate of each require in sorted order", function()
             const graph = RequireGraph.build(FakeFileSystem.new(FILES), { "/root/Tests/Library.spec.luau" })
             expect(table.concat(graph["/root/Source/Library/init.luau"], ",")).to.equal(
-                "/root/Source/Library/Child.luau,/root/Source/Sibling.luau"
+                "/root/Source/Library/Child.lua,/root/Source/Library/Child.luau,"
+                    .. "/root/Source/Library/Child/init.lua,/root/Source/Library/Child/init.luau,"
+                    .. "/root/Source/Sibling.lua,/root/Source/Sibling.luau,"
+                    .. "/root/Source/Sibling/init.lua,/root/Source/Sibling/init.luau"
             )
+        end)
+
+        it("should list candidates that do not exist among its files", function()
+            const graph = RequireGraph.build(FakeFileSystem.new(FILES), { "/root/Tests/Library.spec.luau" })
+            const files = RequireGraph.files(graph)
+            expect(table.find(files, "/root/Source/Library.luau")).to.be.ok()
+            expect(table.find(files, "/root/Source/Library/init.luau")).to.be.ok()
+            expect(table.find(files, "/root/Source/Unused.luau")).to.equal(nil)
         end)
 
         it("should leave out files that nothing reachable requires", function()
@@ -238,7 +275,8 @@ return function()
 
         it("should finish when requires form a cycle", function()
             const graph = RequireGraph.build(FakeFileSystem.new(FILES), { "/root/Tests/Cycle.spec.luau" })
-            expect(table.concat(graph["/root/Tests/Helpers/Loop.luau"], ",")).to.equal("/root/Tests/Cycle.spec.luau")
+            expect(table.find(graph["/root/Tests/Helpers/Loop.luau"], "/root/Tests/Cycle.spec.luau")).to.be.ok()
+            expect(table.find(graph["/root/Tests/Cycle.spec.luau"], "/root/Tests/Helpers/Loop.luau")).to.be.ok()
         end)
 
         it("should keep an entry file that does not exist", function()
@@ -285,6 +323,11 @@ return function()
         it("should select specs whose missing require was created or deleted", function()
             expect(affected({ "/root/Source/NotYet.luau" })).to.equal("Missing.spec.luau")
             expect(affected({ "/root/Source/NotYet/init.luau" })).to.equal("Missing.spec.luau")
+        end)
+
+        it("should select specs when a file appears that takes over a resolved require", function()
+            expect(affected({ "/root/Source/Library.luau" })).to.equal("Library.spec.luau")
+            expect(affected({ "/root/Source/Sibling/init.luau" })).to.equal("Library.spec.luau")
         end)
 
         it("should select every spec when a configuration file changes", function()

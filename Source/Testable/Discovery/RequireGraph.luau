@@ -152,9 +152,10 @@ end
 
 --[[
     Builds the require graph reachable from a set of entry files. Each file maps to the
-    sorted files it requires. A require that resolves to nothing maps to every file it
-    could have loaded instead, so that creating or deleting one of them still counts as
-    a change to the requiring file.
+    sorted files its requires could load, which is the file each require resolves to and
+    every other candidate for it. Creating or deleting a candidate changes what the
+    require loads, so it has to count as a change to the requiring file. Only the files
+    that requires actually resolve to are scanned further.
 
     @param fileSystem - The filesystem access to read with
     @param entryFiles - The files to start from, usually the specs
@@ -188,7 +189,7 @@ function RequireGraph.build(fileSystem: FileSystem, entryFiles: { string }): Gra
 
         for _, requirePath in RequireParser.parse(fileSystem.ReadFile(file)) do
             const resolved, candidates = RequireGraph.resolve(fileSystem, file, requirePath, cache)
-            for _, dependency in if resolved ~= nil then { resolved } else candidates do
+            for _, dependency in candidates do
                 if not seen[dependency] then
                     seen[dependency] = true
                     table.insert(dependencies, dependency)

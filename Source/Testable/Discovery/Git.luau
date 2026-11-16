@@ -60,7 +60,9 @@ function Git.changedFiles(exec: Exec, root: string, ref: string): { string }
         error(`"{ref}" is not a valid git ref.`, 0)
     end
 
-    const diff = exec({ "diff", "--name-only", "--relative", "-z", ref, "--" }, root)
+    -- Rename detection is turned off so that a renamed file is reported under both its
+    -- old and its new path. A spec that still requires the old path is affected too.
+    const diff = exec({ "diff", "--name-only", "--no-renames", "--relative", "-z", ref, "--" }, root)
     if not diff.Ok then
         error(`Git could not compare the working tree against "{ref}". {diff.Stderr}`, 0)
     end

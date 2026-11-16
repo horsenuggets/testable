@@ -9,6 +9,8 @@ and for a directory that is not in a repository.
 --]]
 
 const Git = require("../Source/Testable/Discovery/Git")
+const Testable = require("../Source/Testable")
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 
 type FakeOptions = {
     Diff: string?,
@@ -79,7 +81,7 @@ return function()
             expect(table.concat(calls, "\n")).to.equal(table.concat({
                 "rev-parse --is-inside-work-tree",
                 "rev-parse --verify --quiet HEAD~1^{commit}",
-                "diff --name-only --relative -z HEAD~1 --",
+                "diff --name-only --no-renames --relative -z HEAD~1 --",
                 "ls-files --others --exclude-standard -z",
             }, "\n"))
         end)

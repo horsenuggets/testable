@@ -3,12 +3,14 @@
 ChangeTrackerTest.spec
 
 Tests for the pure pieces of watch mode, covering which files are watched, how two
-snapshots of modification times are compared, and how bursts of changes are debounced
-with an injected clock.
+snapshots of file signatures are compared and carried over, and how bursts of changes are
+debounced with an injected clock.
 
 --]]
 
 const ChangeTracker = require("../Source/Testable/Discovery/ChangeTracker")
+const Testable = require("../Source/Testable")
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 
 const Batch = ChangeTracker.Batch
 
@@ -45,26 +47,57 @@ return function()
     end)
 
     describe("ChangeTracker.watchList()", function()
-        it("should add the configuration file of every directory up to the root", function()
+        it("should add the configuration file of every directory above each file", function()
             expect(join(ChangeTracker.watchList("/root", { "/root/Tests/Nested/A.spec.luau" }))).to.equal(
-                "/root/.luaurc,/root/Tests/.luaurc,/root/Tests/Nested/.luaurc,/root/Tests/Nested/A.spec.luau"
+                "/.luaurc,/root/.luaurc,/root/Tests/.luaurc,/root/Tests/Nested/.luaurc,/root/Tests/Nested/A.spec.luau"
             )
         end)
 
-        it("should always include the root configuration file", function()
-            expect(join(ChangeTracker.watchList("/root", {}))).to.equal("/root/.luaurc")
+        it("should always include the configuration files of the root and above it", function()
+            expect(join(ChangeTracker.watchList("/home/project", {}))).to.equal(
+                "/.luaurc,/home/.luaurc,/home/project/.luaurc"
+            )
+        end)
+
+        it("should watch configuration files above a root that sits in a hidden directory", function()
+            expect(join(ChangeTracker.watchList("/home/.worktrees/project", {}))).to.equal(
+                "/.luaurc,/home/.luaurc,/home/.worktrees/.luaurc,/home/.worktrees/project/.luaurc"
+            )
         end)
 
         it("should drop hidden files and remove duplicates", function()
-            expect(join(ChangeTracker.watchList("/root", { "/root/A.luau", "/root/./A.luau", "/root/.hidden/B.luau" }))).to.equal(
-                "/root/.luaurc,/root/A.luau"
-            )
+            const files = { "/root/A.luau", "/root/./A.luau", "/root/.hidden/B.luau" }
+            expect(join(ChangeTracker.watchList("/root", files))).to.equal("/.luaurc,/root/.luaurc,/root/A.luau")
         end)
 
-        it("should watch files outside the root without their configuration files", function()
+        it("should watch files outside the root along with their configuration files", function()
             expect(join(ChangeTracker.watchList("/root/project", { "/root/Shared/A.luau" }))).to.equal(
-                "/root/Shared/A.luau,/root/project/.luaurc"
+                "/.luaurc,/root/.luaurc,/root/Shared/.luaurc,/root/Shared/A.luau,/root/project/.luaurc"
             )
+        end)
+    end)
+
+    describe("ChangeTracker.rebase()", function()
+        it("should keep the previous signature of files that stay watched", function()
+            const rebased = ChangeTracker.rebase({ A = "1/10" }, { A = "2/10" }, { "A" })
+            expect(rebased.A).to.equal("1/10")
+        end)
+
+        it("should start files that just joined the list as unchanged", function()
+            const rebased = ChangeTracker.rebase({}, { A = "2/10" }, { "A", "Missing" })
+            expect(rebased.A).to.equal("2/10")
+            expect(rebased.Missing).to.equal(nil)
+        end)
+
+        it("should drop files that left the list, so they never look deleted", function()
+            const rebased = ChangeTracker.rebase({ A = "1/10", Gone = "1/10" }, { A = "1/10" }, { "A" })
+            expect(rebased.Gone).to.equal(nil)
+            expect(join(ChangeTracker.diff(rebased, { A = "1/10" }))).to.equal("")
+        end)
+
+        it("should still report a watched file that was deleted in the meantime", function()
+            const rebased = ChangeTracker.rebase({ A = "1/10" }, {}, { "A" })
+            expect(join(ChangeTracker.diff(rebased, {}))).to.equal("A")
         end)
     end)
 

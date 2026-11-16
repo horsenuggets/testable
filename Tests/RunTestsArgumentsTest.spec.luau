@@ -8,7 +8,9 @@ codes the script uses when the arguments or the git ref are invalid.
 --]]
 
 const RunTestsArguments = require("../Scripts/Helpers/RunTestsArguments")
+const Testable = require("../Source/Testable")
 const process = require("@lune/process")
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 
 const EXIT_CODE_TOOL_ERROR = 2
 

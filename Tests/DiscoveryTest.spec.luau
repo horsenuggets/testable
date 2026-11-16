@@ -13,6 +13,8 @@ const Testable = require("../Source/Testable")
 const fs = require("@lune/fs")
 const process = require("@lune/process")
 const task = require("@lune/task")
+const afterAll, beforeAll = Testable.afterAll, Testable.beforeAll
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 
 const Discovery = Testable.Discovery
 const Loader = Discovery.Loader
@@ -242,6 +244,18 @@ return function()
             )
         end)
 
+        it("should accept absolute globs inside the root", function()
+            const files = Discovery.findSpecs({ Include = { `{root}/Tests/*.spec.luau` }, Root = root })
+            expect(table.concat(files, ",")).to.equal("Tests/Library.spec.luau,Tests/Standalone.spec.luau")
+
+            const excluded = Discovery.findSpecs({
+                Exclude = { `{root}/Tests/Library.spec.luau` },
+                Include = { `{root}/Tests/*.spec.luau` },
+                Root = root,
+            })
+            expect(table.concat(excluded, ",")).to.equal("Tests/Standalone.spec.luau")
+        end)
+
         it("should honor exclude globs", function()
             const files = Discovery.findSpecs({ Exclude = { "Tests/Nested/**" }, Include = INCLUDE, Root = root })
             expect(table.concat(files, ",")).to.equal("Tests/Library.spec.luau,Tests/Standalone.spec.luau")
@@ -352,6 +366,16 @@ return function()
                 TempDirectory.write(root, "Tests/New.spec.luau", "return function() end\n")
                 const afterCreate = Discovery.findChanged({ Include = INCLUDE, Ref = "HEAD", Root = root })
                 expect(table.concat(afterCreate, ",")).to.equal("Tests/Library.spec.luau,Tests/New.spec.luau")
+            end)
+        end)
+
+        it("should select the specs that still require a renamed file", function()
+            withProject("renamed", function(root)
+                commitProject(root)
+                git(root, { "mv", "Source/Library.luau", "Source/Renamed.luau" })
+
+                const affected = Discovery.findChanged({ Include = INCLUDE, Ref = "HEAD", Root = root })
+                expect(table.concat(affected, ",")).to.equal("Tests/Library.spec.luau")
             end)
         end)
 
@@ -532,6 +556,31 @@ return function()
                 handle.Stop()
 
                 expect(runs[1]).to.equal("Tests/Library.spec.luau,Tests/Standalone.spec.luau")
+            end)
+        end)
+
+        it("should run every spec when a configuration file above the root changes", function()
+            withProject("watch_outer_config", function(root)
+                const runs: { string } = {}
+                const handle = Discovery.watch({
+                    Debounce = WATCH_DEBOUNCE,
+                    Include = { "*.spec.luau" },
+                    Interval = WATCH_INTERVAL,
+                    Log = function() end,
+                    Root = `{root}/Tests`,
+                    Run = function(specFiles: { string })
+                        table.insert(runs, table.concat(specFiles, ","))
+                    end,
+                    RunOnStart = false,
+                })
+
+                TempDirectory.write(root, ".luaurc", '{ "aliases": { "source": "./Source" } }\n')
+                waitFor(function()
+                    return #runs >= 1
+                end)
+                handle.Stop()
+
+                expect(runs[1]).to.equal("Library.spec.luau,Standalone.spec.luau")
             end)
         end)
 

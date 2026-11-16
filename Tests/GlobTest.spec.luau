@@ -10,6 +10,8 @@ deterministic order of the results.
 
 const FakeFileSystem = require("./Helpers/FakeFileSystem")
 const Glob = require("../Source/Testable/Discovery/Glob")
+const Testable = require("../Source/Testable")
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 
 const FILES = {
     ["/root/.hidden/Hidden.spec.luau"] = "",

@@ -51,8 +51,9 @@ end
 
 --[[
     Builds the list of files to watch for a set of source files. This is every watchable
-    source file, plus the ".luaurc" of each directory between it and the root, whether
-    or not that file exists yet.
+    source file, plus the ".luaurc" of the root, of each file's directory, and of every
+    directory above those, whether or not the file exists yet. Alias resolution consults
+    all of them, including the ones above the root.
 
     @param root - The project root
     @param files - The source files that matter, usually every file in the require graph
@@ -63,24 +64,34 @@ function ChangeTracker.watchList(root: string, files: { string }): { string }
     assert(type(files) == "table", "files must be an array of paths")
 
     const normalizedRoot = PathUtil.normalize(root)
-    const seen: { [string]: boolean } = { [PathUtil.join(normalizedRoot, CONFIG_FILE_NAME)] = true }
+    const seen: { [string]: boolean } = {}
 
+    const function addConfigFiles(startDirectory: string)
+        local directory = startDirectory
+        while true do
+            const configPath = PathUtil.join(directory, CONFIG_FILE_NAME)
+            if seen[configPath] then
+                -- Everything above this directory was added along with it.
+                return
+            end
+            if ChangeTracker.isWatchable(normalizedRoot, configPath) then
+                seen[configPath] = true
+            end
+
+            const parent = PathUtil.dirname(directory)
+            if parent == directory or PathUtil.basename(parent) == ".." then
+                return
+            end
+            directory = parent
+        end
+    end
+
+    addConfigFiles(normalizedRoot)
     for _, file in files do
         const normalized = PathUtil.normalize(file)
-        if not ChangeTracker.isWatchable(normalizedRoot, normalized) then
-            continue
-        end
-        seen[normalized] = true
-
-        const relativePath = PathUtil.relative(normalizedRoot, normalized)
-        if relativePath == nil or string.sub(relativePath, 1, 2) == ".." then
-            continue
-        end
-
-        local directory = PathUtil.dirname(normalized)
-        while directory ~= normalizedRoot and PathUtil.dirname(directory) ~= directory do
-            seen[PathUtil.join(directory, CONFIG_FILE_NAME)] = true
-            directory = PathUtil.dirname(directory)
+        if ChangeTracker.isWatchable(normalizedRoot, normalized) then
+            seen[normalized] = true
+            addConfigFiles(PathUtil.dirname(normalized))
         end
     end
 
@@ -120,6 +131,30 @@ function ChangeTracker.diff(previous: Snapshot, current: Snapshot): { string }
     table.sort(changed)
 
     return changed
+end
+
+--[[
+    Carries a snapshot over to a new watch list. Files that stay watched keep their
+    previous signature, so a change made in the meantime is still noticed by the next
+    comparison. Files that just joined the list start out unchanged, and files that left
+    it are dropped, so they are not mistaken for deleted files later.
+
+    @param previous - The snapshot from before the watch list changed
+    @param current - A fresh snapshot of the new watch list
+    @param watched - The new watch list
+    @return The snapshot to compare the next poll against
+]]
+function ChangeTracker.rebase(previous: Snapshot, current: Snapshot, watched: { string }): Snapshot
+    assert(type(previous) == "table", "previous must be a table")
+    assert(type(current) == "table", "current must be a table")
+    assert(type(watched) == "table", "watched must be an array of paths")
+
+    const rebased: Snapshot = {}
+    for _, path in watched do
+        rebased[path] = previous[path] or current[path]
+    end
+
+    return rebased
 end
 
 --[[

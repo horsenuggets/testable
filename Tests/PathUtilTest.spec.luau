@@ -8,6 +8,8 @@ joining, directory and base names, relative paths, and extension stripping.
 --]]
 
 const PathUtil = require("../Source/Testable/Discovery/PathUtil")
+const Testable = require("../Source/Testable")
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 
 return function()
     describe("PathUtil.normalize()", function()
@@ -97,6 +99,14 @@ return function()
 
         it("should return a dot for the same path", function()
             expect(PathUtil.relative("/root/a", "/root/a")).to.equal(".")
+        end)
+
+        it("should treat a dot as the directory itself", function()
+            expect(PathUtil.relative(".", "Tests/A.luau")).to.equal("Tests/A.luau")
+            expect(PathUtil.relative("Tests", ".")).to.equal("..")
+            expect(PathUtil.relative(".", ".")).to.equal(".")
+            expect(PathUtil.dirname("./A.luau")).to.equal(".")
+            expect(PathUtil.basename(".")).to.equal("")
         end)
 
         it("should return nil across different roots or drives", function()

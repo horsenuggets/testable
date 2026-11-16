@@ -29,9 +29,13 @@ const function split(path: string): (string, { string })
         root = "/"
     end
 
+    -- A "." segment names the directory it is already in, so it is never a real segment.
+    -- This also covers the "." that stands for an empty relative path.
     const segments = {}
     for segment in string.gmatch(rest, "[^/]+") do
-        table.insert(segments, segment)
+        if segment ~= "." then
+            table.insert(segments, segment)
+        end
     end
 
     return root, segments
@@ -55,9 +59,7 @@ function PathUtil.normalize(path: string): string
 
     const resolved = {}
     for _, segment in segments do
-        if segment == "." then
-            continue
-        elseif segment == ".." then
+        if segment == ".." then
             if #resolved > 0 and resolved[#resolved] ~= ".." then
                 table.remove(resolved)
             elseif root == "" then

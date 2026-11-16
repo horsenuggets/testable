@@ -119,6 +119,24 @@ const function toAbsolute(root: string, files: { string }): { string }
 end
 
 --[[
+    Rewrites absolute globs as root-relative ones, since matching is always done against
+    root-relative paths. An absolute glob outside the root keeps its leading ".."
+    segments and therefore matches nothing.
+
+    @param root - The absolute root
+    @param globs - The globs to rewrite
+    @return The globs, all relative to the root
+]]
+const function toRootRelativeGlobs(root: string, globs: { string }): { string }
+    const relativeGlobs = {}
+    for _, glob in globs do
+        const relativeGlob = if PathUtil.isAbsolute(glob) then PathUtil.relative(root, glob) else nil
+        table.insert(relativeGlobs, relativeGlob or glob)
+    end
+    return relativeGlobs
+end
+
+--[[
     Finds the spec files that match the include globs, without raising an error when
     there are none.
 
@@ -127,7 +145,8 @@ end
     @return Sorted, root-relative spec file paths
 ]]
 const function findMatching(root: string, options: Options): { string }
-    return Glob.find(FILE_SYSTEM, root, options.Include, options.Exclude)
+    const exclude: { string } = options.Exclude or {}
+    return Glob.find(FILE_SYSTEM, root, toRootRelativeGlobs(root, options.Include), toRootRelativeGlobs(root, exclude))
 end
 
 --[[
@@ -395,13 +414,8 @@ function Discovery.watch(options: WatchOptions): WatchHandle
         const specs = findSpecs()
         graph = RequireGraph.build(FILE_SYSTEM, specs)
 
-        -- Files that just joined the graph start out unchanged. Everything else keeps
-        -- its previous signature, so a change made during the rebuild is still noticed.
-        for path, signature in takeSnapshot(listWatched(specs)) do
-            if snapshot[path] == nil then
-                snapshot[path] = signature
-            end
-        end
+        const watched = listWatched(specs)
+        snapshot = ChangeTracker.rebase(snapshot, takeSnapshot(watched), watched)
 
         return specs
     end
