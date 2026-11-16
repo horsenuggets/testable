@@ -69,14 +69,19 @@ const trackedChunks: { [string]: { (...any) -> ...any } } = {}
     directory, and collapses empty, "." and "segment/.." parts.
 
     @param path - The filesystem path to normalize
+    @param workingDirectory - The folder relative paths start from, defaulting to the
+    process's working directory in Lune
     @return The normalized path
 ]]
-function Coverage.normalizePath(path: string): string
+function Coverage.normalizePath(path: string, workingDirectory: string?): string
     assert(type(path) == "string")
+    assert(workingDirectory == nil or type(workingDirectory) == "string")
     local unified = path:gsub("\\", "/")
     const isAbsolute = unified:sub(1, 1) == "/" or unified:match("^%a:/") ~= nil
-    if not isAbsolute and IS_LUNE then
-        unified = `{require("@lune/process").cwd}/{unified}`
+    const base = workingDirectory or (if IS_LUNE then require("@lune/process").cwd else nil)
+    if not isAbsolute and base then
+        -- The working directory uses backslashes on Windows, so it's unified too.
+        unified = `{base:gsub("\\", "/")}/{unified}`
     end
     -- Drive letters are case-insensitive, so "c:" and "C:" must share a key.
     unified = unified:gsub("^(%a):/", function(drive: string)
@@ -97,7 +102,7 @@ function Coverage.normalizePath(path: string): string
         const previous = segments[#segments]
         if previous ~= nil and previous ~= ".." and not previous:match("^%a:$") then
             table.remove(segments)
-        elseif not isAbsolute and not IS_LUNE then
+        elseif not isAbsolute and base == nil then
             table.insert(segments, segment)
         end
     end

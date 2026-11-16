@@ -114,14 +114,15 @@ end
 --[[
     Returns the files worth listing, ordered by percentage or by hit lines as the sort
     asks, then executable lines, then path. Files without executable lines are left out.
-    The input is not modified.
+    The input is not modified. Without a sort, files are ordered by percentage.
 ]]
 function CoverageReporter.sortFiles(
     files: { Coverage.FileCoverage },
-    sort: Config.CoverageSort
+    sortOverride: Config.CoverageSort?
 ): { Coverage.FileCoverage }
     assert(type(files) == "table")
-    assert(sort == "HitLines" or sort == "Percentage")
+    assert(sortOverride == nil or sortOverride == "HitLines" or sortOverride == "Percentage")
+    const sort = sortOverride or "Percentage"
     const sorted = {}
     for _, file in files do
         if file.ExecutableLines > 0 then

@@ -307,6 +307,17 @@ return function()
             expect(Coverage.normalizePath("Tests/x/../y.luau")).to.equal(Coverage.normalizePath(`{cwd}/Tests/y.luau`))
         end)
 
+        it("should resolve relative paths against a Windows working directory", function()
+            const workingDirectory = "c:\\Users\\dev\\project"
+            expect(Coverage.normalizePath("Tests\\y.luau", workingDirectory)).to.equal(
+                "C:/Users/dev/project/Tests/y.luau"
+            )
+            expect(Coverage.normalizePath("Tests/y.luau", workingDirectory)).to.equal(
+                Coverage.normalizePath("C:\\Users\\dev\\project\\Tests\\y.luau")
+            )
+            expect(Coverage.normalizePath("../y.luau", workingDirectory)).to.equal("C:/Users/dev/y.luau")
+        end)
+
         it("should return the same key for every spelling of one file", function()
             const spellings = { "/a/b/c.luau", "/a//b/c.luau", "/a/./b/c.luau", "/a/x/../b/c.luau", "\\a\\b\\c.luau" }
             for _, spelling in spellings do

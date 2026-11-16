@@ -458,6 +458,11 @@ return function()
             table.insert(again, entry.Path)
         end
         expect(table.concat(again, ",")).to.equal(table.concat(order, ","))
+        const withoutSort = {}
+        for _, entry in CoverageReporter.sortFiles(files) do
+            table.insert(withoutSort, entry.Path)
+        end
+        expect(table.concat(withoutSort, ",")).to.equal(table.concat(order, ","))
     end)
 
     it("folds rows past the limit into a summary row", function()
