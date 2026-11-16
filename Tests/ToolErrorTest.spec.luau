@@ -67,14 +67,19 @@ const function coverageAvailable(): boolean
 end
 
 --[[
-    Runs the RunTests script with the given arguments and returns its exit code and
-    combined output.
+    Runs the RunTests script with the given arguments and returns its exit code, its
+    combined output, and both output streams on their own. The API key is blanked so the
+    nested script never plans the Roblox cloud tests, which would start a remote run
+    for every case here.
 ]]
-const function runTestsScript(args: { string }): (number, string)
+const function runTestsScript(args: { string }): (number, string, string, string)
     const result = process.exec("lune", { "run", "Scripts/RunTests.exec.luau", table.unpack(args) }, {
         cwd = process.cwd,
+        env = { TESTABLE_CICD_ROBLOX_API_KEY = "" },
     })
-    return result.code, (result.stdout or "") .. (result.stderr or "")
+    const standardOutput = result.stdout or ""
+    const standardError = result.stderr or ""
+    return result.code, standardOutput .. standardError, standardOutput, standardError
 end
 
 return function()
@@ -287,15 +292,12 @@ return function()
         end)
 
         it("should keep a tool error out of a report on standard output", function()
-            const result = process.exec(
-                "lune",
-                { "run", "Scripts/RunTests.exec.luau", "--reporter", "json", "--filter", "no test has this name" },
-                { cwd = process.cwd }
-            )
+            const code, _, standardOutput, standardError =
+                runTestsScript({ "--reporter", "json", "--filter", "no test has this name" })
 
-            expect(result.code).to.equal(2)
-            expect(result.stdout).to.equal("")
-            expect(contains(result.stderr, 'The filter "no test has this name" did not match any of the')).to.equal(
+            expect(code).to.equal(2)
+            expect(standardOutput).to.equal("")
+            expect(contains(standardError, 'The filter "no test has this name" did not match any of the')).to.equal(
                 true
             )
         end)
