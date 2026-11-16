@@ -21,10 +21,12 @@ const TESTS = {
     { Name = "ExpectationTest", Func = require("../Tests/ExpectationTest.spec") },
     { Name = "FailTest", Func = require("../Tests/FailTest.spec") },
     { Name = "LifecycleTest", Func = require("../Tests/LifecycleTest.spec") },
+    { Name = "MatcherTest", Func = require("../Tests/MatcherTest.spec") },
     { Name = "ParallelHooksTest", Func = require("../Tests/ParallelHooksTest.spec") },
     { Name = "PlanningErrorTest", Func = require("../Tests/PlanningErrorTest.spec") },
     { Name = "ReporterTest", Func = require("../Tests/ReporterTest.spec") },
     { Name = "RobloxCloudTest", Func = require("../Tests/RobloxCloudTest.spec") },
+    { Name = "ValueInspectorTest", Func = require("../Tests/ValueInspectorTest.spec") },
     { Name = "VersionUpdateTest", Func = require("../Tests/VersionUpdateTest.spec") },
 }
 
