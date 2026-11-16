@@ -289,7 +289,8 @@ const function collectFileCoverage(scriptInstance: any, path: string): ({ Functi
     if ok and type(runtimeEntries) == "table" then
         table.insert(sources, runtimeEntries)
     end
-    for _, chunk in trackedChunks[Coverage.normalizePath(path)] or {} do
+    const chunks: { (...any) -> ...any } = trackedChunks[Coverage.normalizePath(path)] or {}
+    for _, chunk in chunks do
         table.insert(sources, debug.getcoverage(chunk))
     end
 
