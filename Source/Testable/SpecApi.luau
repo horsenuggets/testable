@@ -82,6 +82,8 @@ export type TestOptions = {
 
 type Callback = (...any) -> ...any
 type Declare = (phrase: string, callback: Callback) -> ()
+-- A skip variant, which takes an optional reason that is reported with the skipped tests.
+type DeclareSkipped = (phrase: string, callback: Callback, reason: string?) -> ()
 type DeclareTest = (phrase: string, callback: Callback, options: TestOptions?) -> ()
 type Hook = (callback: Callback) -> ()
 
@@ -98,7 +100,7 @@ export type Api = {
     bindTest: <Arguments..., Returns...>(callback: (Arguments...) -> Returns...) -> (Arguments...) -> Returns...,
     describe: Declare,
     describeFOCUS: Declare,
-    describeSKIP: Declare,
+    describeSKIP: DeclareSkipped,
     expect: Expect,
     fail: (message: any?) -> (),
     fdescribe: Declare,
@@ -107,12 +109,13 @@ export type Api = {
     FOCUS: () -> (),
     HACK_NO_XPCALL: () -> (),
     it: DeclareTest,
-    itFIXME: Declare,
+    itFIXME: (phrase: string, callback: Callback, message: string?) -> (),
     itFOCUS: DeclareTest,
-    itSKIP: Declare,
-    SKIP: () -> (),
-    xdescribe: Declare,
-    xit: Declare,
+    itSKIP: DeclareSkipped,
+    itTODO: (phrase: string) -> (),
+    SKIP: (reason: string?) -> (),
+    xdescribe: DeclareSkipped,
+    xit: DeclareSkipped,
 }
 
 const OUTSIDE_COLLECTION_HINT = "Tests, describe blocks, and hooks must be registered while the spec is being "
