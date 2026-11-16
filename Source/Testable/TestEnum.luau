@@ -33,6 +33,7 @@ TestEnum.NodeModifier = {
 -- Reasons the framework attaches to skipped tests on its own. Tests skipped with a skip
 -- variant carry whatever reason the caller passed instead.
 TestEnum.SkipReason = {
+    Filter = "excluded by filter",
     Fixme = "fixme",
     Focus = "excluded by focus",
     Todo = "todo",

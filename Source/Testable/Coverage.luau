@@ -60,6 +60,10 @@ export type CoverageReport = {
     TotalPercentage: number,
 }
 
+-- The verdict of comparing a coverage report against a threshold. "Unmeasured" means a
+-- threshold was set but there was nothing to hold it against.
+export type GateResult = "Failed" | "Passed" | "Unmeasured"
+
 const Coverage = {}
 
 -- Chunks registered with Coverage.track, keyed by normalized file path. Lives outside of
@@ -518,6 +522,30 @@ function Coverage.collect(roots: any): CoverageReport?
         TotalHitLines = grandTotalHit,
         TotalPercentage = Coverage.percentage(grandTotalHit, grandTotalExecutable),
     }
+end
+
+--[[
+    Decides whether a coverage report satisfies a threshold. A threshold of 0 gates
+    nothing, so it always passes. A positive threshold with no report, or a report with
+    no executable lines, is "Unmeasured" instead of a pass or a failure, because there
+    is nothing to compare the threshold against.
+
+    @param report - The coverage report, or nil if none was collected
+    @param threshold - The minimum total percentage, from 0 to 100
+    @return The gate result
+]]
+function Coverage.checkGate(report: CoverageReport?, threshold: number): GateResult
+    assert(report == nil or type(report) == "table", "report must be a table or nil")
+    assert(type(threshold) == "number", "threshold must be a number")
+
+    if threshold <= 0 then
+        return "Passed"
+    elseif report == nil or report.TotalExecutableLines == 0 then
+        return "Unmeasured"
+    elseif report.TotalPercentage < threshold then
+        return "Failed"
+    end
+    return "Passed"
 end
 
 return Coverage

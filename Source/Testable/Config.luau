@@ -23,6 +23,7 @@ export type ConfigOptions = {
     CoverageRows: number?,
     CoverageSort: CoverageSort?,
     CoverageThreshold: number?,
+    Filter: string?,
     ForbidFocus: boolean?,
     Indent: string?,
     InjectGlobals: boolean?,
@@ -42,6 +43,7 @@ const Config = {
     CoverageRows = 20,
     CoverageSort = "Percentage" :: CoverageSort,
     CoverageThreshold = 0,
+    Filter = nil :: string?,
     ForbidFocus = false,
     Indent = "   ",
     InjectGlobals = true,
@@ -114,6 +116,12 @@ function Config.set(options: ConfigOptions)
             "CoverageThreshold must be between 0 and 100"
         )
         Config.CoverageThreshold = options.CoverageThreshold
+    end
+
+    if options.Filter ~= nil then
+        assert(type(options.Filter) == "string", "Filter must be a string")
+        -- An empty string clears the filter, since set() can't be passed nil for a key
+        Config.Filter = if options.Filter == "" then nil else options.Filter
     end
 
     if options.ForbidFocus ~= nil then
@@ -196,6 +204,7 @@ function Config.reset()
     Config.CoverageRows = 20
     Config.CoverageSort = "Percentage"
     Config.CoverageThreshold = 0
+    Config.Filter = nil
     Config.ForbidFocus = false
     Config.Indent = "   "
     Config.InjectGlobals = true
