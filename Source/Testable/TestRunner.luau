@@ -92,6 +92,7 @@ end
 function TestRunner.runPlan(plan: any): any
     log("Starting test plan execution...")
     const session = TestSession.new(plan)
+    const planStartTime = os.clock()
     const lifecycleHooks = LifecycleHooks.new()
 
     const exclusiveNodes = plan:findNodes(function(node)
@@ -108,7 +109,10 @@ function TestRunner.runPlan(plan: any): any
 
     log("Test plan execution complete.")
 
-    return session:finalize()
+    const results = session:finalize()
+    results.duration = os.clock() - planStartTime
+
+    return results
 end
 
 --[[
@@ -293,6 +297,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
                         const testStartTime = os.clock()
                         const success, errorMessage = runNode(childPlanNode)
                         const testDuration = os.clock() - testStartTime
+                        testNodes[i].duration = testDuration
 
                         if success then
                             testSession:setSuccess()
@@ -360,6 +365,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
                 else
                     const success, errorMessage = runNode(childPlanNode)
                     const testDuration = os.clock() - testStartTime
+                    session.nodeStack[#session.nodeStack].duration = testDuration
 
                     if success then
                         session:setSuccess()
@@ -467,6 +473,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
 
                     completed = completed + 1
                     const blockDuration = os.clock() - blockStartTime
+                    describeNodes[i].duration = blockDuration
                     const remaining = total - completed
                     log(
                         string.format(
@@ -500,8 +507,10 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
             -- Run describe blocks sequentially
             for _, childPlanNode in ipairs(describeBlocks) do
                 log(string.format("Entering describe block: %s", childPlanNode.phrase))
+                const blockStartTime = os.clock()
                 session:pushNode(childPlanNode)
                 TestRunner.runPlanNode(session, childPlanNode, lifecycleHooks)
+                session.nodeStack[#session.nodeStack].duration = os.clock() - blockStartTime
 
                 if childPlanNode.loadError then
                     const message = "Error during planning: " .. childPlanNode.loadError
