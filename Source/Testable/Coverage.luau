@@ -84,10 +84,16 @@ function Coverage.normalizePath(path: string): string
         if segment == "" or segment == "." then
             continue
         end
+        if segment ~= ".." then
+            table.insert(segments, segment)
+            continue
+        end
+        -- The filesystem treats ".." at the root as the root itself, so it never climbs
+        -- past "/" or a drive letter.
         const previous = segments[#segments]
-        if segment == ".." and previous ~= nil and previous ~= ".." and not previous:match("^%a:$") then
+        if previous ~= nil and previous ~= ".." and not previous:match("^%a:$") then
             table.remove(segments)
-        else
+        elseif not isAbsolute and not IS_LUNE then
             table.insert(segments, segment)
         end
     end

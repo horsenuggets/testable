@@ -282,7 +282,13 @@ return function()
 
         it("should convert backslashes and keep drive letters", function()
             expect(Coverage.normalizePath("C:\\a\\b\\..\\c.luau")).to.equal("C:/a/c.luau")
-            expect(Coverage.normalizePath("C:/../a.luau")).to.equal("C:/../a.luau")
+        end)
+
+        it("should never climb above the root or a drive", function()
+            expect(Coverage.normalizePath("/project/../../project/module.luau")).to.equal("/project/module.luau")
+            expect(Coverage.normalizePath("/../a.luau")).to.equal("/a.luau")
+            expect(Coverage.normalizePath("C:/../a.luau")).to.equal("C:/a.luau")
+            expect(Coverage.normalizePath("C:/x/../../../a.luau")).to.equal("C:/a.luau")
         end)
 
         it("should resolve relative paths against the working directory", function()
