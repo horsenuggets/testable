@@ -51,12 +51,56 @@ return function()
     end)
 
     it("ignores configuration when formatting without a layout", function()
-        const report = coverage("Source/Session.luau", 50)
+        -- Ranked by percentage the order is High, Middle, Wide, and by hit lines it's
+        -- Wide, High, Middle, so either setting would change the output.
+        const report = {
+            Files = {
+                {
+                    ExecutableLines = 1000,
+                    Functions = {},
+                    HitLines = 100,
+                    Name = "Wide",
+                    Path = "Source/Wide.luau",
+                    Percentage = 10,
+                },
+                {
+                    ExecutableLines = 10,
+                    Functions = {},
+                    HitLines = 9,
+                    Name = "High",
+                    Path = "Source/High.luau",
+                    Percentage = 90,
+                },
+                {
+                    ExecutableLines = 10,
+                    Functions = {},
+                    HitLines = 5,
+                    Name = "Middle",
+                    Path = "Source/Middle.luau",
+                    Percentage = 50,
+                },
+            },
+            TotalExecutableLines = 1020,
+            TotalHitLines = 114,
+            TotalPercentage = 11.17,
+        }
         const before = table.concat(CoverageReporter.format(report, 70, false, "   "), "\n")
-        Config.set({ CoverageRows = 1, CoverageSort = "HitLines" })
-        const after = table.concat(CoverageReporter.format(report, 70, false, "   "), "\n")
-        Config.reset()
-        expect(after).to.equal(before)
+        const high, middle, wide =
+            before:find("High.luau", 1, true), before:find("Middle.luau", 1, true), before:find("Wide.luau", 1, true)
+        expect(high ~= nil and middle ~= nil and wide ~= nil).to.equal(true)
+        expect(high < middle and middle < wide).to.equal(true)
+
+        for _, options in
+            { { CoverageRows = 1 }, { CoverageSort = "HitLines" }, { CoverageRows = 1, CoverageSort = "HitLines" } }
+        do
+            Config.set(options :: any)
+            const ok, after = pcall(function()
+                return table.concat(CoverageReporter.format(report, 70, false, "   "), "\n")
+            end)
+            Config.set({ CoverageRows = 20, CoverageSort = "Percentage" })
+            expect(ok).to.equal(true)
+            expect(after).to.equal(before)
+        end
     end)
 
     it("renders nested suites and connectors exactly", function()
