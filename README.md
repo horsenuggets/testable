@@ -387,6 +387,91 @@ local module = chunk()
 
 A file can be tracked any number of times, and hits from every load are merged.
 
+## Spec Discovery
+
+On Lune, `Testable.Discovery` finds spec files from include globs, so a test script
+doesn't have to list every spec by hand. It is only loaded on Lune and is `nil` on Roblox,
+where specs are discovered from instances instead. Globs are relative to `Root`, which
+defaults to the working directory. A `*` stops at a directory boundary, `**` spans any
+depth, hidden files and directories are skipped, and the results are sorted. A set of
+globs that matches nothing is an error.
+
+```luau
+const Testable = require("@devpackages/testable")
+
+const testRoots = Testable.Discovery.discover({ Include = { "Tests/**/*.spec.luau" } })
+const _, passed = Testable.run(testRoots)
+```
+
+Here is everything the module offers...
+
+- `discover(options)` → Finds the specs and requires them, returning test roots for
+  `Testable.run`. Pass `Files` to narrow the run to specific spec files.
+- `findSpecs(options)` → Returns the matching spec file paths without requiring them.
+- `findAffected(options)` → Returns the specs that changed or that transitively require
+  one of the files in `Changed`.
+- `findChanged(options)` → Returns the specs affected by everything that changed since the
+  git ref in `Ref`, including uncommitted and untracked files.
+- `watch(options)` → Calls `Run` with the affected specs whenever a file they depend on
+  changes, and returns a handle with a `Stop` function.
+- `runInChild(options)` → Runs a script in a child Lune process, passing spec files as
+  trailing arguments.
+
+Every function takes `Include`, and optionally `Exclude` and `Root`. Affected specs are
+found through a graph of string requires that is built by scanning source files. It
+follows `./` and `../` paths, `@self`, `init.luau` directories, and `.luaurc` aliases. A
+changed `.luaurc` affects every spec.
+
+### Changed-Only Runs
+
+Only the specs affected by a branch need to run when `findChanged` narrows the list. A ref
+that does not exist, or a root outside a git repository, raises an error. An empty result
+means that nothing is affected, which is a clean outcome and not a failure.
+
+```luau
+const affected = Testable.Discovery.findChanged({
+    Include = { "Tests/**/*.spec.luau" },
+    Ref = "origin/main",
+})
+
+if #affected == 0 then
+    print("No specs are affected.")
+    process.exit(0)
+end
+
+const testRoots = Testable.Discovery.discover({
+    Files = affected,
+    Include = { "Tests/**/*.spec.luau" },
+})
+```
+
+### Watch Mode
+
+Lune caches required modules for as long as a process lives, so specs that run again in
+the watching process would keep seeing the code it loaded first. Run each pass in a child
+process instead. The watcher stays in the parent and hands the affected specs to the test
+script, which loads them fresh...
+
+```luau
+Testable.Discovery.watch({
+    Include = { "Tests/**/*.spec.luau" },
+    Run = function(specFiles)
+        Testable.Discovery.runInChild({
+            Files = specFiles,
+            Script = "Scripts/RunTests.exec.luau",
+        })
+    end,
+})
+```
+
+The child script receives the spec files in `process.args` and passes them to `discover`
+as `Files`. Changes are debounced (`Debounce`, in seconds), and files are polled every
+`Interval` seconds. Hidden files are ignored, except for `.luaurc`. Every spec runs once
+at the start unless `RunOnStart` is `false`.
+
+This repository's own `Scripts/RunTests.exec.luau` is a complete example. It accepts
+`--changed <ref>`, `--watch`, and a list of spec files.
+
 ## Snapshots
 
 Call `matchSnapshot` to compare a value against the one stored from an earlier run...
