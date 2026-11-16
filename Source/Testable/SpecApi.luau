@@ -52,10 +52,21 @@ export type Expectation<Custom = {}> = Custom & {
     -- Matchers, each listed with the arguments it takes after the expectation itself.
     a: MatcherMethod<Expectation<Custom>, string>,
     an: MatcherMethod<Expectation<Custom>, string>,
+    contain: MatcherMethod<Expectation<Custom>, any>,
+    deepEqual: MatcherMethod<Expectation<Custom>, any>,
     equal: MatcherMethod<Expectation<Custom>, any>,
+    falsy: MatcherMethod<Expectation<Custom>, ()>,
+    greaterThan: MatcherMethod<Expectation<Custom>, number | string>,
+    greaterThanOrEqual: MatcherMethod<Expectation<Custom>, number | string>,
+    length: MatcherMethod<Expectation<Custom>, number>,
+    lessThan: MatcherMethod<Expectation<Custom>, number | string>,
+    lessThanOrEqual: MatcherMethod<Expectation<Custom>, number | string>,
+    match: MatcherMethod<Expectation<Custom>, string>,
     near: MatcherMethod<Expectation<Custom>, (number, number?)>,
+    none: MatcherMethod<Expectation<Custom>, ()>,
     ok: MatcherMethod<Expectation<Custom>, ()>,
     throw: MatcherMethod<Expectation<Custom>, string?>,
+    truthy: MatcherMethod<Expectation<Custom>, ()>,
 }
 
 -- The `expect` function, which also carries `expect.extend` for adding custom matchers.
