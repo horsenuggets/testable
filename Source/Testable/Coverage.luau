@@ -46,6 +46,9 @@ export type FileCoverage = {
     Functions: { FunctionCoverage },
     ExecutableLines: number,
     HitLines: number,
+    -- Hit count of every executable line, keyed by line number. Coverage.collect always
+    -- sets it, and it's optional so that reports built by hand stay valid without it.
+    LineHits: { [number]: number }?,
     Loaded: boolean,
     Percentage: number,
 }
@@ -318,8 +321,12 @@ end
     @return fileHit - Total hit lines across all functions
     @return fileExecutable - Total executable lines across all functions
     @return loaded - Whether the module ran during the test session
+    @return lineHits - Hit count of every executable line, keyed by line number
 ]]
-const function collectFileCoverage(scriptInstance: any, path: string): ({ FunctionCoverage }, number, number, boolean)
+const function collectFileCoverage(
+    scriptInstance: any,
+    path: string
+): ({ FunctionCoverage }, number, number, boolean, { [number]: number })
     const sources: { { any } } = {}
     const ok, runtimeEntries = pcall(debug.getcoverage, scriptInstance)
     if ok and type(runtimeEntries) == "table" then
@@ -335,11 +342,12 @@ const function collectFileCoverage(scriptInstance: any, path: string): ({ Functi
     if not loaded then
         entries = compileCoverageEntries(path)
         if entries == nil then
-            return {}, 0, 0, false
+            return {}, 0, 0, false, {}
         end
     end
 
     const fileFunctions: { FunctionCoverage } = {}
+    const lineHits: { [number]: number } = {}
     local fileHit = 0
     local fileExecutable = 0
 
@@ -347,12 +355,14 @@ const function collectFileCoverage(scriptInstance: any, path: string): ({ Functi
         local funcHit = 0
         local funcExecutable = 0
 
-        for _, hitCount in entry.Hits do
+        for line, hitCount in entry.Hits do
             if hitCount >= 0 then
                 funcExecutable += 1
                 if loaded and hitCount > 0 then
                     funcHit += 1
                 end
+                -- A module that was only compiled never ran, so its lines have no hits.
+                lineHits[line] = math.max(lineHits[line] or 0, if loaded then hitCount else 0)
             end
         end
 
@@ -374,7 +384,7 @@ const function collectFileCoverage(scriptInstance: any, path: string): ({ Functi
         })
     end
 
-    return fileFunctions, fileHit, fileExecutable, loaded
+    return fileFunctions, fileHit, fileExecutable, loaded, lineHits
 end
 
 --[[
@@ -489,7 +499,7 @@ function Coverage.collect(roots: any): CoverageReport?
             path = if fs.isFile(`{path}.luau`) then `{path}.luau` else `{path}.lua`
         end
 
-        const fileFunctions, fileHit, fileExecutable, loaded = collectFileCoverage(entry.Script, path)
+        const fileFunctions, fileHit, fileExecutable, loaded, lineHits = collectFileCoverage(entry.Script, path)
 
         grandTotalHit += fileHit
         grandTotalExecutable += fileExecutable
@@ -500,6 +510,7 @@ function Coverage.collect(roots: any): CoverageReport?
             Functions = fileFunctions,
             ExecutableLines = fileExecutable,
             HitLines = fileHit,
+            LineHits = lineHits,
             Loaded = loaded,
             Percentage = Coverage.percentage(fileHit, fileExecutable),
         })

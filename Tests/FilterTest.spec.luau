@@ -143,6 +143,22 @@ return function()
             expect(results.filteredCount).to.equal(2)
         end)
 
+        it("should give only filtered-out tests the filter's skip reason", function()
+            const results = runSuite("runs", function()
+                it("runs", function() end)
+                xit("runs later", function() end)
+                it("is left out", function() end)
+            end)
+            const reasons = {}
+            results:visitAllNodes(function(node)
+                reasons[node.planNode.phrase] = node.skipReason
+            end)
+
+            expect(reasons["is left out"]).to.equal("Excluded by the filter.")
+            expect(reasons["runs later"]).to.equal(nil)
+            expect(reasons["runs"]).to.equal(nil)
+        end)
+
         it("should not run the body of a filtered-out test", function()
             local ran = false
             runSuite("kept", function()

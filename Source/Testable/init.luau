@@ -11,6 +11,11 @@ const Config = require("@self/Config")
 const Coverage = require("@self/Coverage")
 const CoverageReporter = require("@self/Reporters/CoverageReporter")
 const Expectation = require("@self/Expectation")
+const JUnitReporter = require("@self/Reporters/JUnitReporter")
+const JsonReporter = require("@self/Reporters/JsonReporter")
+const LcovReporter = require("@self/Reporters/LcovReporter")
+const ReporterSelection = require("@self/Reporters/ReporterSelection")
+const StandardOutputGuard = require("@self/Reporters/StandardOutputGuard")
 const TestBootstrap = require("@self/TestBootstrap")
 const TestEnum = require("@self/TestEnum")
 const TestFilter = require("@self/TestFilter")
@@ -29,9 +34,9 @@ const EXIT_CODES = {
 
 --[[
     Executes tests from the specified test roots, generates a test plan, runs the tests,
-    reports the results using the TextReporter, and returns the results and a boolean
-    indicating whether all tests passed. If coverage is enabled, collects and reports
-    coverage data after tests complete.
+    reports the results with the configured reporters, and returns the results and a
+    boolean indicating whether all tests passed. If coverage is enabled, collects and
+    reports coverage data after tests complete.
 
     Test failures are reported through the "passed" return value. Tool errors, where the
     run can't give a meaningful verdict, are thrown as ToolError objects instead. That
@@ -57,18 +62,38 @@ const function run(testRoots: any): (any, boolean)
     const coverageRoots = Config.CoverageRoots
     const coverageThreshold = Config.CoverageThreshold
 
-    const modules = TestBootstrap:getModulesFromMultipleRoots(testRoots)
-    const plan = TestPlanner.createPlan(modules, Config.Filter)
-    const results = TestRunner.runPlan(plan)
+    -- The filter is snapshotted for the same reason
+    const filter = Config.Filter
 
-    TextReporter.report(results)
+    -- The reporter settings are resolved up front for the same reason, and so that a bad
+    -- combination fails before any test runs.
+    const selection = ReporterSelection.resolve(Config.Reporters, Config.ReporterOutputs)
+    const slowestTests = Config.SlowestTests
+    if selection.NeedsCoverage and not (coverageEnabled and coverageRoots ~= nil) then
+        error('The "Lcov" reporter needs Coverage enabled and CoverageRoots set.')
+    end
+
+    -- A machine-readable report on standard output has to be the only thing there, so
+    -- whatever is printed while tests are planned and run goes to standard error.
+    const results = StandardOutputGuard.run(selection.StandardOutput ~= nil, function()
+        const modules = TestBootstrap:getModulesFromMultipleRoots(testRoots)
+        const plan = TestPlanner.createPlan(modules, filter)
+        return TestRunner.runPlan(plan)
+    end)
+
+    if selection.Text then
+        TextReporter.report(results, slowestTests)
+    end
 
     local passed = results.failureCount == 0
+    local coverageReport = nil
 
     if coverageEnabled then
-        const coverageReport = if coverageRoots ~= nil then Coverage.collect(coverageRoots) else nil
+        if coverageRoots ~= nil then
+            coverageReport = Coverage.collect(coverageRoots)
+        end
 
-        if coverageReport ~= nil then
+        if coverageReport ~= nil and selection.Text then
             CoverageReporter.report(coverageReport, coverageThreshold, coverageLayout)
         end
 
@@ -86,6 +111,8 @@ const function run(testRoots: any): (any, boolean)
             passed = false
         end
     end
+
+    ReporterSelection.emit(selection, results, coverageReport)
 
     return results, passed
 end
@@ -109,8 +136,12 @@ const function runToExitCode(testRoots: any): (number, any?)
         if not ToolError.is(results) then
             error(results, 0)
         end
-        print("")
-        print(`Testable could not complete the run. {results.Message}`)
+        -- In Lune the message goes to standard error, which keeps it out of the way of a
+        -- machine-readable report that owns standard output
+        StandardOutputGuard.run(true, function()
+            print("")
+            print(`Testable could not complete the run. {results.Message}`)
+        end)
         return EXIT_CODES.ToolError, nil
     end
 
@@ -129,6 +160,9 @@ const Testable = {
     Expectation = Expectation,
     Reporters = {
         CoverageReporter = CoverageReporter,
+        JUnitReporter = JUnitReporter,
+        JsonReporter = JsonReporter,
+        LcovReporter = LcovReporter,
         TextReporter = TextReporter,
     },
     TestBootstrap = TestBootstrap,

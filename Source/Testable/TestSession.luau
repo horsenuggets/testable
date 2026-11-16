@@ -12,6 +12,7 @@ const Context = require("./Context")
 const ExpectationContext = require("./ExpectationContext")
 const TestEnum = require("./TestEnum")
 const TestResults = require("./TestResults")
+const FILTERED_SKIP_REASON = "Excluded by the filter."
 
 const TestSession = {}
 
@@ -212,7 +213,12 @@ end
 ]]
 function TestSession:setSkipped()
     assert(#self.nodeStack > 0, "Attempting to set skipped status on empty stack")
-    self.nodeStack[#self.nodeStack].status = TestEnum.TestStatus.Skipped
+    const node = self.nodeStack[#self.nodeStack]
+    node.status = TestEnum.TestStatus.Skipped
+    -- Reporters that show skip reasons can tell filtered-out tests from other skips
+    if node.planNode.filteredOut then
+        node.skipReason = FILTERED_SKIP_REASON
+    end
 end
 
 --[[

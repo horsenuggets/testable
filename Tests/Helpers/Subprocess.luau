@@ -21,9 +21,10 @@ local scriptCounter = 0
 
     @param scriptContent - The Luau source of the script to run
     @return ok - True if the script exited with a zero exit code
-    @return output - The combined stdout and stderr of the script
+    @return standardOutput - What the script wrote to standard output
+    @return standardError - What the script wrote to standard error
 ]]
-function Subprocess.runScript(scriptContent: string): (boolean, string)
+function Subprocess.runScriptStreams(scriptContent: string): (boolean, string, string)
     assert(type(scriptContent) == "string", "scriptContent must be a string")
 
     scriptCounter += 1
@@ -40,7 +41,21 @@ function Subprocess.runScript(scriptContent: string): (boolean, string)
 
     fs.removeFile(scriptPath)
 
-    return result.ok, (result.stdout or "") .. (result.stderr or "")
+    return result.ok, result.stdout or "", result.stderr or ""
+end
+
+--[[
+    Runs a script like Subprocess.runScriptStreams and returns its two output streams
+    joined into one string.
+
+    @param scriptContent - The Luau source of the script to run
+    @return ok - True if the script exited with a zero exit code
+    @return output - The combined stdout and stderr of the script
+]]
+function Subprocess.runScript(scriptContent: string): (boolean, string)
+    assert(type(scriptContent) == "string", "scriptContent must be a string")
+    const ok, standardOutput, standardError = Subprocess.runScriptStreams(scriptContent)
+    return ok, `{standardOutput}{standardError}`
 end
 
 return Subprocess

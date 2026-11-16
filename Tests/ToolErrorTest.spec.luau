@@ -246,11 +246,48 @@ return function()
         end)
 
         it("should exit with 0 after running only the tests the filter selects", function()
-            const code, output = runTestsScript({ "--filter=RunTestsArgumentsTest should accept" })
+            const code, output = runTestsScript({ "--filter=FilterArgumentsTest should accept" })
 
             expect(code).to.equal(0)
             expect(contains(output, "2 passed")).to.equal(true)
             expect(contains(output, "filtered out)")).to.equal(true)
+        end)
+
+        it("should take the filter alongside reporter flags", function()
+            const code, output = runTestsScript({
+                "--slowest",
+                "1",
+                "--filter",
+                "FilterArgumentsTest should accept",
+                "--reporter",
+                "text",
+            })
+
+            expect(code).to.equal(0)
+            expect(contains(output, "2 passed")).to.equal(true)
+            expect(contains(output, "Slowest Tests")).to.equal(true)
+        end)
+
+        it("should exit with 2 for a reporter flag mistake", function()
+            const code, output = runTestsScript({ "--reporter", "bogus" })
+
+            expect(code).to.equal(2)
+            expect(contains(output, 'The "--reporter" flag needs')).to.equal(true)
+            expect(contains(output, "[Usage] ./Scripts/RunTests.exec.luau")).to.equal(true)
+        end)
+
+        it("should keep a tool error out of a report on standard output", function()
+            const result = process.exec(
+                "lune",
+                { "run", "Scripts/RunTests.exec.luau", "--reporter", "json", "--filter", "no test has this name" },
+                { cwd = process.cwd }
+            )
+
+            expect(result.code).to.equal(2)
+            expect(result.stdout).to.equal("")
+            expect(contains(result.stderr, 'The filter "no test has this name" did not match any of the')).to.equal(
+                true
+            )
         end)
     end)
 end
