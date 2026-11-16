@@ -8,6 +8,7 @@ Tests for the Testable configuration system including setting and resetting opti
 
 const Testable = require("../Source/Testable")
 const Config = Testable.Config
+const afterEach, describe, expect, it = Testable.afterEach, Testable.describe, Testable.expect, Testable.it
 
 return function()
     describe("Testable.configure()", function()
@@ -33,6 +34,18 @@ return function()
             end
         end)
 
+        it("should set ForbidFocus and reset it to off", function()
+            -- The outer run may have the guard on, so start from the default.
+            Config.reset()
+            expect(Config.ForbidFocus).to.equal(false)
+            Testable.configure({ ForbidFocus = true })
+            expect(Config.ForbidFocus).to.equal(true)
+            Testable.configure({ Parallel = false })
+            expect(Config.ForbidFocus).to.equal(true)
+            Testable.resetConfig()
+            expect(Config.ForbidFocus).to.equal(false)
+        end)
+
         it("should set Indent", function()
             expect(Config.Indent).to.equal("   ")
             Testable.configure({ Indent = "\t" })
@@ -49,6 +62,16 @@ return function()
             expect(Config.Parallel).to.equal(true)
             Testable.configure({ Parallel = false })
             expect(Config.Parallel).to.equal(false)
+        end)
+
+        it("should set InjectGlobals", function()
+            expect(Config.InjectGlobals).to.equal(true)
+            Testable.configure({ InjectGlobals = false })
+            expect(Config.InjectGlobals).to.equal(false)
+
+            -- Other specs in this run rely on injection, so restore it before yielding.
+            Testable.resetConfig()
+            expect(Config.InjectGlobals).to.equal(true)
         end)
 
         it("should set PrintSkipped", function()
@@ -128,10 +151,24 @@ return function()
             end).to.throw("options must be a table")
         end)
 
+        it("should error if InjectGlobals is not a boolean", function()
+            expect(function()
+                Testable.configure({ InjectGlobals = "no" } :: any)
+            end).to.throw("InjectGlobals must be a boolean")
+        end)
+
         it("should error if AlphabeticalSort is not a boolean", function()
             expect(function()
                 Testable.configure({ AlphabeticalSort = "yes" })
             end).to.throw("AlphabeticalSort must be a boolean")
+        end)
+
+        it("should error if ForbidFocus is not a boolean", function()
+            for _, value in { "true", 1, {} } :: { any } do
+                expect(function()
+                    Testable.configure({ ForbidFocus = value })
+                end).to.throw("ForbidFocus must be a boolean")
+            end
         end)
 
         it("should error if Indent is not a string", function()

@@ -168,3 +168,92 @@ test("Lifecycle hooks", function()
     assert(passed, "Lifecycle tests should pass")
     assert(#hookOrder >= 5, "Should have at least 5 hook events, got " .. #hookOrder)
 end)
+
+-- Test 8: Spec API required from Testable, with global injection turned off
+test("Required spec API without injected globals", function()
+    Testable.resetConfig()
+    Testable.configure({ InjectGlobals = false })
+
+    -- Shadow the globals so that a pass can only come from the required functions.
+    const beforeEach, describe, expect, it = Testable.beforeEach, Testable.describe, Testable.expect, Testable.it
+    local injected = true
+    local setup = 0
+
+    const runOk, results, passed = pcall(Testable.run, {
+        RequiredTest = function()
+            -- Not shadowed above, so this is only set when Testable injects it.
+            injected = xit ~= nil
+
+            describe("Required", function()
+                beforeEach(function()
+                    setup += 1
+                    expect.extend({
+                        beEven = function(value)
+                            return { message = "Expected an even number", pass = value % 2 == 0 }
+                        end,
+                    })
+                end)
+
+                it("uses a matcher from its own hook after yielding", function()
+                    task.wait(0.05)
+                    expect(4).to.beEven()
+                end)
+
+                it("runs alongside it", function()
+                    task.wait(0.02)
+                    expect(setup).to.equal(2)
+                    expect(2).to.beEven()
+                end)
+            end)
+        end,
+    })
+
+    Testable.resetConfig()
+    assert(runOk, tostring(results))
+    assert(passed, "Required spec API tests should pass")
+    assert(results.successCount == 2, "Should have run 2 tests, got " .. results.successCount)
+    assert(not injected, "Globals should not be injected when InjectGlobals is false")
+end)
+
+-- Test 9: fail() and late registration are tied to the test that called them
+test("Required spec API ties failures to the calling test", function()
+    Testable.resetConfig()
+
+    const describe, fail, it = Testable.describe, Testable.fail, Testable.it
+    const failed = {}
+
+    const results, passed = Testable.run({
+        FailingTest = function()
+            describe("Failing", function()
+                it("fails late", function()
+                    task.wait(0.05)
+                    fail("late failure")
+                end)
+
+                it("passes meanwhile", function()
+                    task.wait(0.1)
+                end)
+
+                it("registers too late", function()
+                    it("never runs", function() end)
+                end)
+            end)
+        end,
+    })
+
+    results:visitAllNodes(function(node)
+        if node.planNode.type == "It" and node.status == "Failure" then
+            failed[node.planNode.phrase] = table.concat(node.errors, "\n")
+        end
+    end)
+
+    assert(not passed, "The run should fail")
+    assert(results.failureCount == 2, "Should have 2 failures, got " .. results.failureCount)
+    assert(results.successCount == 1, "Should have 1 success, got " .. results.successCount)
+    assert(failed["fails late"] and string.find(failed["fails late"], "late failure", 1, true), "Wrong test failed")
+    assert(
+        failed["registers too late"]
+            and string.find(failed["registers too late"], "while a test or hook is running", 1, true),
+        "Late registration should be an error"
+    )
+end)

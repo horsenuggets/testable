@@ -11,7 +11,9 @@ only when its text changes.
 const JsonReporter = require("../Source/Testable/Reporters/JsonReporter")
 const ResultFixture = require("./Helpers/ResultFixture")
 const TestEnum = require("../Source/Testable/TestEnum")
+const Testable = require("../Source/Testable")
 const serde = require("@lune/serde")
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 const FAILURE = TestEnum.TestStatus.Failure
 const SKIPPED = TestEnum.TestStatus.Skipped
 const SUCCESS = TestEnum.TestStatus.Success

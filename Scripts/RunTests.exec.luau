@@ -96,6 +96,11 @@ function RunTests.exec()
         end
     end
 
+    -- A focus modifier left in a spec would silently skip every other test, so CI fails
+    -- the run instead.
+    const ci = process.env.CI
+    Testable.configure({ ForbidFocus = ci ~= nil and ci ~= "" })
+
     local files: { string }? = if #arguments.Files > 0 then arguments.Files else nil
     if arguments.Changed ~= nil then
         const ok, affected = pcall(Testable.Discovery.findChanged, {
