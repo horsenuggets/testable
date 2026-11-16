@@ -198,6 +198,198 @@ return function()
         end)
     end)
 
+    describe("Coverage.track", function()
+        const fs = require("@lune/fs")
+        const luau = require("@lune/luau")
+        const trackedPath = `{tostring(fixturesDir)}/TrackedModule.luau`
+
+        const function loadTracked(trackAs: string): any
+            const chunk = luau.load(fs.readFile(trackedPath), { debugName = trackedPath })
+            Coverage.track(trackAs, chunk)
+            return chunk()
+        end
+
+        const function functionCoverage(file: any, name: string): any
+            for _, fn in file.Functions do
+                if fn.Name == name then
+                    return fn
+                end
+            end
+            error(`Missing coverage for function "{name}".`)
+        end
+
+        it("should merge hits from every tracked load of a file", function()
+            const aliasPath = `{tostring(fixturesDir)}/../CoverageFixtures/./TrackedModule.luau`
+            loadTracked(aliasPath).classify(1)
+
+            const first = Coverage.collect(fixturesDir.TrackedModule)
+            if first == nil then
+                return
+            end
+            const firstClassify = functionCoverage(first.Files[1], "classify")
+            expect(first.Files[1].Loaded).to.equal(true)
+            expect(firstClassify.HitLines > 0).to.equal(true)
+            expect(firstClassify.HitLines < firstClassify.ExecutableLines).to.equal(true)
+
+            loadTracked(trackedPath).classify(-1)
+
+            const merged = Coverage.collect(fixturesDir.TrackedModule)
+            assert(merged ~= nil)
+            const classify = functionCoverage(merged.Files[1], "classify")
+            expect(classify.HitLines).to.equal(classify.ExecutableLines)
+            expect(functionCoverage(merged.Files[1], "unused").HitLines).to.equal(0)
+            expect(merged.Files[1].HitLines > first.Files[1].HitLines).to.equal(true)
+        end)
+
+        it("should keep tracked coverage after Config.reset", function()
+            loadTracked(trackedPath)
+            Config.reset()
+
+            const report = Coverage.collect(fixturesDir.TrackedModule)
+            if report == nil then
+                return
+            end
+            expect(report.Files[1].Loaded).to.equal(true)
+            expect(report.Files[1].HitLines > 0).to.equal(true)
+        end)
+
+        it("should leave files that were never tracked at zero hits", function()
+            loadTracked(trackedPath)
+
+            const report = Coverage.collect(fixturesDir.UnrequiredModule)
+            if report == nil then
+                return
+            end
+            expect(report.Files[1].Loaded).to.equal(false)
+            expect(report.Files[1].HitLines).to.equal(0)
+        end)
+
+        it("should reject invalid arguments", function()
+            expect(function()
+                Coverage.track(1 :: any, function() end)
+            end).to.throw()
+            expect(function()
+                Coverage.track(trackedPath, {} :: any)
+            end).to.throw()
+        end)
+    end)
+
+    describe("Coverage.normalizePath", function()
+        it("should collapse empty, dot, and parent segments", function()
+            expect(Coverage.normalizePath("/a//b/./c/../d.luau")).to.equal("/a/b/d.luau")
+            expect(Coverage.normalizePath("/a/b/../../c.luau")).to.equal("/c.luau")
+        end)
+
+        it("should convert backslashes and keep drive letters", function()
+            expect(Coverage.normalizePath("C:\\a\\b\\..\\c.luau")).to.equal("C:/a/c.luau")
+        end)
+
+        it("should never climb above the root or a drive", function()
+            expect(Coverage.normalizePath("/project/../../project/module.luau")).to.equal("/project/module.luau")
+            expect(Coverage.normalizePath("/../a.luau")).to.equal("/a.luau")
+            expect(Coverage.normalizePath("C:/../a.luau")).to.equal("C:/a.luau")
+            expect(Coverage.normalizePath("C:/x/../../../a.luau")).to.equal("C:/a.luau")
+        end)
+
+        it("should give both drive letter cases one key", function()
+            expect(Coverage.normalizePath("c:/project/Module.luau")).to.equal("C:/project/Module.luau")
+            expect(Coverage.normalizePath("c:\\project\\Module.luau")).to.equal(
+                Coverage.normalizePath("C:/project/Module.luau")
+            )
+            -- Only the drive letter is case-insensitive, so the rest keeps its case.
+            expect(Coverage.normalizePath("C:/project/Module.luau")).never.to.equal(
+                Coverage.normalizePath("C:/project/module.luau")
+            )
+        end)
+
+        it("should resolve relative paths against the working directory", function()
+            const cwd = require("@lune/process").cwd
+            expect(Coverage.normalizePath("Tests/x/../y.luau")).to.equal(Coverage.normalizePath(`{cwd}/Tests/y.luau`))
+        end)
+
+        it("should resolve relative paths against a Windows working directory", function()
+            const workingDirectory = "c:\\Users\\dev\\project"
+            expect(Coverage.normalizePath("Tests\\y.luau", workingDirectory)).to.equal(
+                "C:/Users/dev/project/Tests/y.luau"
+            )
+            expect(Coverage.normalizePath("Tests/y.luau", workingDirectory)).to.equal(
+                Coverage.normalizePath("C:\\Users\\dev\\project\\Tests\\y.luau")
+            )
+            expect(Coverage.normalizePath("../y.luau", workingDirectory)).to.equal("C:/Users/dev/y.luau")
+        end)
+
+        it("should return the same key for every spelling of one file", function()
+            const spellings = { "/a/b/c.luau", "/a//b/c.luau", "/a/./b/c.luau", "/a/x/../b/c.luau", "\\a\\b\\c.luau" }
+            for _, spelling in spellings do
+                expect(Coverage.normalizePath(spelling)).to.equal("/a/b/c.luau")
+            end
+        end)
+
+        it("should keep a network share as one root", function()
+            expect(Coverage.normalizePath("//server/share/Module.luau")).to.equal("//server/share/Module.luau")
+            expect(Coverage.normalizePath("//server/share/../Module.luau")).to.equal("//server/share/Module.luau")
+            expect(Coverage.normalizePath("\\\\server\\share\\x\\..\\Module.luau")).to.equal(
+                "//server/share/Module.luau"
+            )
+            expect(Coverage.normalizePath("//server//share/Module.luau")).to.equal("//server/share/Module.luau")
+            expect(Coverage.normalizePath("//server///share/../Module.luau")).to.equal("//server/share/Module.luau")
+            -- Three or more leading slashes are a POSIX root, not a share.
+            expect(Coverage.normalizePath("///a/b.luau")).to.equal("/a/b.luau")
+        end)
+
+        it("should keep the slash on a drive or POSIX root", function()
+            expect(Coverage.normalizePath("C:/")).to.equal("C:/")
+            expect(Coverage.normalizePath("c:/a/..")).to.equal("C:/")
+            expect(Coverage.normalizePath("/a/..")).to.equal("/")
+            expect(Coverage.normalizePath("//server/share/a/..")).to.equal("//server/share/")
+        end)
+
+        it("should resolve relative paths against a root working directory", function()
+            expect(Coverage.normalizePath("Tests/Module.luau", "/")).to.equal("/Tests/Module.luau")
+            expect(Coverage.normalizePath("Tests/Module.luau", "C:\\")).to.equal("C:/Tests/Module.luau")
+            expect(Coverage.normalizePath("Tests/Module.luau", "//server/share/")).to.equal(
+                "//server/share/Tests/Module.luau"
+            )
+            expect(Coverage.normalizePath("Tests/Module.luau", "/home/dev/")).to.equal("/home/dev/Tests/Module.luau")
+        end)
+
+        it("should return every result unchanged when normalized again", function()
+            const workingDirectories = {
+                "/",
+                "/home/dev/project",
+                "/home/dev/project/",
+                "C:/",
+                "C:\\Users\\dev\\project",
+                "//server/share/",
+                "//server/share/project",
+            }
+            const paths = {
+                "Module.luau",
+                "../Module.luau",
+                "../../../../Module.luau",
+                "./a/../b/./Module.luau",
+                "/",
+                "/a/..",
+                "/../../x.luau",
+                "C:/",
+                "c:/a/..",
+                "c:\\x\\..\\..\\y.luau",
+                "//server/share",
+                "//server/share/a/../..",
+                "\\\\server\\share\\x.luau",
+                "//server//share/../x.luau",
+                "///a//b/../c.luau",
+            }
+            for _, workingDirectory in workingDirectories do
+                for _, path in paths do
+                    const once = Coverage.normalizePath(path, workingDirectory)
+                    expect(Coverage.normalizePath(once, workingDirectory)).to.equal(once)
+                    expect(Coverage.normalizePath(once, "/elsewhere")).to.equal(once)
+                end
+            end
+        end)
+    end)
+
     describe("Coverage.percentage", function()
         it("should floor to two decimals", function()
             expect(Coverage.percentage(480, 543126)).to.equal(0.08)

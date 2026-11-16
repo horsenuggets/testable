@@ -21,6 +21,18 @@ return function()
             expect(Config.AlphabeticalSort).to.equal(true)
         end)
 
+        it("should set CoverageRows and CoverageSort in every combination", function()
+            expect(Config.CoverageRows).to.equal(20)
+            expect(Config.CoverageSort).to.equal("Percentage")
+            for _, rows in { 1, 20, 100 } do
+                for _, sort in { "HitLines", "Percentage" } :: { any } do
+                    Testable.configure({ CoverageRows = rows, CoverageSort = sort })
+                    expect(Config.CoverageRows).to.equal(rows)
+                    expect(Config.CoverageSort).to.equal(sort)
+                end
+            end
+        end)
+
         it("should set Indent", function()
             expect(Config.Indent).to.equal("   ")
             Testable.configure({ Indent = "\t" })
@@ -83,6 +95,8 @@ return function()
         it("should reset all options to defaults", function()
             Testable.configure({
                 AlphabeticalSort = true,
+                CoverageRows = 100,
+                CoverageSort = "HitLines",
                 Indent = "\t\t",
                 MaxConcurrency = 16,
                 Parallel = false,
@@ -93,6 +107,8 @@ return function()
             Testable.resetConfig()
 
             expect(Config.AlphabeticalSort).to.equal(false)
+            expect(Config.CoverageRows).to.equal(20)
+            expect(Config.CoverageSort).to.equal("Percentage")
             expect(Config.Indent).to.equal("   ")
             expect(Config.MaxConcurrency).to.equal(4)
             expect(Config.Parallel).to.equal(true)
@@ -146,6 +162,27 @@ return function()
             expect(function()
                 Testable.configure({ PrintSkipped = "true" })
             end).to.throw("PrintSkipped must be a boolean")
+        end)
+
+        it("should reject invalid CoverageRows", function()
+            for _, value in { 0, -1, 1.5, 0 / 0, math.huge } do
+                expect(function()
+                    Testable.configure({ CoverageRows = value })
+                end).to.throw("CoverageRows must be a positive integer")
+            end
+            expect(function()
+                Testable.configure({ CoverageRows = "20" } :: any)
+            end).to.throw("CoverageRows must be a number")
+            expect(Config.CoverageRows).to.equal(20)
+        end)
+
+        it("should reject invalid CoverageSort", function()
+            for _, value in { "Name", "hitlines", 1, true } :: { any } do
+                expect(function()
+                    Testable.configure({ CoverageSort = value })
+                end).to.throw('CoverageSort must be "HitLines" or "Percentage"')
+            end
+            expect(Config.CoverageSort).to.equal("Percentage")
         end)
 
         it("should error if Verbose is not a boolean", function()

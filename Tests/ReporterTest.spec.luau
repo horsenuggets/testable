@@ -13,6 +13,7 @@ const DisplayWidth = require("../Source/Testable/DisplayWidth")
 const TableRenderer = require("../Source/Testable/TableRenderer")
 const TestEnum = require("../Source/Testable/TestEnum")
 const TextReporter = require("../Source/Testable/Reporters/TextReporter")
+const DEFAULT_LAYOUT: CoverageReporter.Layout = { Rows = 20, Sort = "Percentage" }
 const FAILURE = TestEnum.TestStatus.Failure
 const SKIPPED = TestEnum.TestStatus.Skipped
 const SUCCESS = TestEnum.TestStatus.Success
@@ -41,6 +42,67 @@ const function coverage(path: string, value: number): any
 end
 
 return function()
+    it("formats with the original layout when callers pass no layout", function()
+        const report = coverage("Source/Session.luau", 50)
+        const withoutLayout = CoverageReporter.format(report, 70, false, "   ")
+        expect(table.concat(withoutLayout, "\n")).to.equal(
+            table.concat(CoverageReporter.format(report, 70, false, "   ", DEFAULT_LAYOUT), "\n")
+        )
+    end)
+
+    it("ignores configuration when formatting without a layout", function()
+        -- Ranked by percentage the order is High, Middle, Wide, and by hit lines it's
+        -- Wide, High, Middle, so either setting would change the output.
+        const report = {
+            Files = {
+                {
+                    ExecutableLines = 1000,
+                    Functions = {},
+                    HitLines = 100,
+                    Name = "Wide",
+                    Path = "Source/Wide.luau",
+                    Percentage = 10,
+                },
+                {
+                    ExecutableLines = 10,
+                    Functions = {},
+                    HitLines = 9,
+                    Name = "High",
+                    Path = "Source/High.luau",
+                    Percentage = 90,
+                },
+                {
+                    ExecutableLines = 10,
+                    Functions = {},
+                    HitLines = 5,
+                    Name = "Middle",
+                    Path = "Source/Middle.luau",
+                    Percentage = 50,
+                },
+            },
+            TotalExecutableLines = 1020,
+            TotalHitLines = 114,
+            TotalPercentage = 11.17,
+        }
+        const before = table.concat(CoverageReporter.format(report, 70, false, "   "), "\n")
+        const high, middle, wide =
+            before:find("High.luau", 1, true), before:find("Middle.luau", 1, true), before:find("Wide.luau", 1, true)
+        expect(high ~= nil and middle ~= nil and wide ~= nil).to.equal(true)
+        expect(high < middle and middle < wide).to.equal(true)
+
+        for _, options in
+            { { CoverageRows = 1 }, { CoverageSort = "HitLines" }, { CoverageRows = 1, CoverageSort = "HitLines" } }
+        do
+            Config.set(options :: any)
+            const ok, after = pcall(function()
+                return table.concat(CoverageReporter.format(report, 70, false, "   "), "\n")
+            end)
+            Config.set({ CoverageRows = 20, CoverageSort = "Percentage" })
+            expect(ok).to.equal(true)
+            expect(after).to.equal(before)
+        end
+    end)
+
     it("renders nested suites and connectors exactly", function()
         const root = node("Root", nil, {
             node("Guild", nil, {
@@ -95,11 +157,14 @@ return function()
                         "%.1f",
                         value
                     )}% {outcome} threshold of 70.0%.`
-                    const plain = table.concat(CoverageReporter.format(report, 70, false, Config.Indent), "\n")
+                    const plain =
+                        table.concat(CoverageReporter.format(report, 70, false, Config.Indent, DEFAULT_LAYOUT), "\n")
                     expect(plain:find(expectedCoverage, 1, true) ~= nil).to.equal(true)
-                    expect(strip(table.concat(CoverageReporter.format(report, 70, true, Config.Indent), "\n"))).to.equal(
-                        plain
-                    )
+                    expect(
+                        strip(
+                            table.concat(CoverageReporter.format(report, 70, true, Config.Indent, DEFAULT_LAYOUT), "\n")
+                        )
+                    ).to.equal(plain)
                 end
             end
         end)
@@ -220,22 +285,26 @@ return function()
     it("renders one-decimal percentages and exact threshold outcomes", function()
         for _, value in { 69.9, 70, 90.9 } do
             const report = coverage("Source/Session.luau", value)
-            const plain = table.concat(CoverageReporter.format(report, 70, false, "   "), "\n")
+            const plain = table.concat(CoverageReporter.format(report, 70, false, "   ", DEFAULT_LAYOUT), "\n")
             const expected = if value >= 70
                 then `✓ Code Coverage\n└── ✓ Coverage {string.format("%.1f", value)}% meets threshold of 70.0%.`
                 else `✗ Code Coverage\n└── ✗ Coverage 69.9% is below threshold of 70.0%.`
             expect(plain:find(expected, 1, true) ~= nil).to.equal(true)
             expect(plain:find("Executable Lines", 1, true) ~= nil).to.equal(true)
-            expect(strip(table.concat(CoverageReporter.format(report, 70, true, "   "), "\n"))).to.equal(plain)
+            expect(strip(table.concat(CoverageReporter.format(report, 70, true, "   ", DEFAULT_LAYOUT), "\n"))).to.equal(
+                plain
+            )
         end
     end)
 
     it("truncates coverage paths by display width rather than codepoint count", function()
         const widePath = `Source/{string.rep("界", 15)}/init.luau`
-        const wide = table.concat(CoverageReporter.format(coverage(widePath, 100), 70, false, "   "), "\n")
+        const wide =
+            table.concat(CoverageReporter.format(coverage(widePath, 100), 70, false, "   ", DEFAULT_LAYOUT), "\n")
         expect(wide:find(".../init.luau", 1, true) ~= nil).to.equal(true)
         const combiningPath = `Source/{string.rep("e\u{0301}", 16)}/init.luau`
-        const combining = table.concat(CoverageReporter.format(coverage(combiningPath, 100), 70, false, "   "), "\n")
+        const combining =
+            table.concat(CoverageReporter.format(coverage(combiningPath, 100), 70, false, "   ", DEFAULT_LAYOUT), "\n")
         expect(combining:find(combiningPath, 1, true) ~= nil).to.equal(true)
     end)
 
@@ -246,7 +315,8 @@ return function()
                 "C:\\Source\\VeryLongDirectoryName\\LobbySystems\\ShopSystem\\init.luau",
             }
         do
-            const text = table.concat(CoverageReporter.format(coverage(path, 100), 70, false, "   "), "\n")
+            const text =
+                table.concat(CoverageReporter.format(coverage(path, 100), 70, false, "   ", DEFAULT_LAYOUT), "\n")
             expect(text:find(".../LobbySystems/ShopSystem/init.luau", 1, true) ~= nil).to.equal(true)
         end
     end)
@@ -266,6 +336,39 @@ return function()
         const colored, raw = CoverageReporter.formatPath("Source/Session.luau", true)
         expect(colored).to.equal(`{Ansi.dim("Source/")}Session.luau`)
         expect(raw).to.equal("Source/Session.luau")
+    end)
+
+    it("colors file percentages red, yellow, and green by band", function()
+        const cases = {
+            { 0, Ansi.brightRed },
+            { 24.9, Ansi.brightRed },
+            { 25, Ansi.brightYellow },
+            { 74.9, Ansi.brightYellow },
+            { 75, Ansi.brightGreen },
+            { 100, Ansi.brightGreen },
+        }
+        for _, case in cases do
+            const value, paint = case[1], case[2]
+            const text = CoverageReporter.formatPercentage(value)
+            expect(CoverageReporter.colorPercentage(value, text)).to.equal(paint(text))
+            -- File rows use the band color whatever the threshold is.
+            for _, threshold in { 0, 50, 100 } do
+                const report = coverage("Source/Session.luau", value)
+                const lines = CoverageReporter.format(report, threshold, true, "   ", DEFAULT_LAYOUT)
+                const row = table.concat(lines, "\n"):match("[^\n]*Session%.luau[^\n]*") :: string
+                expect(row:find(paint(text), 1, true) ~= nil).to.equal(true)
+            end
+        end
+    end)
+
+    it("keeps coloring the total by the threshold", function()
+        for _, case in { { 10, 5, Ansi.brightGreen }, { 10, 50, Ansi.brightRed }, { 90, 95, Ansi.brightRed } } do
+            const value, threshold, paint = case[1], case[2], case[3]
+            const report = coverage("Source/Session.luau", value)
+            const lines = CoverageReporter.format(report, threshold, true, "   ", DEFAULT_LAYOUT)
+            const total = table.concat(lines, "\n"):match("Total[^\n]*") :: string
+            expect(total:find(paint(CoverageReporter.formatPercentage(value)), 1, true) ~= nil).to.equal(true)
+        end
     end)
 
     it("never shows a path wider than 40 columns", function()
@@ -344,17 +447,22 @@ return function()
             file("Half.luau", 10, 5),
         }
         const order = {}
-        for _, entry in CoverageReporter.sortFiles(files) do
+        for _, entry in CoverageReporter.sortFiles(files, "Percentage") do
             table.insert(order, entry.Path)
         end
         expect(table.concat(order, ",")).to.equal("Full.luau,Half.luau,Big.luau,A.luau,B.luau")
         expect(files[1].Path).to.equal("B.luau")
         expect(#files).to.equal(6)
         const again = {}
-        for _, entry in CoverageReporter.sortFiles(files) do
+        for _, entry in CoverageReporter.sortFiles(files, "Percentage") do
             table.insert(again, entry.Path)
         end
         expect(table.concat(again, ",")).to.equal(table.concat(order, ","))
+        const withoutSort = {}
+        for _, entry in CoverageReporter.sortFiles(files) do
+            table.insert(withoutSort, entry.Path)
+        end
+        expect(table.concat(withoutSort, ",")).to.equal(table.concat(order, ","))
     end)
 
     it("folds rows past the limit into a summary row", function()
@@ -372,7 +480,7 @@ return function()
                 })
             end
             const report = { Files = files, TotalExecutableLines = 0, TotalHitLines = 0, TotalPercentage = 0 }
-            const text = table.concat(CoverageReporter.format(report, 0, false, "   "), "\n")
+            const text = table.concat(CoverageReporter.format(report, 0, false, "   ", DEFAULT_LAYOUT), "\n")
             const listed = select(2, text:gsub("Source/M%d+%.luau", ""))
             expect(listed).to.equal(math.min(count, 20))
             const hidden = count - 20
@@ -387,7 +495,94 @@ return function()
                 const label = `{hidden} more {if hidden == 1 then "module" else "modules"}`
                 expect(text:find(`│ {label} +│ +{lines} │ +0 │ +0%.0%% │`) ~= nil).to.equal(true)
             end
-            expect(strip(table.concat(CoverageReporter.format(report, 0, true, "   "), "\n"))).to.equal(text)
+            expect(strip(table.concat(CoverageReporter.format(report, 0, true, "   ", DEFAULT_LAYOUT), "\n"))).to.equal(
+                text
+            )
+        end
+    end)
+
+    it("sorts files by hit lines, then lines, then path, without empty files", function()
+        const function file(path: string, executable: number, hit: number): any
+            return {
+                ExecutableLines = executable,
+                Functions = {},
+                HitLines = hit,
+                Loaded = hit > 0,
+                Name = path,
+                Path = path,
+                Percentage = if executable > 0 then math.floor(hit / executable * 10000) / 100 else 0,
+            }
+        end
+        const files = {
+            file("Full.luau", 10, 10),
+            file("Empty.luau", 0, 0),
+            file("Wide.luau", 1000, 40),
+            file("B.luau", 100, 40),
+            file("A.luau", 100, 40),
+            file("None.luau", 5000, 0),
+        }
+        const order = {}
+        for _, entry in CoverageReporter.sortFiles(files, "HitLines") do
+            table.insert(order, entry.Path)
+        end
+        expect(table.concat(order, ",")).to.equal("Wide.luau,A.luau,B.luau,Full.luau,None.luau")
+        expect(files[1].Path).to.equal("Full.luau")
+        expect(function()
+            CoverageReporter.sortFiles(files, "Name" :: any)
+        end).to.throw()
+    end)
+
+    it("honors every row limit under both sorts", function()
+        const files = {}
+        for index = 1, 30 do
+            table.insert(files, {
+                ExecutableLines = 100,
+                Functions = {},
+                HitLines = index,
+                Loaded = true,
+                Name = `M{index}`,
+                Path = `Source/M{index}.luau`,
+                Percentage = 100 - index,
+            })
+        end
+        const report = { Files = files, TotalExecutableLines = 3000, TotalHitLines = 465, TotalPercentage = 15.5 }
+        for _, sort in { "HitLines", "Percentage" } :: { any } do
+            for _, rows in { 1, 5, 29, 30, 31, 100 } do
+                const text =
+                    table.concat(CoverageReporter.format(report, 0, false, "   ", { Rows = rows, Sort = sort }), "\n")
+                const listed = {}
+                for index in text:gmatch("Source/M(%d+)%.luau") do
+                    table.insert(listed, tonumber(index))
+                end
+                expect(#listed).to.equal(math.min(rows, 30))
+                -- Higher indexes hit more lines but have lower percentages.
+                expect(listed[1]).to.equal(if sort == "HitLines" then 30 else 1)
+                const hidden = 30 - rows
+                if hidden <= 0 then
+                    expect(text:find("more module", 1, true)).to.equal(nil)
+                else
+                    local hiddenHit = 0
+                    for index = 1, 30 do
+                        if not table.find(listed, index) then
+                            hiddenHit += index
+                        end
+                    end
+                    const label = `{hidden} more {if hidden == 1 then "module" else "modules"}`
+                    const lines = CoverageReporter.formatCount(hidden * 100)
+                    expect(text:find(`│ {label} +│ +{lines} │ +{hiddenHit} │`) ~= nil).to.equal(true)
+                end
+            end
+        end
+    end)
+
+    it("rejects invalid layouts", function()
+        const report = coverage("Source/A.luau", 50)
+        for _, layout in
+            { { Rows = 0, Sort = "Percentage" }, { Rows = 1.5, Sort = "Percentage" }, { Rows = 5, Sort = "Name" } } :: { any }
+        do
+            expect(function()
+                CoverageReporter.format(report, 0, false, "   ", layout)
+            end).to.throw()
         end
     end)
 
