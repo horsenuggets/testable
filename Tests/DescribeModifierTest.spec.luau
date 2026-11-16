@@ -10,6 +10,9 @@ parallel execution tracks each test's position in the tree separately.
 --]]
 
 const Subprocess = require("./Helpers/Subprocess")
+const Testable = require("../Source/Testable")
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
+
 const EXECUTION_MODES = {
     { Name = "parallel", Parallel = true },
     { Name = "sequential", Parallel = false },
