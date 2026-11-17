@@ -14,6 +14,8 @@ const Subprocess = require("./Helpers/Subprocess")
 const Testable = require("../Source/Testable")
 const fs = require("@lune/fs")
 const process = require("@lune/process")
+-- The datatypes that Lune creates at run time aren't all part of the library's type.
+const roblox = require("@lune/roblox") :: any
 const task = require("@lune/task")
 const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 
@@ -163,6 +165,71 @@ return function()
                 "}",
             }, "\n"))
             expect(serialize(print)).to.equal("<function>")
+        end)
+
+        it("should write vectors by value", function()
+            expect(serialize(vector.create(1, 2, 3))).to.equal("vector(1, 2, 3)")
+            expect(serialize({ Position = vector.create(1, 2, 3) })).to.equal(table.concat({
+                "{",
+                "    Position = vector(1, 2, 3),",
+                "}",
+            }, "\n"))
+            expect(serialize(vector.create(1, 2, 3))).to.equal(serialize(vector.create(1, 2, 3)))
+            expect(serialize(vector.create(1, 2, 3))).never.to.equal(serialize(vector.create(3, 2, 1)))
+        end)
+
+        it("should write Roblox datatypes by value", function()
+            expect(serialize(roblox.Vector3.new(1, 2, 3))).to.equal("Vector3(1, 2, 3)")
+            expect(serialize(roblox.Vector3.new(1, 2, 3))).to.equal(serialize(roblox.Vector3.new(1, 2, 3)))
+            expect(serialize(roblox.Vector3.new(1, 2, 3))).never.to.equal(serialize(roblox.Vector3.new(3, 2, 1)))
+            expect(serialize({
+                Color = roblox.Color3.new(1, 0, 0),
+                Key = roblox.Enum.KeyCode.A,
+            })).to.equal(table.concat({
+                "{",
+                "    Color = Color3(1, 0, 0),",
+                "    Key = EnumItem(Enum.KeyCode.A),",
+                "}",
+            }, "\n"))
+        end)
+
+        it("should tell BrickColor values that share a name apart", function()
+            const first = roblox.BrickColor.new(127)
+            const second = roblox.BrickColor.new(333)
+
+            expect(tostring(first)).to.equal(tostring(second))
+            expect(serialize(first)).to.equal("BrickColor(127)")
+            expect(serialize(second)).to.equal("BrickColor(333)")
+            expect(serialize(first)).to.equal(serialize(roblox.BrickColor.new(127)))
+        end)
+
+        it("should keep the text of a datatype on one line", function()
+            const part = roblox.Instance.new("Part")
+            part.Name = 'a "quoted"\nname'
+
+            expect(serialize({ part })).to.equal(table.concat({
+                "{",
+                '    Instance(a \\"quoted\\"\\nname),',
+                "}",
+            }, "\n"))
+        end)
+
+        it("should not write userdata without a type name of its own by value", function()
+            const unnamed = newproxy(true)
+            getmetatable(unnamed).__tostring = function()
+                return "text"
+            end
+
+            expect(serialize(unnamed)).to.equal("<userdata>")
+        end)
+
+        it("should only format a datatype whose text is the same on every run", function()
+            expect(SnapshotSerializer.formatDatatype("Vector3", "1, 2, 3")).to.equal("Vector3(1, 2, 3)")
+            expect(SnapshotSerializer.formatDatatype("Signal", "")).to.equal("Signal()")
+            expect(SnapshotSerializer.formatDatatype("Datatype", "Datatype: 0x000000761c8f7fe0")).to.equal(nil)
+            expect(SnapshotSerializer.formatDatatype("Datatype", nil)).to.equal(nil)
+            expect(SnapshotSerializer.formatDatatype("Datatype", 5)).to.equal(nil)
+            expect(SnapshotSerializer.formatDatatype("Address", "at 0x10: ok")).to.equal("Address(at 0x10: ok)")
         end)
 
         it("should tell different values apart", function()
