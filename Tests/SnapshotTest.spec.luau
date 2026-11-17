@@ -17,6 +17,7 @@ const process = require("@lune/process")
 -- The datatypes that Lune creates at run time aren't all part of the library's type.
 const roblox = require("@lune/roblox") :: any
 const task = require("@lune/task")
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 
 const MemorySnapshotStore = Testable.Snapshots.MemorySnapshotStore
 const SnapshotDiff = Testable.Snapshots.SnapshotDiff

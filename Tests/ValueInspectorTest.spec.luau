@@ -7,7 +7,9 @@ NaN, cycles) and deterministic value formatting (sorted keys, escaping, truncati
 
 --]]
 
+const Testable = require("../Source/Testable")
 const ValueInspector = require("../Source/Testable/ValueInspector")
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 
 const NAN = 0 / 0
 
