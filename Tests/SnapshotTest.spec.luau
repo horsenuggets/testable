@@ -192,6 +192,16 @@ return function()
             }, "\n"))
         end)
 
+        it("should tell BrickColor values that share a name apart", function()
+            const first = roblox.BrickColor.new(127)
+            const second = roblox.BrickColor.new(333)
+
+            expect(tostring(first)).to.equal(tostring(second))
+            expect(serialize(first)).to.equal("BrickColor(127)")
+            expect(serialize(second)).to.equal("BrickColor(333)")
+            expect(serialize(first)).to.equal(serialize(roblox.BrickColor.new(127)))
+        end)
+
         it("should keep the text of a datatype on one line", function()
             const part = roblox.Instance.new("Part")
             part.Name = 'a "quoted"\nname'

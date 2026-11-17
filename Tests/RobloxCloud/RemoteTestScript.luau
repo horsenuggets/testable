@@ -535,7 +535,7 @@ test("Snapshots tell Roblox datatypes apart", function()
     const describe, expect, it = Testable.describe, Testable.expect, Testable.it
     const store = Testable.Snapshots.MemorySnapshotStore.new()
 
-    const function runWith(position)
+    const function runWith(position, brickNumber)
         Testable.resetConfig()
         Testable.configure({ SnapshotStore = store })
         const results, passed = Testable.run({
@@ -543,6 +543,7 @@ test("Snapshots tell Roblox datatypes apart", function()
                 describe("Datatype snapshots", function()
                     it("matches the stored datatypes", function()
                         expect({
+                            Brick = BrickColor.new(brickNumber),
                             Color = Color3.new(1, 0, 0),
                             Frame = CFrame.new(4, 5, 6),
                             Key = Enum.KeyCode.A,
@@ -557,18 +558,28 @@ test("Snapshots tell Roblox datatypes apart", function()
         return results, passed
     end
 
-    local results, passed = runWith(Vector3.new(1, 2, 3))
+    local results, passed = runWith(Vector3.new(1, 2, 3), 127)
     assert(passed, "The first run should pass and write the snapshot")
     assert(results.snapshotSummary.Written == 1, "Should have written 1, got " .. results.snapshotSummary.Written)
 
-    results, passed = runWith(Vector3.new(1, 2, 3))
+    results, passed = runWith(Vector3.new(1, 2, 3), 127)
     assert(passed, "Equal datatypes should match their snapshot")
     assert(results.snapshotSummary.Matched == 1, "Should have matched 1, got " .. results.snapshotSummary.Matched)
 
-    results, passed = runWith(Vector3.new(3, 2, 1))
+    results, passed = runWith(Vector3.new(3, 2, 1), 127)
     assert(not passed, "A different Vector3 should not match the snapshot")
     const mismatch = errorsOf(collectTests(results)["matches the stored datatypes"])
     assert(contains(mismatch, "Vector3(3, 2, 1)"), "The diff should show the received Vector3, got " .. mismatch)
+
+    -- These two colors have the same name, so their text alone can't tell them apart.
+    assert(BrickColor.new(127).Name == BrickColor.new(333).Name, "The two BrickColor values should share a name")
+    results, passed = runWith(Vector3.new(1, 2, 3), 333)
+    assert(not passed, "A different BrickColor with the same name should not match the snapshot")
+    const brickMismatch = errorsOf(collectTests(results)["matches the stored datatypes"])
+    assert(
+        contains(brickMismatch, "BrickColor(333)"),
+        "The diff should show the received number, got " .. brickMismatch
+    )
 end)
 
 -- Test 14: The newer matchers, including typeof names of real Roblox datatypes

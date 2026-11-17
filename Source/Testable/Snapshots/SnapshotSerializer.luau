@@ -13,6 +13,14 @@ neither can be written deterministically.
 --]]
 
 const ADDRESS_PATTERN = ": 0x%x+$"
+-- How to read the text of datatypes that tostring doesn't tell apart, by typeof name.
+-- Several BrickColor values share one name (e.g., 127 and 333 are both "Gold"), so those
+-- are written by number.
+const DATATYPE_READERS: { [string]: (value: any) -> string } = {
+    BrickColor = function(value: any): string
+        return tostring(value.Number)
+    end,
+}
 const INDENT = "    "
 const KEY_TYPE_RANKS = {
     ["boolean"] = 3,
@@ -107,7 +115,8 @@ const function serializeOpaque(value: any, valueType: string): string
     const richType = typeof(value)
 
     if richType ~= valueType or valueType == "vector" then
-        const ok, text = pcall(tostring, value)
+        const read: (value: any) -> string = DATATYPE_READERS[richType] or tostring
+        const ok, text = pcall(read, value)
         const formatted = if ok then SnapshotSerializer.formatDatatype(richType, text) else nil
         if formatted ~= nil then
             return formatted
