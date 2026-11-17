@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.3.0
+- Added a requirable, typed spec API (`Testable.describe`, `it`, `expect`, hooks, `fail`, and more) so specs import their functions instead of relying on injected globals, and set `InjectGlobals` to false to stop injecting them.
+- Added the matchers `deepEqual`, `contain`, `length`, `match`, `greaterThan`, `greaterThanOrEqual`, `lessThan`, `lessThanOrEqual`, `truthy`, `falsy`, `none`, and `matchSnapshot`, and let `a` accept type names. Built-in matcher names are now reserved in `expect.extend`.
+- Added snapshot testing with `.snap` files, a pluggable snapshot store, the `UpdateSnapshots` option, and obsolete snapshot detection.
+- Added skip reasons, `itTODO`, `itFIXME`, and a focus guard with the `ForbidFocus` option.
+- Added per-test and per-hook timeouts through the `Timeout` option and `{ Timeout = n }`.
+- Added `{ Serial = true }` to run tests and describe blocks without other tests running beside them.
+- Added the `Filter` option to run tests by name, and separated tool errors from test failures with `Testable.runToExitCode` returning 0, 1, or 2.
+- Added JSON, JUnit, and lcov reporters through the `Reporters` and `ReporterOutputs` options, and the `SlowestTests` option.
+- Added Lune spec discovery with `Testable.Discovery`, changed-only runs, and watch mode.
+- Added skipping of unchanged cloud E2E place uploads, pinned cloud tests to the uploaded version, and retried rate-limited Open Cloud calls.
+- Made `Config.set` atomic and made it throw an `InvalidConfiguration` error for bad values.
+- Fixed a deadlock when tests start nested runs.
+- Fixed spec loading when the test script runs through a symlinked path.
+
 ## 1.2.0
 - Added `Coverage.track` so chunks loaded with `luau.load` count toward the coverage of their source files, merging hits from every load.
 - Added `Coverage.normalizePath` so different spellings of one path share coverage, including either case of a drive letter, Windows working directories, and network shares. Paths never climb above their root, and normalizing a result again leaves it unchanged.
