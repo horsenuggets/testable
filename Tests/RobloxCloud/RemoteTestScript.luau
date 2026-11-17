@@ -1,5 +1,6 @@
 --!nocheck
 --!nolint UnknownGlobal
+--!nolint LocalShadow
 
 --[[
 
@@ -15,6 +16,9 @@ reporter, and Discovery being absent.
 Every check prints one "[PASS] name" or "[FAIL] name - error" line, and the script ends
 with a "[DONE] count" line. Tests/Helpers/RemoteResults.luau parses those lines, so a
 script that stops early is reported instead of passing with fewer checks.
+
+The early checks use the injected globals and later ones require the same names from
+Testable, so unknown globals and shadowing are both expected here.
 
 --]]
 

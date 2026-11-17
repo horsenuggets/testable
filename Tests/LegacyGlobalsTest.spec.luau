@@ -1,10 +1,14 @@
+--!nocheck
+--!nolint UnknownGlobal
+
 --[[
 
 LegacyGlobalsTest.spec
 
 Pins the original way of writing specs, where Testable injects describe, it, expect, and
 the rest into the spec function as globals. Downstream projects depend on it, so this spec
-deliberately requires nothing from Testable and must keep passing unchanged.
+deliberately requires nothing from Testable and must keep passing unchanged. The globals
+aren't declared anywhere for the type checker, so this one file opts out of it.
 
 --]]
 
