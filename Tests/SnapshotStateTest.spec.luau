@@ -311,6 +311,46 @@ return function()
             expect(thrown).to.equal(problem)
         end)
 
+        it("should keep a file shared until it is written, so a yielding store loses nothing", function()
+            const files = {}
+            local writingOther = false
+            const store = {
+                read = function(path: string): string?
+                    return files[path]
+                end,
+                write = function(path: string, contents: string)
+                    if path == OTHER_PATH then
+                        writingOther = true
+                        task.wait(0.02)
+                    end
+                    files[path] = contents
+                end,
+            }
+            const first = SnapshotManager.new({ Store = store })
+            expect(match(first, "test", "other, first run", "Other")).to.equal(true)
+            expect(match(first, "first", "spec, first run", "Spec")).to.equal(true)
+
+            -- The first run writes "Other" before "Spec", and its store yields while
+            -- doing so. A second run adds a snapshot to "Spec" and finishes meanwhile.
+            local finished = false
+            task.spawn(function()
+                first:Finish(nil, false)
+                finished = true
+            end)
+            expect(writingOther).to.equal(true)
+
+            const second = SnapshotManager.new({ Store = store })
+            expect(match(second, "second", "spec, second run", "Spec")).to.equal(true)
+            second:Finish(nil, false)
+
+            while not finished do
+                task.wait()
+            end
+
+            expect(contains(files[SPEC_PATH], "spec, first run")).to.equal(true)
+            expect(contains(files[SPEC_PATH], "spec, second run")).to.equal(true)
+        end)
+
         it("should not throw when every write succeeds", function()
             const store = MemorySnapshotStore.new()
             const manager = SnapshotManager.new({ Store = store })

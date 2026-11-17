@@ -417,32 +417,23 @@ function SnapshotManager.Finish(self: SnapshotManager, results: any?, isPartialR
         end)
     end
 
-    -- Every file is released before anything is written. Writing can fail, and a file
-    -- that stayed open after a failed write would hand its buffered state to the next
-    -- run on the same store. Releasing never yields, so no test can load a file in
-    -- between.
+    -- Each file stays shared until it has been written and is only released afterward.
+    -- The store may yield while writing, and another run that loads a file in the
+    -- meantime has to join this run's copy instead of loading a stale one, or one of the
+    -- two writes would lose the other's snapshots. A failed write still releases its
+    -- file, so its buffered state never reaches the next run on the same store.
     const store = self._store :: Store
-    const files = self._files
-    const lastUserPaths: { [string]: boolean } = {}
+    local writeProblem: any = nil
     for _, path in paths do
-        const file = files[path]
+        const file = self._files[path]
         if isPartialRun or incompletePaths[path] then
             file.IsIncomplete = true
         end
-        lastUserPaths[path] = release(store, file)
-    end
 
-    -- The files are released, so finishing again does nothing.
-    self._files = {}
-
-    local writeProblem: any = nil
-    for _, path in paths do
-        const file = files[path]
-        if file.Error ~= nil then
-            continue
-        end
-
-        if lastUserPaths[path] and not file.IsIncomplete then
+        -- Checked right before the write, with no yield in between, so a run that joined
+        -- the file while an earlier file was being written is accounted for.
+        const isLastUser = file.Users == 1
+        if file.Error == nil and isLastUser and not file.IsIncomplete then
             for _, key in SnapshotLogic.findObsolete(file.Entries, file.UsedKeys) do
                 if self._isUpdating then
                     file.Entries[key] = nil
@@ -458,14 +449,21 @@ function SnapshotManager.Finish(self: SnapshotManager, results: any?, isPartialR
         -- there is never an empty file to delete. A failed write doesn't stop the other
         -- files from being written, and the first failure is thrown once they all had
         -- their turn.
-        if file.IsDirty then
-            const ok, problem = pcall(store.write, path, SnapshotFormat.render(file.Entries))
+        if file.Error == nil and file.IsDirty then
+            const ok, problem = pcall(function()
+                store.write(path, SnapshotFormat.render(file.Entries))
+            end)
             if ok then
                 file.IsDirty = false
             elseif writeProblem == nil then
                 writeProblem = problem
             end
         end
+
+        -- Taken out of the run's files as it is released, so an abort after this point
+        -- never releases it a second time.
+        self._files[path] = nil
+        release(store, file)
     end
 
     if writeProblem ~= nil then
