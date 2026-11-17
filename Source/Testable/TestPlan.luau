@@ -7,9 +7,58 @@ TestPlan objects are produced by TestPlanner.
 
 --]]
 
+const Config = require("./Config")
 const Expectation = require("./Expectation")
 const TestEnum = require("./TestEnum")
+const TestScope = require("./TestScope")
+const TestTimeout = require("./TestTimeout")
 
+--[[
+    Validates the options table passed as the last argument of an it block, a describe
+    block, or a lifecycle hook, and returns it. Throws when the options are invalid,
+    which has to happen before the test or block is added to the plan so that an invalid
+    one never runs.
+
+    `Timeout` is the time budget of a test or hook in seconds. `Serial` makes a test or
+    describe block run on its own, with no other test of the run executing at the same
+    time, which is what tests that share global state need.
+]]
+const function readOptions(phrase, options)
+    if options == nil then
+        return {}
+    end
+
+    if type(options) ~= "table" then
+        error(`The options of "{phrase}" must be a table, got {typeof(options)}.`, 3)
+    end
+
+    if options.Timeout ~= nil and not TestTimeout.isValid(options.Timeout) then
+        error(`The Timeout option of "{phrase}" must be a positive number of seconds.`, 3)
+    end
+
+    if options.Serial ~= nil and type(options.Serial) ~= "boolean" then
+        error(`The Serial option of "{phrase}" must be a boolean.`, 3)
+    end
+
+    return options
+end
+
+--[[
+    Builds the skip reason for a test marked as broken, with or without a message.
+]]
+const function fixmeReason(message)
+    if message == nil or message == "" then
+        return TestEnum.SkipReason.Fixme
+    end
+    return `{TestEnum.SkipReason.Fixme}, {message}`
+end
+
+--[[
+    Builds the table of functions that a spec uses to declare tests under the given node.
+    This table is the single source of truth for the spec API. It is injected into spec
+    functions as globals, and SpecApi derives the requirable API from its keys, so an
+    entry added here is available both ways.
+]]
 const function newEnvironment(currentNode, extraEnvironment)
     const env = {}
 
@@ -23,42 +72,110 @@ const function newEnvironment(currentNode, extraEnvironment)
         end
     end
 
-    const function addChild(phrase, callback, nodeType, nodeModifier)
+    const function addChild(phrase, callback, nodeType, nodeModifier, skipReason)
+        -- A node stops accepting children once its own callback has returned. Anything
+        -- registered after that (e.g., from inside a running test) could never be
+        -- planned properly, so it is an error instead of a registration that vanishes.
+        if currentNode.collected then
+            const isHook = nodeType ~= TestEnum.NodeType.Describe and nodeType ~= TestEnum.NodeType.It
+            const registered = if isHook
+                then `a "{string.lower(string.sub(nodeType, 1, 1))}{string.sub(nodeType, 2)}" hook`
+                else `"{phrase}"`
+            error(
+                `Cannot register {registered} because "{currentNode:getFullName()}" has already been collected. `
+                    .. "Tests, describe blocks, and hooks must be registered while the spec is being collected, "
+                    .. "not from inside a running test or hook.",
+                3
+            )
+        end
+
         const node = currentNode:addChild(phrase, nodeType, nodeModifier)
         node.callback = callback
+        node.skipReason = skipReason
         if nodeType == TestEnum.NodeType.Describe then
             node:expand()
         end
         return node
     end
 
-    function env.describeFOCUS(phrase, callback)
-        addChild(phrase, callback, TestEnum.NodeType.Describe, TestEnum.NodeModifier.Focus)
+    --[[
+        Validates an optional skip reason passed to one of the skip variants and returns
+        it unchanged.
+    ]]
+    const function checkReason(name, reason)
+        if reason ~= nil and type(reason) ~= "string" then
+            error(`The reason passed to "{name}" must be a string, got {typeof(reason)}.`, 3)
+        end
+        return reason
     end
 
-    function env.describeSKIP(phrase, callback)
-        addChild(phrase, callback, TestEnum.NodeType.Describe, TestEnum.NodeModifier.Skip)
+    function env.describeFOCUS(phrase, callback, options)
+        const parsed = readOptions(phrase, options)
+        addChild(phrase, callback, TestEnum.NodeType.Describe, TestEnum.NodeModifier.Focus).serial = parsed.Serial
+            == true
     end
 
-    function env.describe(phrase, callback, nodeModifier)
-        addChild(phrase, callback, TestEnum.NodeType.Describe, TestEnum.NodeModifier.None)
+    --[[
+        Skips every test under the describe block. The optional reason is reported for
+        each of those tests unless a test carries a reason of its own.
+    ]]
+    function env.describeSKIP(phrase, callback, reason)
+        addChild(
+            phrase,
+            callback,
+            TestEnum.NodeType.Describe,
+            TestEnum.NodeModifier.Skip,
+            checkReason("describeSKIP", reason)
+        )
     end
 
-    function env.itFOCUS(phrase, callback)
-        addChild(phrase, callback, TestEnum.NodeType.It, TestEnum.NodeModifier.Focus)
+    --[[
+        Groups tests under a label. With `{ Serial = true }` as the options, the tests
+        under the block run one at a time, with no other test of the run executing at
+        the same time, which is what tests that share global state need.
+    ]]
+    function env.describe(phrase, callback, options)
+        const parsed = readOptions(phrase, options)
+        addChild(phrase, callback, TestEnum.NodeType.Describe, TestEnum.NodeModifier.None).serial = parsed.Serial
+            == true
     end
 
-    function env.itSKIP(phrase, callback)
-        addChild(phrase, callback, TestEnum.NodeType.It, TestEnum.NodeModifier.Skip)
+    function env.itFOCUS(phrase, callback, options)
+        const parsed = readOptions(phrase, options)
+        const node = addChild(phrase, callback, TestEnum.NodeType.It, TestEnum.NodeModifier.Focus)
+        node.timeout = parsed.Timeout
+        node.serial = parsed.Serial == true
     end
 
-    function env.itFIXME(phrase, callback)
-        const node = addChild(phrase, callback, TestEnum.NodeType.It, TestEnum.NodeModifier.Skip)
-        warn("FIXME: broken test", node:getFullName())
+    function env.itSKIP(phrase, callback, reason)
+        addChild(phrase, callback, TestEnum.NodeType.It, TestEnum.NodeModifier.Skip, checkReason("itSKIP", reason))
     end
 
-    function env.it(phrase, callback, nodeModifier)
-        addChild(phrase, callback, TestEnum.NodeType.It, TestEnum.NodeModifier.None)
+    --[[
+        Skips a test that is known to be broken. It is reported with the reason "fixme",
+        followed by the optional message.
+    ]]
+    function env.itFIXME(phrase, callback, message)
+        const reason = fixmeReason(checkReason("itFIXME", message))
+        addChild(phrase, callback, TestEnum.NodeType.It, TestEnum.NodeModifier.Skip, reason)
+    end
+
+    --[[
+        Records a test that still needs to be written. It takes a name only and is
+        reported as skipped with the reason "todo".
+    ]]
+    function env.itTODO(phrase, ...)
+        if select("#", ...) > 0 then
+            error(`"itTODO" only takes a name, so use "it" for "{phrase}" once it has a body.`, 2)
+        end
+        addChild(phrase, nil, TestEnum.NodeType.It, TestEnum.NodeModifier.Skip, TestEnum.SkipReason.Todo)
+    end
+
+    function env.it(phrase, callback, options)
+        const parsed = readOptions(phrase, options)
+        const node = addChild(phrase, callback, TestEnum.NodeType.It, TestEnum.NodeModifier.None)
+        node.timeout = parsed.Timeout
+        node.serial = parsed.Serial == true
     end
 
     -- Incrementing counter used to ensure that beforeAll, afterAll, beforeEach, afterEach have unique phrases
@@ -72,15 +189,19 @@ const function newEnvironment(currentNode, extraEnvironment)
     }
 
     for nodeType, name in pairs(lifecycleHooks) do
-        env[name] = function(callback)
-            addChild(name .. "_" .. tostring(lifecyclePhaseId), callback, nodeType, TestEnum.NodeModifier.None)
-            lifecyclePhaseId = lifecyclePhaseId + 1
+        env[name] = function(callback, options)
+            const parsed = readOptions(name, options)
+            if parsed.Serial ~= nil then
+                error(`The Serial option does not apply to the "{name}" hook.`, 3)
+            end
+            addChild(name .. "_" .. tostring(lifecyclePhaseId), callback, nodeType, TestEnum.NodeModifier.None).timeout =
+                parsed.Timeout
+            lifecyclePhaseId += 1
         end
     end
 
     function env.FIXME(optionalMessage)
-        warn("FIXME: broken test", currentNode:getFullName(), optionalMessage or "")
-
+        currentNode.skipReason = fixmeReason(checkReason("FIXME", optionalMessage))
         currentNode.modifier = TestEnum.NodeModifier.Skip
     end
 
@@ -88,7 +209,8 @@ const function newEnvironment(currentNode, extraEnvironment)
         currentNode.modifier = TestEnum.NodeModifier.Focus
     end
 
-    function env.SKIP()
+    function env.SKIP(reason)
+        currentNode.skipReason = checkReason("SKIP", reason)
         currentNode.modifier = TestEnum.NodeModifier.Skip
     end
 
@@ -140,21 +262,11 @@ function TestNode.new(plan, phrase, nodeType, nodeModifier)
         children = {},
         callback = nil,
         parent = nil,
+        skipReason = nil,
     }
 
     node.environment = newEnvironment(node, plan.extraEnvironment)
     return setmetatable(node, TestNode)
-end
-
-const function getModifier(name, pattern, modifier)
-    if pattern and (modifier == nil or modifier == TestEnum.NodeModifier.None) then
-        if name:match(pattern) then
-            return TestEnum.NodeModifier.Focus
-        else
-            return TestEnum.NodeModifier.Skip
-        end
-    end
-    return modifier
 end
 
 function TestNode:addChild(phrase, nodeType, nodeModifier)
@@ -166,8 +278,6 @@ function TestNode:addChild(phrase, nodeType, nodeModifier)
         end
     end
 
-    const childName = self:getFullName() .. " " .. phrase
-    nodeModifier = getModifier(childName, self.plan.testNamePattern, nodeModifier)
     const child = TestNode.new(self.plan, phrase, nodeType, nodeModifier)
     child.parent = self
     table.insert(self.children, child)
@@ -192,19 +302,30 @@ end
     further it and describe calls within the callback will be added to the tree.
 ]]
 function TestNode:expand()
-    const originalEnv = getfenv(self.callback)
-    const callbackEnv = setmetatable({}, { __index = originalEnv })
-    for key, value in pairs(self.environment) do
-        callbackEnv[key] = value
+    if Config.InjectGlobals then
+        const originalEnv = getfenv(self.callback)
+        const callbackEnv = setmetatable({}, { __index = originalEnv })
+        for key, value in pairs(self.environment) do
+            callbackEnv[key] = value
+        end
+        -- Copy 'script' directly to new env to make Studio debugger happy.
+        -- Studio debugger does not look into __index, because of security reasons
+        callbackEnv.script = originalEnv.script
+        setfenv(self.callback, callbackEnv)
     end
-    -- Copy 'script' directly to new env to make Studio debugger happy.
-    -- Studio debugger does not look into __index, because of security reasons
-    callbackEnv.script = originalEnv.script
-    setfenv(self.callback, callbackEnv)
+
+    -- Collection is synchronous, so the node stays on top of this coroutine's scope stack
+    -- for exactly as long as its callback runs. That is how the requirable spec API finds
+    -- the node to register under.
+    self.collected = false
+    TestScope.enterCollection(self)
 
     const success, result = xpcall(self.callback, function(message)
         return debug.traceback(tostring(message), 2)
     end)
+
+    TestScope.exit()
+    self.collected = true
 
     if not success then
         self.loadError = result
@@ -214,14 +335,20 @@ end
 const TestPlan = {}
 TestPlan.__index = TestPlan
 
+TestPlan.newEnvironment = newEnvironment
+
 --[[
-    Create a new, empty TestPlan.
+    Create a new, empty TestPlan. The filter is recorded on the plan by TestFilter.apply
+    once the tree has been built, so it is not a parameter here.
 ]]
-function TestPlan.new(testNamePattern, extraEnvironment)
+function TestPlan.new(extraEnvironment)
     const plan = {
         children = {},
-        testNamePattern = testNamePattern,
         extraEnvironment = extraEnvironment,
+        filter = nil,
+        -- Snapshot the focus guard before any spec code runs, since a describe block or
+        -- a test may call Config.reset() which would turn it back off.
+        forbidFocus = Config.ForbidFocus,
     }
 
     return setmetatable(plan, TestPlan)
@@ -231,7 +358,6 @@ end
     Add a new child under the test plan's root node.
 ]]
 function TestPlan:addChild(phrase, nodeType, nodeModifier)
-    nodeModifier = getModifier(phrase, self.testNamePattern, nodeModifier)
     const child = TestNode.new(self, phrase, nodeType, nodeModifier)
     table.insert(self.children, child)
     return child
@@ -239,7 +365,7 @@ end
 
 --[[
     Add a new describe node with the given method as a callback. Generates or
-    reuses all the describe nodes along the path.
+    reuses all the describe nodes along the path. Returns the node that owns the method.
 ]]
 function TestPlan:addRoot(path, method)
     local curNode = self
@@ -262,6 +388,8 @@ function TestPlan:addRoot(path, method)
 
     curNode.callback = method
     curNode:expand()
+
+    return curNode
 end
 
 --[[

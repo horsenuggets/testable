@@ -7,26 +7,42 @@ beforeAll, and afterAll hooks.
 
 --]]
 
+const Testable = require("../Source/Testable")
+const afterAll, afterEach, beforeAll, beforeEach =
+    Testable.afterAll, Testable.afterEach, Testable.beforeAll, Testable.beforeEach
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
+
 return function()
     describe("beforeEach and afterEach", function()
-        local beforeEachRan = false
-        local afterEachRan = false
+        local beforeEachRuns = 0
+        local afterEachRuns = 0
+        local testRuns = 0
 
         beforeEach(function()
-            beforeEachRan = true
+            beforeEachRuns += 1
         end)
 
         afterEach(function()
-            afterEachRan = true
+            afterEachRuns += 1
+        end)
+
+        -- The afterEach count is checked once every test is done, because tests in a
+        -- block can start in any order when they compete for concurrency slots. It is
+        -- compared with the tests that ran, since a filter may leave one of them out.
+        afterAll(function()
+            expect(beforeEachRuns).to.equal(testRuns)
+            expect(afterEachRuns).to.equal(testRuns)
         end)
 
         it("should run beforeEach before the test", function()
-            expect(beforeEachRan).to.equal(true)
+            testRuns += 1
+            expect(beforeEachRuns >= 1).to.equal(true)
         end)
 
-        it("should run afterEach after a test", function()
-            -- afterEach from the previous test should have run
-            expect(afterEachRan).to.equal(true)
+        it("should run both hooks around every test", function()
+            testRuns += 1
+            expect(beforeEachRuns >= 1).to.equal(true)
+            expect(afterEachRuns <= 1).to.equal(true)
         end)
     end)
 

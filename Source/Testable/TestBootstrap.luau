@@ -121,11 +121,14 @@ function TestBootstrap:getModules(root: any): { any }
 
     if typeof(root) == "table" and typeof(root.Name) == "string" and typeof(root.Func) == "function" then
         -- Module descriptor table: { Name = "Test", Func = fn }
-        -- Works in both Roblox and Lune
+        -- Works in both Roblox and Lune. SnapshotPath optionally overrides where the
+        -- spec's snapshot file lives.
+        assert(root.SnapshotPath == nil or type(root.SnapshotPath) == "string", "SnapshotPath must be a string or nil")
         table.insert(modules, {
             method = root.Func,
             path = { root.Name },
             pathStringForSorting = root.Name:lower(),
+            snapshotPath = root.SnapshotPath,
         })
     elseif IS_ROBLOX and (typeof(root) :: string) == "Instance" then
         -- Roblox Instance: recursively find .spec ModuleScripts
@@ -277,7 +280,7 @@ end
 
     @param roots - Array of root instances or module descriptors containing test modules
     @param reporter - Optional reporter module with a report function (defaults to TextReporter)
-    @param otherOptions - Optional table of options: showTimingInfo, testNamePattern, extraEnvironment
+    @param otherOptions - Optional table of options: showTimingInfo, filter, extraEnvironment
     @return TestResults object and boolean indicating if all tests passed
 ]]
 function TestBootstrap:run(roots: { any }, reporter: any?, inputOtherOptions: { [string]: any }?): (any, boolean)
@@ -285,7 +288,7 @@ function TestBootstrap:run(roots: { any }, reporter: any?, inputOtherOptions: { 
 
     const otherOptions: { [string]: any } = inputOtherOptions or {}
     const showTimingInfo = otherOptions["showTimingInfo"] or false
-    const testNamePattern = otherOptions["testNamePattern"]
+    const filter = otherOptions["filter"]
     const extraEnvironment = otherOptions["extraEnvironment"] or {}
 
     if type(roots) ~= "table" then
@@ -296,7 +299,7 @@ function TestBootstrap:run(roots: { any }, reporter: any?, inputOtherOptions: { 
     const modules = self:getModulesFromMultipleRoots(roots)
     const afterModules = tick()
 
-    const plan = TestPlanner.createPlan(modules, testNamePattern, extraEnvironment)
+    const plan = TestPlanner.createPlan(modules, filter, extraEnvironment)
     const afterPlan = tick()
 
     const results = TestRunner.runPlan(plan)

@@ -8,6 +8,7 @@ Tests for the Testable configuration system including setting and resetting opti
 
 const Testable = require("../Source/Testable")
 const Config = Testable.Config
+const afterEach, describe, expect, it = Testable.afterEach, Testable.describe, Testable.expect, Testable.it
 
 return function()
     describe("Testable.configure()", function()
@@ -33,6 +34,18 @@ return function()
             end
         end)
 
+        it("should set ForbidFocus and reset it to off", function()
+            -- The outer run may have the guard on, so start from the default.
+            Config.reset()
+            expect(Config.ForbidFocus).to.equal(false)
+            Testable.configure({ ForbidFocus = true })
+            expect(Config.ForbidFocus).to.equal(true)
+            Testable.configure({ Parallel = false })
+            expect(Config.ForbidFocus).to.equal(true)
+            Testable.resetConfig()
+            expect(Config.ForbidFocus).to.equal(false)
+        end)
+
         it("should set Indent", function()
             expect(Config.Indent).to.equal("   ")
             Testable.configure({ Indent = "\t" })
@@ -49,6 +62,16 @@ return function()
             expect(Config.Parallel).to.equal(true)
             Testable.configure({ Parallel = false })
             expect(Config.Parallel).to.equal(false)
+        end)
+
+        it("should set InjectGlobals", function()
+            expect(Config.InjectGlobals).to.equal(true)
+            Testable.configure({ InjectGlobals = false })
+            expect(Config.InjectGlobals).to.equal(false)
+
+            -- Other specs in this run rely on injection, so restore it before yielding.
+            Testable.resetConfig()
+            expect(Config.InjectGlobals).to.equal(true)
         end)
 
         it("should set PrintSkipped", function()
@@ -89,7 +112,7 @@ return function()
             expect(Config.Indent).to.equal("   ")
             expect(Config.MaxConcurrency).to.equal(4)
         end)
-    end)
+    end, { Serial = true })
 
     describe("Testable.resetConfig()", function()
         it("should reset all options to defaults", function()
@@ -115,7 +138,7 @@ return function()
             expect(Config.PrintSkipped).to.equal(false)
             expect(Config.Verbose).to.equal(false)
         end)
-    end)
+    end, { Serial = true })
 
     describe("Config validation", function()
         afterEach(function()
@@ -128,10 +151,24 @@ return function()
             end).to.throw("options must be a table")
         end)
 
+        it("should error if InjectGlobals is not a boolean", function()
+            expect(function()
+                Testable.configure({ InjectGlobals = "no" } :: any)
+            end).to.throw("InjectGlobals must be a boolean")
+        end)
+
         it("should error if AlphabeticalSort is not a boolean", function()
             expect(function()
                 Testable.configure({ AlphabeticalSort = "yes" })
             end).to.throw("AlphabeticalSort must be a boolean")
+        end)
+
+        it("should error if ForbidFocus is not a boolean", function()
+            for _, value in { "true", 1, {} } :: { any } do
+                expect(function()
+                    Testable.configure({ ForbidFocus = value })
+                end).to.throw("ForbidFocus must be a boolean")
+            end
         end)
 
         it("should error if Indent is not a string", function()
@@ -190,5 +227,101 @@ return function()
                 Testable.configure({ Verbose = {} } :: any)
             end).to.throw("Verbose must be a boolean")
         end)
-    end)
+    end, { Serial = true })
+
+    describe("invalid configuration as a tool error", function()
+        -- None of these calls changes the configuration, since every one is rejected.
+        const invalidCases: { { Options: any, Problem: string } } = {
+            { Options = "invalid", Problem = "options must be a table" },
+            { Options = { AlphabeticalSort = "yes" }, Problem = "AlphabeticalSort must be a boolean" },
+            { Options = { Coverage = "yes" }, Problem = "Coverage must be a boolean" },
+            { Options = { CoverageRows = 0 }, Problem = "CoverageRows must be a positive integer" },
+            { Options = { CoverageSort = "Name" }, Problem = 'CoverageSort must be "HitLines" or "Percentage"' },
+            { Options = { CoverageThreshold = 101 }, Problem = "CoverageThreshold must be between 0 and 100" },
+            { Options = { Filter = 5 }, Problem = "Filter must be a string" },
+            { Options = { ForbidFocus = 1 }, Problem = "ForbidFocus must be a boolean" },
+            { Options = { Indent = 4 }, Problem = "Indent must be a string" },
+            { Options = { InjectGlobals = "no" }, Problem = "InjectGlobals must be a boolean" },
+            { Options = { MaxConcurrency = 0 }, Problem = "MaxConcurrency must be at least 1" },
+            { Options = { Parallel = 1 }, Problem = "Parallel must be a boolean" },
+            { Options = { PrintSkipped = "true" }, Problem = "PrintSkipped must be a boolean" },
+            {
+                Options = { ReporterOutputs = { Text = "report.txt" } },
+                Problem = 'ReporterOutputs keys must be "JUnit", "Json", or "Lcov"',
+            },
+            {
+                Options = { Reporters = { "Xml" } },
+                Problem = 'Reporters must only contain "JUnit", "Json", "Lcov", or "Text"',
+            },
+            { Options = { SlowestTests = -1 }, Problem = "SlowestTests must be a non-negative integer" },
+            {
+                Options = { SnapshotStore = {} },
+                Problem = "SnapshotStore must be a table with read and write functions",
+            },
+            { Options = { Timeout = 0 }, Problem = "Timeout must be a positive number of seconds" },
+            { Options = { UpdateSnapshots = "yes" }, Problem = "UpdateSnapshots must be a boolean" },
+            { Options = { Verbose = {} }, Problem = "Verbose must be a boolean" },
+        }
+
+        it("should throw an identifiable tool error for every invalid option", function()
+            for _, case in invalidCases do
+                const ok, problem = pcall(Testable.configure, case.Options)
+
+                expect(ok).to.equal(false)
+                expect(Testable.ToolError.is(problem)).to.equal(true)
+                expect(problem.Kind).to.equal(Testable.ToolError.Kind.InvalidConfiguration)
+                expect(problem.Message).to.equal(`The configuration is not valid. {case.Problem}.`)
+                expect(tostring(problem)).to.equal(problem.Message)
+            end
+        end)
+
+        it("should keep the tool error apart from the other kinds", function()
+            const _, problem = pcall(Testable.configure, { Parallel = 1 })
+            for name, kind in Testable.ToolError.Kind :: { [string]: string } do
+                expect(problem.Kind == kind).to.equal(name == "InvalidConfiguration")
+            end
+        end)
+
+        it("should explain how to turn coverage on when it is not available", function()
+            -- Coverage can only be refused where the runtime has it turned off, so this
+            -- case covers the runtimes that do have it by doing nothing.
+            if type(debug.iscoverageenabled) == "function" and debug.iscoverageenabled() then
+                return
+            end
+
+            const ok, problem = pcall(Testable.configure, { Coverage = true })
+            expect(ok).to.equal(false)
+            expect(Testable.ToolError.is(problem)).to.equal(true)
+            expect(problem.Kind).to.equal(Testable.ToolError.Kind.InvalidConfiguration)
+            expect(string.find(problem.Message, "Cannot enable coverage because", 1, true) ~= nil).to.equal(true)
+        end)
+
+        it("should not throw for valid options", function()
+            const ok = pcall(Testable.configure, { Indent = Config.Indent })
+            expect(ok).to.equal(true)
+        end)
+
+        it("should apply none of the options when one of them is not valid", function()
+            const before = table.clone(Config)
+
+            -- The valid options come before the invalid one in the order they are
+            -- checked, and they include one that is unset by default and one that an
+            -- empty string would clear.
+            const rejected = pcall(Testable.configure, {
+                AlphabeticalSort = not before.AlphabeticalSort,
+                CoverageRoots = {},
+                Filter = if before.Filter == nil then "anything" else "",
+                Indent = `{before.Indent}>`,
+                Verbose = "yes",
+            })
+
+            expect(rejected).to.equal(false)
+            for key, value in before do
+                expect((Config :: any)[key]).to.equal(value)
+            end
+            for key in Config :: any do
+                expect(before[key] ~= nil).to.equal(true)
+            end
+        end)
+    end, { Serial = true })
 end

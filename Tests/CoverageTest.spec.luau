@@ -11,6 +11,7 @@ true, which is the default in Lune 0.10.4-horse.14.2+.
 const Config = require("../Source/Testable/Config")
 const Coverage = require("../Source/Testable/Coverage")
 const Testable = require("../Source/Testable")
+const afterEach, describe, expect, it = Testable.afterEach, Testable.describe, Testable.expect, Testable.it
 
 -- Require the fixture module so it has coverage data
 const SampleModule = require("./CoverageFixtures/SampleModule")
@@ -49,6 +50,8 @@ return function()
         end)
     end)
 
+    -- These tests write and remove files in the shared fixtures directory, so no other
+    -- test of the run may read that directory while they do.
     describe("Coverage.collect", function()
         it("should return a report with correct structure", function()
             SampleModule.add(1, 2)
@@ -196,7 +199,7 @@ return function()
 
             expect(report.Files[1].Path).to.equal("Tests/CoverageFixtures/SampleModule.luau")
         end)
-    end)
+    end, { Serial = true })
 
     describe("Coverage.track", function()
         const fs = require("@lune/fs")
@@ -472,7 +475,7 @@ return function()
             expect(Config.CoverageRoots).to.equal(nil)
             expect(Config.CoverageThreshold).to.equal(0)
         end)
-    end)
+    end, { Serial = true })
 
     describe("Testable.run with coverage", function()
         afterEach(function()
@@ -520,5 +523,5 @@ return function()
             })
             expect(passed).to.equal(true)
         end)
-    end)
+    end, { Serial = true })
 end

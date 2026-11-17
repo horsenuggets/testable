@@ -3,7 +3,7 @@
 TestEnum
 
 Constants used throughout the testing framework including test status values, node types,
-and node modifiers.
+node modifiers, built-in skip reasons, and reporter names.
 
 --]]
 
@@ -28,6 +28,22 @@ TestEnum.NodeModifier = {
     None = "None",
     Skip = "Skip",
     Focus = "Focus",
+}
+
+-- Reasons the framework attaches to skipped tests on its own. Tests skipped with a skip
+-- variant carry whatever reason the caller passed instead.
+TestEnum.SkipReason = {
+    Filter = "excluded by filter",
+    Fixme = "fixme",
+    Focus = "excluded by focus",
+    Todo = "todo",
+}
+
+TestEnum.Reporter = {
+    JUnit = "JUnit",
+    Json = "Json",
+    Lcov = "Lcov",
+    Text = "Text",
 }
 
 return TestEnum
