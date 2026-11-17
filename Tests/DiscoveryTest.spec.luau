@@ -221,6 +221,132 @@ return function()
                 Loader.requirePath("C:/Packages", "D:/Tests/A.spec.luau")
             end).to.throw("different drive")
         end)
+
+        it("should map a symlink beneath the working directory that points back at it", function()
+            -- With "/repo/Checkout" linking to "/repo", the module looks like it is inside
+            -- the working directory even though its name runs through the symlink.
+            const moduleDirectory = "/repo/Checkout/Source/Testable/Discovery"
+            const mapping = Loader.findMapping(moduleDirectory, function(directory)
+                return (string.gsub(directory, "^/repo/Checkout", "/repo"))
+            end)
+            const file = Loader.translate(mapping, "/repo/Tests/A.spec.luau")
+
+            expect(mapping).to.deepEqual({ Logical = "/repo/Checkout", Physical = "/repo" })
+            expect(file).to.equal("/repo/Checkout/Tests/A.spec.luau")
+            expect(Loader.requirePath(moduleDirectory, file)).to.equal("../../../Tests/A.spec")
+        end)
+
+        it("should find no mapping for a module that was not reached through a symlink", function()
+            const moduleDirectory = "/root/Source/Testable/Discovery"
+
+            expect(Loader.findMapping(moduleDirectory, function(directory)
+                return directory
+            end)).to.equal(nil)
+            expect(Loader.findMapping(moduleDirectory, function()
+                return nil
+            end)).to.equal(nil)
+        end)
+
+        it("should find the symlinked directory above a module", function()
+            const mapping = Loader.findMapping("/links/project/Source/Testable/Discovery", function(directory)
+                return (string.gsub(directory, "^/links/project", "/real/checkout"))
+            end)
+
+            expect(mapping).to.deepEqual({ Logical = "/links/project", Physical = "/real/checkout" })
+        end)
+
+        it("should not trust ancestors that only share their names", function()
+            -- The symlink points at a directory with its own name, so the parents look
+            -- alike without being the same directory.
+            const mapping = Loader.findMapping("/links/project/Source", function(directory)
+                return (string.gsub(directory, "^/links/project", "/real/project"))
+            end)
+
+            expect(mapping).to.deepEqual({ Logical = "/links/project", Physical = "/real/project" })
+        end)
+
+        it("should fall back to the module directory when no ancestor can be resolved", function()
+            const moduleDirectory = "/links/project/Source"
+            const mapping = Loader.findMapping(moduleDirectory, function(directory)
+                return if directory == moduleDirectory then "/real/project/Source" else nil
+            end)
+
+            expect(mapping).to.deepEqual({ Logical = moduleDirectory, Physical = "/real/project/Source" })
+        end)
+
+        it("should translate files inside the symlinked directory and leave others alone", function()
+            const mapping = { Logical = "/links/project", Physical = "/real/checkout" }
+
+            expect(Loader.translate(mapping, "/real/checkout/Tests/A.spec.luau")).to.equal(
+                "/links/project/Tests/A.spec.luau"
+            )
+            expect(Loader.translate(mapping, "/real/checkout")).to.equal("/links/project")
+            expect(Loader.translate(mapping, "/real/checkout-other/A.spec.luau")).to.equal(
+                "/real/checkout-other/A.spec.luau"
+            )
+            expect(Loader.translate(mapping, "/elsewhere/A.spec.luau")).to.equal("/elsewhere/A.spec.luau")
+            expect(Loader.translate(nil, "/real/checkout/Tests/../Tests/A.spec.luau")).to.equal(
+                "/real/checkout/Tests/A.spec.luau"
+            )
+        end)
+
+        it("should build the require path that a symlinked launch needs", function()
+            const moduleDirectory = "/links/project/Source/Testable/Discovery"
+            const mapping = Loader.findMapping(moduleDirectory, function(directory)
+                return (string.gsub(directory, "^/links/project", "/real/deeper/checkout"))
+            end)
+            const file = Loader.translate(mapping, "/real/deeper/checkout/Tests/A.spec.luau")
+
+            expect(Loader.requirePath(moduleDirectory, file)).to.equal("../../../Tests/A.spec")
+        end)
+
+        it("should load specs when the test script is started through a symlinked absolute path", function()
+            if process.os == "windows" then
+                -- Creating a symlink needs elevated rights there.
+                return
+            end
+
+            const directory = TempDirectory.create("symlinked_launch")
+            const link = `{directory}/Checkout`
+            const linked = process.exec("ln", { "-s", process.cwd, link })
+            const result = process.exec(
+                "lune",
+                { "run", `{link}/Scripts/RunTests.exec.luau`, "Tests/ExampleTest.spec.luau" },
+                { cwd = process.cwd }
+            )
+            if linked.ok then
+                fs.removeFile(link)
+            end
+            TempDirectory.remove(directory)
+
+            expect(linked.ok).to.equal(true)
+            expect(result.ok).to.equal(true)
+            expect(string.find(result.stdout, "1 passed", 1, true)).never.to.equal(nil)
+        end)
+
+        it("should load specs when the script runs through a symlink inside the working directory", function()
+            if process.os == "windows" then
+                -- Creating a symlink needs elevated rights there.
+                return
+            end
+
+            -- The symlink is hidden so that discovery running elsewhere in this run
+            -- never walks into it while it exists.
+            const link = `{process.cwd}/.symlinked-checkout-{math.random(1, 1e9)}`
+            const linked = process.exec("ln", { "-s", process.cwd, link })
+            const result = process.exec(
+                "lune",
+                { "run", `{link}/Scripts/RunTests.exec.luau`, "Tests/ExampleTest.spec.luau" },
+                { cwd = process.cwd }
+            )
+            if linked.ok then
+                fs.removeFile(link)
+            end
+
+            expect(linked.ok).to.equal(true)
+            expect(result.ok).to.equal(true)
+            expect(string.find(result.stdout, "1 passed", 1, true)).never.to.equal(nil)
+        end)
     end)
 
     describe("Discovery.findSpecs() and Discovery.discover()", function()
