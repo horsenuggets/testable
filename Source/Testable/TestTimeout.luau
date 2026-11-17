@@ -2,9 +2,9 @@
 
 TestTimeout
 
-Pure helpers for per-test time budgets. Validates budgets, decides which budget applies
-to a test, and builds the failure message for a test that ran out of time. Budgets are in
-seconds. A nil budget, or math.huge, means the test may run for as long as it likes.
+Pure helpers for time budgets. Validates budgets, decides which budget applies to a test
+or a lifecycle hook, and builds the failure message for one that ran out of time. Budgets
+are in seconds. A nil budget, or math.huge, means there is no limit.
 
 --]]
 
@@ -46,6 +46,45 @@ function TestTimeout.resolve(testTimeout: number?, configTimeout: number?): (num
     end
 
     return budget, source
+end
+
+--[[
+    Decides which budget applies to a lifecycle hook. A budget set on the hook itself wins
+    over the one it would otherwise inherit, and math.huge turns the limit off. A
+    beforeEach or afterEach hook inherits the budget of the test it surrounds, while a
+    beforeAll or afterAll hook inherits the configured one.
+
+    @param hookTimeout - The budget set on the hook, if any
+    @param inheritedBudget - The budget the hook falls back to, if any
+    @param inheritedSource - Where the inherited budget came from, if there is one
+    @return budget - The budget in seconds, or nil when the hook has no limit
+    @return source - Where the budget came from, or nil when the hook has no limit
+]]
+function TestTimeout.resolveHook(
+    hookTimeout: number?,
+    inheritedBudget: number?,
+    inheritedSource: string?
+): (number?, string?)
+    assert(hookTimeout == nil or TestTimeout.isValid(hookTimeout), "hookTimeout must be a positive number")
+    assert(inheritedBudget == nil or TestTimeout.isValid(inheritedBudget), "inheritedBudget must be a positive number")
+    assert(inheritedSource == nil or type(inheritedSource) == "string", "inheritedSource must be a string or nil")
+    assert(
+        (inheritedBudget == nil) == (inheritedSource == nil),
+        "inheritedBudget and inheritedSource must be given together"
+    )
+
+    if hookTimeout == nil then
+        if inheritedBudget == math.huge then
+            return nil, nil
+        end
+        return inheritedBudget, inheritedSource
+    end
+
+    if hookTimeout == math.huge then
+        return nil, nil
+    end
+
+    return hookTimeout, "the Timeout option of the hook"
 end
 
 --[[

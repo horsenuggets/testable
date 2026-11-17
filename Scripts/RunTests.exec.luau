@@ -102,19 +102,29 @@ function RunTests.exec()
         return
     end
 
-    Testable.configure(reporterOptions)
-    Testable.configure(filterOptions)
-    Testable.configure(snapshotOptions)
-    for _, reporter in reporterOptions.Reporters or {} do
-        if reporter == Testable.TestEnum.Reporter.Lcov then
-            Testable.configure({ Coverage = true, CoverageRoots = script.Parent.Parent.Source.Testable })
+    -- Options that are not valid (e.g., coverage for the "lcov" reporter while
+    -- LUNE_COVERAGE is off) are a problem with the run itself, not with a test.
+    const configured, configurationProblem = pcall(function()
+        Testable.configure(reporterOptions)
+        Testable.configure(filterOptions)
+        Testable.configure(snapshotOptions)
+        for _, reporter in reporterOptions.Reporters or {} do
+            if reporter == Testable.TestEnum.Reporter.Lcov then
+                Testable.configure({ Coverage = true, CoverageRoots = script.Parent.Parent.Source.Testable })
+            end
         end
-    end
 
-    -- A focus modifier left in a spec would silently skip every other test, so CI fails
-    -- the run instead.
-    const ci = process.env.CI
-    Testable.configure({ ForbidFocus = ci ~= nil and ci ~= "" })
+        -- A focus modifier left in a spec would silently skip every other test, so CI
+        -- fails the run instead.
+        const ci = process.env.CI
+        Testable.configure({ ForbidFocus = ci ~= nil and ci ~= "" })
+    end)
+    if not configured then
+        if not Testable.ToolError.is(configurationProblem) then
+            error(configurationProblem, 0)
+        end
+        exitWithToolError(tostring(configurationProblem))
+    end
 
     local files: { string }? = if #arguments.Files > 0 then arguments.Files else nil
     if arguments.Changed ~= nil then

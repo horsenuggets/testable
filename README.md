@@ -206,14 +206,48 @@ on. Here's what else to know...
 
 - Every `beforeEach` and `afterEach` hook gets the same budget as the test it surrounds,
   counted separately for each hook, so a slow hook doesn't use up the time of the test.
-- The `beforeAll` and `afterAll` hooks have no budget, since they often do slow one-time
-  setup and belong to no single test.
+- The `beforeAll` and `afterAll` hooks get the configured budget, since they belong to no
+  single test.
 - Only code that yields can be interrupted. A busy loop that never yields blocks the Luau
   scheduler, so the budget can't stop it and the run still hangs. Work that doesn't yield
   but does return still counts against the budget, so a test that finishes over budget is
   reported as timed out.
 - Cancelling a test stops its own thread only. Threads that the test started with
   `task.spawn` or `task.delay` keep running.
+
+Any hook can set a budget of its own with an options table as its second argument, which
+wins over the one it would inherit. Use `math.huge` to turn the limit off for that hook...
+
+```luau
+beforeAll(function()
+    -- ...
+end, { Timeout = 30 })
+```
+
+## Serial Tests
+
+Tests run in parallel by default, so tests that share global state (a module-level
+variable, `Testable.configure`, a file on disk) can see each other's changes. Mark a test
+or a whole describe block as `Serial` to run it with no other test of the run executing
+at the same time...
+
+```luau
+it("writes the shared fixture", function()
+    -- ...
+end, { Serial = true })
+
+describe("configuration", function()
+    -- ...
+end, { Serial = true })
+```
+
+- A serial test waits for the tests that are already running to finish, and keeps new
+  ones from starting until it is done.
+- Every test under a serial describe block runs one at a time, and the block as a whole
+  waits for the rest of the run.
+- Serial tests anywhere in the run wait for each other, even across specs.
+- Ordinary tests keep running in parallel, so only mark what shares state, since serial
+  tests trade speed for isolation.
 
 ## Snapshots
 
@@ -392,7 +426,12 @@ The document has a `Version` (currently `1`), the `Totals`, and one node per spe
 
 `Type` is `"Describe"` or `"It"`, `Status` is `"Success"`, `"Failure"`, or `"Skipped"`,
 and durations are in seconds. `ErrorMessage` is only present on nodes that failed, and
-`SkipReason` is only present on skipped nodes that gave a reason.
+`SkipReason` is only present on skipped nodes that gave a reason. A run that carries a
+snapshot summary also has a `Snapshots` object with its counts (`Written`, `Updated`,
+`Removed`, `Matched`, and `Failed`) and an `Obsolete` list of `Key` and `Path` pairs. In
+JUnit, the same summary appears as properties of a `Snapshots` testsuite without cases.
+When the focus guard fails a run, both reports include a failed `Focus guard` test, so
+they always agree with the exit code.
 
 **Durations**
 

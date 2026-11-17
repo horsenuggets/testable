@@ -12,17 +12,26 @@ const Context = require("./Context")
 const ExpectationContext = require("./ExpectationContext")
 const TestEnum = require("./TestEnum")
 const TestResults = require("./TestResults")
+const FOCUS_GUARD_PHRASE = "Focus guard"
 
 -- Limits how many tests of one run execute at the same time. The lowercase keys match the
--- other session fields.
+-- other session fields. A test or describe block marked as serial takes the whole
+-- semaphore for itself, which waits for the shared holders to finish and keeps new ones
+-- from starting until it is released. While a writer waits, new shared holders wait too,
+-- so a long run of ordinary tests cannot starve it.
 export type Semaphore = {
     activeCount: number,
+    exclusive: boolean,
+    exclusiveWaiting: number,
     lock: boolean,
 }
 
 const TestSession = {}
 
 TestSession.__index = TestSession
+
+-- The name of the failed test that stands for a tripped focus guard in the results.
+TestSession.FocusGuardPhrase = FOCUS_GUARD_PHRASE
 
 --[[
     Create a TestSession related to the given TestPlan.
@@ -41,7 +50,13 @@ function TestSession.new(plan: any): any
         forbidFocus = false,
         hasFocusNodes = false,
         -- Owned by this run alone, so a run nested inside one of its tests gets its own.
-        semaphore = { activeCount = 0, lock = false } :: Semaphore,
+        semaphore = { activeCount = 0, exclusive = false, exclusiveWaiting = 0, lock = false } :: Semaphore,
+        -- True for the sessions of a run that is inside a serial test or describe block,
+        -- where nothing else executes and the semaphore is not needed.
+        holdsExclusive = false,
+        -- Whether the run schedules tests in parallel, read from Config once when the
+        -- run starts.
+        parallel = true,
     }
 
     setmetatable(self, TestSession)
@@ -114,17 +129,24 @@ end
 
 --[[
     Fails the run when focus is forbidden and a focus modifier excluded at least one
-    test. The failure is recorded like a failed test, with one extra failure and an error
-    message, so every consumer of the results sees the run as failed.
+    test. The failure is recorded as a failed test at the top of the results tree, so the
+    totals, the gathered errors, and every reporter that reads the tree all see the run
+    as failed. It needs the focus count from calculateTotals, and the totals and errors
+    have to be worked out again afterward to take the new node in.
 ]]
 function TestSession:applyFocusGuard(): ()
     const results = self.results
 
     results.focusGuardFailed = self.forbidFocus == true and results.focusExcludedCount > 0
 
-    if results.focusGuardFailed then
-        results.failureCount += 1
-        table.insert(results.errors, TestSession.formatFocusGuardError(results.focusExcludedCount))
+    -- The node is only added once, so finalizing again doesn't fail the run twice.
+    if results.focusGuardFailed and results.focusGuardNode == nil then
+        const node = TestResults.createNode({ phrase = FOCUS_GUARD_PHRASE, type = TestEnum.NodeType.It })
+        node.duration = 0
+        node.status = TestEnum.TestStatus.Failure
+        table.insert(node.errors, TestSession.formatFocusGuardError(results.focusExcludedCount))
+        table.insert(results.children, node)
+        results.focusGuardNode = node
     end
 end
 
@@ -152,8 +174,9 @@ function TestSession:finalize(): any
     end
 
     self:calculateTotals()
-    self:gatherErrors()
     self:applyFocusGuard()
+    self:calculateTotals()
+    self:gatherErrors()
 
     return self.results
 end
