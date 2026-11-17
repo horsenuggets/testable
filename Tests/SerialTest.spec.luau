@@ -13,6 +13,7 @@ const Testable = require("../Source/Testable")
 const task = require("@lune/task")
 const TestPlanner = Testable.TestPlanner
 const TestRunner = Testable.TestRunner
+const afterAll, beforeAll, beforeEach = Testable.afterAll, Testable.beforeAll, Testable.beforeEach
 const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 
 -- Long enough that two tests that are allowed to overlap always do, short enough that
