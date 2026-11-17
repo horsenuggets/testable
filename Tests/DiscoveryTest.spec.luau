@@ -222,12 +222,18 @@ return function()
             end).to.throw("different drive")
         end)
 
-        it("should only resolve symlinks for a module outside the working directory", function()
-            expect(Loader.needsMapping("/cwd/DevPackages/Testable/Discovery", "/cwd")).to.equal(false)
-            expect(Loader.needsMapping("/cwd", "/cwd/")).to.equal(false)
-            expect(Loader.needsMapping("/link/Source/Testable/Discovery", "/cwd")).to.equal(true)
-            expect(Loader.needsMapping("/cwd-other/Source", "/cwd")).to.equal(true)
-            expect(Loader.needsMapping("D:/Source", "C:/Project")).to.equal(true)
+        it("should map a symlink beneath the working directory that points back at it", function()
+            -- With "/repo/Checkout" linking to "/repo", the module looks like it is inside
+            -- the working directory even though its name runs through the symlink.
+            const moduleDirectory = "/repo/Checkout/Source/Testable/Discovery"
+            const mapping = Loader.findMapping(moduleDirectory, function(directory)
+                return (string.gsub(directory, "^/repo/Checkout", "/repo"))
+            end)
+            const file = Loader.translate(mapping, "/repo/Tests/A.spec.luau")
+
+            expect(mapping).to.deepEqual({ Logical = "/repo/Checkout", Physical = "/repo" })
+            expect(file).to.equal("/repo/Checkout/Tests/A.spec.luau")
+            expect(Loader.requirePath(moduleDirectory, file)).to.equal("../../../Tests/A.spec")
         end)
 
         it("should find no mapping for a module that was not reached through a symlink", function()
@@ -312,6 +318,30 @@ return function()
                 fs.removeFile(link)
             end
             TempDirectory.remove(directory)
+
+            expect(linked.ok).to.equal(true)
+            expect(result.ok).to.equal(true)
+            expect(string.find(result.stdout, "1 passed", 1, true)).never.to.equal(nil)
+        end)
+
+        it("should load specs when the script runs through a symlink inside the working directory", function()
+            if process.os == "windows" then
+                -- Creating a symlink needs elevated rights there.
+                return
+            end
+
+            -- The symlink is hidden so that discovery running elsewhere in this run
+            -- never walks into it while it exists.
+            const link = `{process.cwd}/.symlinked-checkout-{math.random(1, 1e9)}`
+            const linked = process.exec("ln", { "-s", process.cwd, link })
+            const result = process.exec(
+                "lune",
+                { "run", `{link}/Scripts/RunTests.exec.luau`, "Tests/ExampleTest.spec.luau" },
+                { cwd = process.cwd }
+            )
+            if linked.ok then
+                fs.removeFile(link)
+            end
 
             expect(linked.ok).to.equal(true)
             expect(result.ok).to.equal(true)

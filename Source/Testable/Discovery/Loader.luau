@@ -127,23 +127,6 @@ function Loader.translate(mapping: Mapping?, file: string): string
 end
 
 --[[
-    Decides whether a module directory might have been reached through a symlink that
-    the working directory doesn't share. A module loaded from inside the working
-    directory was named after it, so both already agree.
-
-    @param moduleDirectory - The absolute directory the module was loaded from
-    @param workingDirectory - The working directory
-    @return True if the module directory needs its symlinks resolved
-]]
-function Loader.needsMapping(moduleDirectory: string, workingDirectory: string): boolean
-    assert(type(moduleDirectory) == "string", "moduleDirectory must be a string")
-    assert(type(workingDirectory) == "string", "workingDirectory must be a string")
-
-    const relativePath = PathUtil.relative(workingDirectory, moduleDirectory)
-    return relativePath == nil or relativePath == ".." or string.sub(relativePath, 1, 3) == "../"
-end
-
---[[
     Turns the chunk name that the runtime reports for a module into the directory that
     contains the module.
 
@@ -202,10 +185,10 @@ function Loader.load(file: string): any
     const moduleDirectory = Loader.moduleDirectory(debug.info(1, "s"), process.cwd)
     if not hasCachedMapping then
         -- The module directory can't change while the process lives, so one lookup
-        -- serves every spec.
-        if Loader.needsMapping(moduleDirectory, process.cwd) then
-            cachedMapping = Loader.findMapping(moduleDirectory, resolveSymlinks)
-        end
+        -- serves every spec. Its name alone can't tell whether a symlink was followed,
+        -- even when it sits inside the working directory (e.g., a symlink in the
+        -- checkout that points back at the checkout), so it is always resolved.
+        cachedMapping = Loader.findMapping(moduleDirectory, resolveSymlinks)
         hasCachedMapping = true
     end
     const requirePath = Loader.requirePath(moduleDirectory, Loader.translate(cachedMapping, file))
