@@ -14,13 +14,17 @@ differs from the last upload (see Scripts/Helpers/E2EPlace.luau). The
 execution task is pinned to that exact place version, so a run never
 executes against a stale place or one that another run uploaded.
 
+Every Open Cloud call goes through Scripts/Helpers/CloudRequest.luau, which retries
+rate-limited and server-error responses, since many runs can share one API key.
+
 --]]
 
 const CloudPlace = require("../Scripts/Helpers/CloudPlace")
+const CloudRequest = require("../Scripts/Helpers/CloudRequest")
 const E2EPlace = require("../Scripts/Helpers/E2EPlace")
+const RemoteResults = require("./Helpers/RemoteResults")
 const Testable = require("../Source/Testable")
 const fs = require("@lune/fs")
-const net = require("@lune/net")
 const process = require("@lune/process")
 const serde = require("@lune/serde")
 const task = require("@lune/task")
@@ -31,10 +35,9 @@ const POLL_INTERVAL = 3
 const MAX_POLL_ATTEMPTS = 60
 const REMOTE_SCRIPT_PATH = "Tests/RobloxCloud/RemoteTestScript.luau"
 
-type TestResult = {
-    Name: string,
-    Passed: boolean,
-    Error: string?,
+type RemoteRun = {
+    Problem: string?,
+    Results: { RemoteResults.TestResult },
 }
 
 const function _loadApiKey(): string?
@@ -46,7 +49,7 @@ const function _loadApiKey(): string?
 end
 
 const function _createTask(apiKey: string, scriptSource: string, versionNumber: number): string
-    const response = net.request({
+    const response = CloudRequest.send("The execution task creation", {
         url = CloudPlace.getExecutionTaskUrl(E2EPlace.UniverseId, E2EPlace.PlaceId, versionNumber),
         method = "POST",
         headers = {
@@ -71,7 +74,7 @@ const function _pollTask(apiKey: string, taskPath: string): { [string]: any }
     for i = 1, MAX_POLL_ATTEMPTS do
         task.wait(POLL_INTERVAL)
 
-        const response = net.request({
+        const response = CloudRequest.send("The execution task poll", {
             url = `{BASE_URL}/{taskPath}`,
             method = "GET",
             headers = {
@@ -100,7 +103,7 @@ const function _pollTask(apiKey: string, taskPath: string): { [string]: any }
 end
 
 const function _getTaskLogs(apiKey: string, taskPath: string): { string }
-    const response = net.request({
+    const response = CloudRequest.send("The execution task log request", {
         url = `{BASE_URL}/{taskPath}/logs`,
         method = "GET",
         headers = {
@@ -130,33 +133,7 @@ const function _getTaskLogs(apiKey: string, taskPath: string): { string }
     return allMessages
 end
 
-const function _parseTestResults(logs: { string }): { TestResult }
-    const results: { TestResult } = {}
-
-    for _, line in logs do
-        const passName = line:match("^%[PASS%] (.+)$")
-        if passName then
-            table.insert(results, {
-                Name = passName,
-                Passed = true,
-            })
-            continue
-        end
-
-        const failName, failErr = line:match("^%[FAIL%] (.+) %- (.+)$")
-        if failName then
-            table.insert(results, {
-                Name = failName,
-                Passed = false,
-                Error = failErr,
-            })
-        end
-    end
-
-    return results
-end
-
-const function _runRemoteTests(apiKey: string): { TestResult }
+const function _runRemoteTests(apiKey: string): RemoteRun
     const versionNumber = E2EPlace.ensureCurrent(apiKey)
 
     print(`  Submitting Luau execution task pinned to place version {versionNumber}...`)
@@ -172,21 +149,17 @@ const function _runRemoteTests(apiKey: string): { TestResult }
         print(`    {line}`)
     end
 
-    const results = _parseTestResults(logs)
-
-    if taskResult.state == "FAILED" and #results == 0 then
-        local errorMsg = "unknown error"
-        if taskResult.error then
-            errorMsg = `{taskResult.error.code}: {taskResult.error.message}`
-        end
-        table.insert(results, {
-            Name = "Module load",
-            Passed = false,
-            Error = errorMsg,
-        })
+    local taskError: string? = nil
+    if taskResult.state == "FAILED" then
+        taskError = if taskResult.error then `{taskResult.error.code}: {taskResult.error.message}` else "unknown error"
     end
 
-    return results
+    const parsed = RemoteResults.parse(logs)
+
+    return {
+        Problem = RemoteResults.findProblem(parsed, taskError),
+        Results = parsed.Results,
+    }
 end
 
 return function()
@@ -200,19 +173,18 @@ return function()
         return
     end
 
-    const results = _runRemoteTests(apiKey)
-
-    if #results == 0 then
-        describe("Roblox Cloud", function()
-            it("should have returned test results", function()
-                error("No test results were parsed from remote execution logs")
-            end)
-        end)
-        return
-    end
+    const remoteRun = _runRemoteTests(apiKey)
 
     describe("Roblox Cloud", function()
-        for _, result in results do
+        -- Without this, a remote script that stopped halfway would pass with whatever
+        -- checks it got through.
+        it("should run the remote script to completion", function()
+            if remoteRun.Problem ~= nil then
+                error(remoteRun.Problem)
+            end
+        end)
+
+        for _, result in remoteRun.Results do
             it(result.Name, function()
                 if not result.Passed then
                     error(result.Error or "unknown error")
