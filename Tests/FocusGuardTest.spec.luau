@@ -10,9 +10,14 @@ and sequential paths.
 --]]
 
 const IsolatedRun = require("./Helpers/IsolatedRun")
+const JUnitReporter = require("../Source/Testable/Reporters/JUnitReporter")
+const JsonReporter = require("../Source/Testable/Reporters/JsonReporter")
+const TestEnum = require("../Source/Testable/TestEnum")
 const TestSession = require("../Source/Testable/TestSession")
 const Testable = require("../Source/Testable")
 const TextReporter = require("../Source/Testable/Reporters/TextReporter")
+const Xml = require("./Helpers/Xml")
+const serde = require("@lune/serde")
 const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 
 const BOOLEANS = { false, true }
@@ -80,6 +85,7 @@ const FOCUS_VARIANTS = {
 }
 const FOCUS_SUMMARY = "tests were excluded by focus."
 const GUARD_ERROR = 'Focus is forbidden by "ForbidFocus"'
+const TEXT_OPTIONS = { AlphabeticalSort = false, Color = false, Indent = "   ", PrintSkipped = false }
 const UNFOCUSED_BODY = [[
     it("focused", function() end)
     it("first excluded", function() end)
@@ -88,6 +94,32 @@ const UNFOCUSED_BODY = [[
 
 const function contains(output: string, text: string): boolean
     return string.find(output, text, 1, true) ~= nil
+end
+
+--[[
+    Runs a plan with one spec of three tests inside this process and returns its results.
+    The guard is set on the plan itself, where a run keeps it, so the shared configuration
+    is left alone.
+]]
+const function runPlan(focusPresent: boolean, guardEnabled: boolean, focusedFails: boolean): any
+    const plan = Testable.TestPlanner.createPlan({
+        {
+            method = function()
+                const declare = if focusPresent then Testable.itFOCUS else Testable.it
+                declare("focused", function()
+                    if focusedFails then
+                        error("focused failure")
+                    end
+                end)
+                Testable.it("first excluded", function() end)
+                Testable.it("second excluded", function() end)
+            end,
+            path = { "GuardSpec" },
+            pathStringForSorting = "guardspec",
+        },
+    })
+    plan.forbidFocus = guardEnabled
+    return Testable.TestRunner.runPlan(plan)
 end
 
 return function()
@@ -268,6 +300,107 @@ return function()
             end)
         end)
     end
+
+    describe("reports", function()
+        it("should give every reporter the failure count that decides the exit code", function()
+            for _, focusPresent in BOOLEANS do
+                for _, guardEnabled in BOOLEANS do
+                    const results = runPlan(focusPresent, guardEnabled, false)
+                    const tripped = focusPresent and guardEnabled
+                    const expectedFailures = if tripped then 1 else 0
+
+                    expect(results.focusGuardFailed).to.equal(tripped)
+                    expect(results.failureCount).to.equal(expectedFailures)
+                    expect(#results.errors).to.equal(expectedFailures)
+
+                    const document = serde.decode("json", JsonReporter.format(results))
+                    expect(document.Totals.Failed).to.equal(results.failureCount)
+                    expect(document.Totals.Passed).to.equal(results.successCount)
+                    expect(document.Totals.Skipped).to.equal(results.skippedCount)
+                    expect(document.Totals.Total).to.equal(
+                        results.successCount + results.failureCount + results.skippedCount
+                    )
+
+                    const root = Xml.parse(JUnitReporter.format(results))
+                    expect(root.Attributes.failures).to.equal(tostring(results.failureCount))
+                    expect(root.Attributes.skipped).to.equal(tostring(results.skippedCount))
+
+                    const text = table.concat(TextReporter.format(results, TEXT_OPTIONS), "\n")
+                    expect(contains(text, `{expectedFailures} failed`)).to.equal(true)
+                    expect(contains(text, `✗ {TestSession.FocusGuardPhrase}`)).to.equal(tripped)
+                end
+            end
+        end)
+
+        it("should report the tripped guard as a failed test in the JSON report", function()
+            const document = serde.decode("json", JsonReporter.format(runPlan(true, true, false)))
+            expect(#document.Suites).to.equal(2)
+            expect(document.Suites[1].Name).to.equal("GuardSpec")
+            expect(document.Suites[1].Status).to.equal("Success")
+
+            const guard = document.Suites[2]
+            expect(guard.Name).to.equal(TestSession.FocusGuardPhrase)
+            expect(guard.FullName).to.equal(TestSession.FocusGuardPhrase)
+            expect(guard.Type).to.equal("It")
+            expect(guard.Status).to.equal("Failure")
+            expect(#guard.Children).to.equal(0)
+            expect(contains(guard.ErrorMessage, GUARD_ERROR)).to.equal(true)
+            expect(contains(guard.ErrorMessage, "but 2 tests were excluded")).to.equal(true)
+        end)
+
+        it("should report the tripped guard as a failed testcase in the JUnit report", function()
+            const root = Xml.parse(JUnitReporter.format(runPlan(true, true, false)))
+            expect(root.Attributes.tests).to.equal("4")
+            expect(#root.Children).to.equal(2)
+            expect(root.Children[1].Attributes.failures).to.equal("0")
+
+            const suite = root.Children[2]
+            expect(suite.Attributes.name).to.equal(TestSession.FocusGuardPhrase)
+            expect(suite.Attributes.tests).to.equal("1")
+            expect(suite.Attributes.failures).to.equal("1")
+            expect(#suite.Children).to.equal(1)
+
+            const case = suite.Children[1]
+            expect(case.Attributes.name).to.equal(TestSession.FocusGuardPhrase)
+            expect(#case.Children).to.equal(1)
+            expect(case.Children[1].Name).to.equal("failure")
+            expect(contains(case.Children[1].Text, GUARD_ERROR)).to.equal(true)
+        end)
+
+        it("should add the guard failure to the failures of focused tests in every report", function()
+            const results = runPlan(true, true, true)
+            expect(results.failureCount).to.equal(2)
+            expect(#results.errors).to.equal(2)
+            expect(serde.decode("json", JsonReporter.format(results)).Totals.Failed).to.equal(2)
+            expect(Xml.parse(JUnitReporter.format(results)).Attributes.failures).to.equal("2")
+        end)
+
+        it("should not add a guard test to reports of a run that the guard let pass", function()
+            for _, results in { runPlan(true, false, false), runPlan(false, true, false) } do
+                expect(results.focusGuardNode).to.equal(nil)
+                expect(#serde.decode("json", JsonReporter.format(results)).Suites).to.equal(1)
+                expect(#Xml.parse(JUnitReporter.format(results)).Children).to.equal(1)
+            end
+        end)
+
+        it("should only record the guard failure once when the results are finalized again", function()
+            const session = TestSession.new({})
+            session.forbidFocus = true
+            session:pushNode({ phrase = "excluded", type = TestEnum.NodeType.It })
+            session:setSkipped(TestEnum.SkipReason.Focus, true)
+            session:popNode()
+
+            for _ = 1, 2 do
+                const results = session:finalize()
+                expect(results.focusGuardFailed).to.equal(true)
+                expect(#results.children).to.equal(2)
+                expect(results.failureCount).to.equal(1)
+                expect(results.skippedCount).to.equal(1)
+                expect(results.focusExcludedCount).to.equal(1)
+                expect(#results.errors).to.equal(1)
+            end
+        end)
+    end)
 
     it("should word the focus summary for every count", function()
         expect(TextReporter.formatFocusSummary(0)).to.equal(nil)

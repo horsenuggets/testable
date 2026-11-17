@@ -14,13 +14,18 @@ const TestScope = require("./TestScope")
 const TestTimeout = require("./TestTimeout")
 
 --[[
-    Reads the time budget in seconds out of the options table passed as the third argument
-    of an it block. Throws when the options are invalid, which has to happen before the
-    test is added to the plan so that an invalid test never runs.
+    Validates the options table passed as the last argument of an it block, a describe
+    block, or a lifecycle hook, and returns it. Throws when the options are invalid,
+    which has to happen before the test or block is added to the plan so that an invalid
+    one never runs.
+
+    `Timeout` is the time budget of a test or hook in seconds. `Serial` makes a test or
+    describe block run on its own, with no other test of the run executing at the same
+    time, which is what tests that share global state need.
 ]]
-const function readTimeoutOption(phrase, options)
+const function readOptions(phrase, options)
     if options == nil then
-        return nil
+        return {}
     end
 
     if type(options) ~= "table" then
@@ -31,7 +36,11 @@ const function readTimeoutOption(phrase, options)
         error(`The Timeout option of "{phrase}" must be a positive number of seconds.`, 3)
     end
 
-    return options.Timeout
+    if options.Serial ~= nil and type(options.Serial) ~= "boolean" then
+        error(`The Serial option of "{phrase}" must be a boolean.`, 3)
+    end
+
+    return options
 end
 
 --[[
@@ -100,8 +109,10 @@ const function newEnvironment(currentNode, extraEnvironment)
         return reason
     end
 
-    function env.describeFOCUS(phrase, callback)
-        addChild(phrase, callback, TestEnum.NodeType.Describe, TestEnum.NodeModifier.Focus)
+    function env.describeFOCUS(phrase, callback, options)
+        const parsed = readOptions(phrase, options)
+        addChild(phrase, callback, TestEnum.NodeType.Describe, TestEnum.NodeModifier.Focus).serial = parsed.Serial
+            == true
     end
 
     --[[
@@ -118,13 +129,22 @@ const function newEnvironment(currentNode, extraEnvironment)
         )
     end
 
-    function env.describe(phrase, callback, nodeModifier)
-        addChild(phrase, callback, TestEnum.NodeType.Describe, TestEnum.NodeModifier.None)
+    --[[
+        Groups tests under a label. With `{ Serial = true }` as the options, the tests
+        under the block run one at a time, with no other test of the run executing at
+        the same time, which is what tests that share global state need.
+    ]]
+    function env.describe(phrase, callback, options)
+        const parsed = readOptions(phrase, options)
+        addChild(phrase, callback, TestEnum.NodeType.Describe, TestEnum.NodeModifier.None).serial = parsed.Serial
+            == true
     end
 
     function env.itFOCUS(phrase, callback, options)
-        const timeout = readTimeoutOption(phrase, options)
-        addChild(phrase, callback, TestEnum.NodeType.It, TestEnum.NodeModifier.Focus).timeout = timeout
+        const parsed = readOptions(phrase, options)
+        const node = addChild(phrase, callback, TestEnum.NodeType.It, TestEnum.NodeModifier.Focus)
+        node.timeout = parsed.Timeout
+        node.serial = parsed.Serial == true
     end
 
     function env.itSKIP(phrase, callback, reason)
@@ -152,8 +172,10 @@ const function newEnvironment(currentNode, extraEnvironment)
     end
 
     function env.it(phrase, callback, options)
-        const timeout = readTimeoutOption(phrase, options)
-        addChild(phrase, callback, TestEnum.NodeType.It, TestEnum.NodeModifier.None).timeout = timeout
+        const parsed = readOptions(phrase, options)
+        const node = addChild(phrase, callback, TestEnum.NodeType.It, TestEnum.NodeModifier.None)
+        node.timeout = parsed.Timeout
+        node.serial = parsed.Serial == true
     end
 
     -- Incrementing counter used to ensure that beforeAll, afterAll, beforeEach, afterEach have unique phrases
@@ -167,9 +189,14 @@ const function newEnvironment(currentNode, extraEnvironment)
     }
 
     for nodeType, name in pairs(lifecycleHooks) do
-        env[name] = function(callback)
-            addChild(name .. "_" .. tostring(lifecyclePhaseId), callback, nodeType, TestEnum.NodeModifier.None)
-            lifecyclePhaseId = lifecyclePhaseId + 1
+        env[name] = function(callback, options)
+            const parsed = readOptions(name, options)
+            if parsed.Serial ~= nil then
+                error(`The Serial option does not apply to the "{name}" hook.`, 3)
+            end
+            addChild(name .. "_" .. tostring(lifecyclePhaseId), callback, nodeType, TestEnum.NodeModifier.None).timeout =
+                parsed.Timeout
+            lifecyclePhaseId += 1
         end
     end
 

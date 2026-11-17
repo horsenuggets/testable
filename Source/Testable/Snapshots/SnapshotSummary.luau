@@ -2,10 +2,20 @@
 
 SnapshotSummary
 
-Formats what happened to snapshots during a run as lines for the run summary. Nothing is
-printed for runs that only matched existing snapshots.
+Formats what happened to snapshots during a run, as lines for the text summary and as
+named counts for the machine-readable reports. The text summary prints nothing for runs
+that only matched existing snapshots.
 
 --]]
+
+const COUNT_NAMES = { "Written", "Updated", "Removed", "Obsolete", "Matched", "Failed" }
+
+-- One count of a summary. "Obsolete" is the number of obsolete snapshots that were found
+-- and left in place.
+export type Count = {
+    Name: string,
+    Value: number,
+}
 
 const SnapshotSummary = {}
 
@@ -44,6 +54,42 @@ function SnapshotSummary.format(summary: any, indent: string): { string }
     end
 
     return lines
+end
+
+--[[
+    Returns the counts of a summary in the fixed order that the machine-readable reports
+    write them, so every report names and orders them the same way.
+
+    @param summary - The summary produced by SnapshotManager
+    @return The counts, each with its name and value
+]]
+function SnapshotSummary.counts(summary: any): { Count }
+    assert(type(summary) == "table", "summary must be a table")
+    assert(type(summary.Obsolete) == "table", "summary.Obsolete must be an array")
+
+    const counts: { Count } = {}
+    for _, name in COUNT_NAMES do
+        const value = if name == "Obsolete" then #summary.Obsolete else summary[name]
+        assert(type(value) == "number", `summary.{name} must be a number`)
+        table.insert(counts, { Name = name, Value = value })
+    end
+
+    return counts
+end
+
+--[[
+    Tells whether a run touched any snapshot at all.
+
+    @param summary - The summary produced by SnapshotManager
+    @return True if at least one count is above zero
+]]
+function SnapshotSummary.hasActivity(summary: any): boolean
+    for _, entry in SnapshotSummary.counts(summary) do
+        if entry.Value > 0 then
+            return true
+        end
+    end
+    return false
 end
 
 return SnapshotSummary

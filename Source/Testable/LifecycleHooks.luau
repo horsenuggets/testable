@@ -4,11 +4,19 @@ LifecycleHooks
 
 Manages lifecycle hooks (beforeAll, afterAll, beforeEach, afterEach) for test execution.
 Maintains a stack of hooks that can be pushed and popped as test nodes are entered and
-exited.
+exited. Each hook keeps the time budget its own registration set, so the same function
+registered twice, or in nested blocks, gets the budget of each registration.
 
 --]]
 
 const TestEnum = require("./TestEnum")
+
+-- One registration of a hook. The lowercase keys match the plan node fields they come
+-- from.
+export type Hook = {
+    callback: (...any) -> ...any,
+    timeout: number?,
+}
 
 const LifecycleHooks = {}
 LifecycleHooks.__index = LifecycleHooks
@@ -28,9 +36,9 @@ end
 --[[
     Returns an array of `beforeEach` hooks in FIFO order.
 
-    @return Array of beforeEach hook functions
+    @return Array of beforeEach hooks, each with its callback and its own budget
 ]]
-function LifecycleHooks:getBeforeEachHooks(): { any }
+function LifecycleHooks:getBeforeEachHooks(): { Hook }
     const key = TestEnum.NodeType.BeforeEach
     const hooks = {}
 
@@ -46,9 +54,9 @@ end
 --[[
     Returns an array of `afterEach` hooks in FILO order.
 
-    @return Array of afterEach hook functions
+    @return Array of afterEach hooks, each with its callback and its own budget
 ]]
-function LifecycleHooks:getAfterEachHooks(): { any }
+function LifecycleHooks:getAfterEachHooks(): { Hook }
     const key = TestEnum.NodeType.AfterEach
     const hooks = {}
 
@@ -102,18 +110,18 @@ end
 --[[
     Get the beforeAll hooks from the current level.
 
-    @return Array of beforeAll hook functions
+    @return Array of beforeAll hooks, each with its callback and its own budget
 ]]
-function LifecycleHooks:getBeforeAllHooks(): { any }
+function LifecycleHooks:getBeforeAllHooks(): { Hook }
     return self._stack[#self._stack][TestEnum.NodeType.BeforeAll]
 end
 
 --[[
     Get the afterAll hooks from the current level.
 
-    @return Array of afterAll hook functions
+    @return Array of afterAll hooks, each with its callback and its own budget
 ]]
-function LifecycleHooks:getAfterAllHooks(): { any }
+function LifecycleHooks:getAfterAllHooks(): { Hook }
     return self._stack[#self._stack][TestEnum.NodeType.AfterAll]
 end
 
@@ -122,14 +130,14 @@ end
 
     @param nodes - Array of plan nodes to search
     @param key - The NodeType to filter by
-    @return Array of callback functions matching the type
+    @return Array of hooks matching the type, in registration order
 ]]
-function LifecycleHooks:_getHooksOfType(nodes: { any }, key: string): { any }
-    const hooks = {}
+function LifecycleHooks:_getHooksOfType(nodes: { any }, key: string): { Hook }
+    const hooks: { Hook } = {}
 
     for _, node in ipairs(nodes) do
         if node.type == key then
-            table.insert(hooks, node.callback)
+            table.insert(hooks, { callback = node.callback, timeout = node.timeout })
         end
     end
 

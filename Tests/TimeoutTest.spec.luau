@@ -147,13 +147,13 @@ const HOOK_SCRIPT_TEMPLATE = SCRIPT_HEADER
                 describe("slow beforeAll and afterAll", function()
                     beforeAll(function()
                         task.wait(0.15)
-                    end)
+                    end, { Timeout = 5 })
 
                     afterAll(function()
                         task.wait(0.15)
-                    end)
+                    end, { Timeout = 5 })
 
-                    it("is not held to the budget", function() end)
+                    it("is held to the budgets the hooks raised", function() end)
                 end)
 
                 describe("stuck beforeEach", function()
@@ -401,23 +401,27 @@ return function()
                 expect(contains(output, "budget of 0.02 seconds")).to.equal(false)
             end)
 
-            it("gives beforeEach and afterEach hooks the budget but not beforeAll and afterAll", function()
-                const ok, output = Subprocess.runScript(string.format(HOOK_SCRIPT_TEMPLATE, tostring(mode.Parallel)))
+            it(
+                "gives beforeEach and afterEach hooks the budget and lets beforeAll and afterAll raise theirs",
+                function()
+                    const ok, output =
+                        Subprocess.runScript(string.format(HOOK_SCRIPT_TEMPLATE, tostring(mode.Parallel)))
 
-                expect(ok).to.equal(false)
-                expect(contains(output, "FINISHED_QUICKLY:true")).to.equal(true)
-                expect(contains(output, "SUCCESS_COUNT:1")).to.equal(true)
-                expect(contains(output, "FAIL_COUNT:2")).to.equal(true)
-                expect(contains(output, "REACHED_TEST:false")).to.equal(true)
-                expect(contains(output, "The beforeEach hook timed out after exceeding its budget of 0.05 seconds")).to.equal(
-                    true
-                )
-                expect(contains(output, "The afterEach hook timed out after exceeding its budget of 0.05 seconds")).to.equal(
-                    true
-                )
-                expect(contains(output, "The test timed out")).to.equal(false)
-                expect(contains(output, "RUNNING_FLAG:nil")).to.equal(true)
-            end)
+                    expect(ok).to.equal(false)
+                    expect(contains(output, "FINISHED_QUICKLY:true")).to.equal(true)
+                    expect(contains(output, "SUCCESS_COUNT:1")).to.equal(true)
+                    expect(contains(output, "FAIL_COUNT:2")).to.equal(true)
+                    expect(contains(output, "REACHED_TEST:false")).to.equal(true)
+                    expect(contains(output, "The beforeEach hook timed out after exceeding its budget of 0.05 seconds")).to.equal(
+                        true
+                    )
+                    expect(contains(output, "The afterEach hook timed out after exceeding its budget of 0.05 seconds")).to.equal(
+                        true
+                    )
+                    expect(contains(output, "The test timed out")).to.equal(false)
+                    expect(contains(output, "RUNNING_FLAG:nil")).to.equal(true)
+                end
+            )
 
             it("leaves tests without a budget alone when the option is not configured", function()
                 const ok, output =
