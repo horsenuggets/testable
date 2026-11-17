@@ -109,8 +109,10 @@ const function newEnvironment(currentNode, extraEnvironment)
         return reason
     end
 
-    function env.describeFOCUS(phrase, callback)
-        addChild(phrase, callback, TestEnum.NodeType.Describe, TestEnum.NodeModifier.Focus)
+    function env.describeFOCUS(phrase, callback, options)
+        const parsed = readOptions(phrase, options)
+        addChild(phrase, callback, TestEnum.NodeType.Describe, TestEnum.NodeModifier.Focus).serial = parsed.Serial
+            == true
     end
 
     --[[

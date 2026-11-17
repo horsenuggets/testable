@@ -116,6 +116,58 @@ return function()
             expect(overlaps(events, "first", "second")).to.equal(false)
         end)
 
+        it("keep a focused serial describe block serial", function()
+            const events: { string } = {}
+
+            runSuite(function()
+                Testable.describeFOCUS("serial block", function()
+                    it("first", recording(events, "first"))
+                    it("second", recording(events, "second"))
+                end, { Serial = true })
+            end)
+
+            expect(overlaps(events, "first", "second")).to.equal(false)
+        end)
+
+        it("keep the beforeAll and afterAll hooks of other blocks waiting", function()
+            const events: { string } = {}
+
+            runSuite(function()
+                describe("one", function()
+                    it("serial", recording(events, "serial"), { Serial = true })
+                end)
+
+                describe("two", function()
+                    beforeAll(recording(events, "beforeAll"))
+                    afterAll(recording(events, "afterAll"))
+                    it("ordinary", function() end)
+                end)
+            end)
+
+            expect(overlaps(events, "serial", "beforeAll")).to.equal(false)
+            expect(overlaps(events, "serial", "afterAll")).to.equal(false)
+        end)
+
+        it("stay alone when a serial test turns Parallel off while it runs", function()
+            const events: { string } = {}
+
+            runSuite(function()
+                describe("one", function()
+                    it("serial", function()
+                        Testable.configure({ Parallel = false })
+                        recording(events, "serial")()
+                        Testable.configure({ Parallel = true })
+                    end, { Serial = true })
+                end)
+
+                describe("two", function()
+                    it("ordinary", recording(events, "ordinary"))
+                end)
+            end)
+
+            expect(overlaps(events, "serial", "ordinary")).to.equal(false)
+        end, { Serial = true })
+
         it("are rejected when the option is not a boolean", function()
             const plan = planSuite(function()
                 it("test", function() end, { Serial = "yes" :: any })

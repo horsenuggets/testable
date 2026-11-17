@@ -145,6 +145,11 @@ function TestRunner.runPlan(plan: any): any
 
     session.hasFocusNodes = TestFilter.hasFocus(plan)
 
+    -- Read once for the whole run. A test that changes Parallel while it runs would
+    -- otherwise switch the scheduling of blocks that start later, and the sequential
+    -- paths don't take slots, so they could overlap a serial test.
+    session.parallel = Config.Parallel
+
     -- Read the snapshot settings before tests run, since tests may call Config.reset().
     const snapshots = SnapshotManager.new({ Store = Config.SnapshotStore, Update = Config.UpdateSnapshots })
     session.results.snapshots = snapshots
@@ -340,8 +345,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
         over the budget it inherits.
 
         @param hookSession - The session whose current node the hook belongs to
-        @param hook - The hook function
-        @param hookType - The NodeType of the hook
+        @param hook - The hook, with its callback and the budget it set on itself
         @param name - The name of the hook as specs write it, such as "beforeAll"
         @param inheritedBudget - The budget the hook falls back to, if any
         @param inheritedSource - Where the inherited budget came from, if there is one
@@ -349,15 +353,45 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
     ]]
     const function runHook(
         hookSession: any,
-        hook: (any) -> (),
-        hookType: string,
+        hook: LifecycleHooks.Hook,
         name: string,
         inheritedBudget: number?,
         inheritedSource: string?
     ): (boolean, string?)
-        const budget, source =
-            TestTimeout.resolveHook(lifecycleHooks:getHookTimeout(hookType, hook), inheritedBudget, inheritedSource)
-        return runCallbackWithBudget(hookSession, hook, `The {name} hook`, `{name} hook: `, budget, source)
+        const budget, source = TestTimeout.resolveHook(hook.timeout, inheritedBudget, inheritedSource)
+        return runCallbackWithBudget(hookSession, hook.callback, `The {name} hook`, `{name} hook: `, budget, source)
+    end
+
+    --[[
+        Runs the beforeAll or afterAll hooks of this block. They belong to no single test,
+        so they inherit the configured budget, since without one a hook that never returns
+        would hang the whole run. Outside a serial block they also hold a shared slot of
+        the run's semaphore while they run, so a serial test elsewhere never overlaps them.
+
+        @param hooks - The hooks to run, in order
+        @param name - The name of the hooks as specs write it, such as "beforeAll"
+        @return The error messages of the hooks that failed, in order
+    ]]
+    const function runBlockHooks(hooks: { LifecycleHooks.Hook }, name: string): { string }
+        const problems = {}
+        if #hooks == 0 then
+            return problems
+        end
+
+        const holdsSlot = not session.holdsExclusive
+        if holdsSlot then
+            acquireGlobalSlot(session.semaphore)
+        end
+        for _, hook in ipairs(hooks) do
+            const success, errorMessage = runHook(session, hook, name, TestTimeout.resolve(nil, Config.Timeout))
+            if not success then
+                table.insert(problems, errorMessage)
+            end
+        end
+        if holdsSlot then
+            releaseGlobalSlot(session.semaphore)
+        end
+        return problems
     end
 
     const function runNode(testSession, childPlanNode)
@@ -370,8 +404,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
         const budget, budgetSource = TestTimeout.resolve(childPlanNode.timeout, Config.Timeout)
 
         for _, hook in ipairs(lifecycleHooks:getBeforeEachHooks()) do
-            const success, errorMessage =
-                runHook(testSession, hook, TestEnum.NodeType.BeforeEach, "beforeEach", budget, budgetSource)
+            const success, errorMessage = runHook(testSession, hook, "beforeEach", budget, budgetSource)
             if not success then
                 return false, errorMessage
             end
@@ -381,8 +414,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
             runCallbackWithBudget(testSession, childPlanNode.callback, "The test", nil, budget, budgetSource)
 
         for _, hook in ipairs(lifecycleHooks:getAfterEachHooks()) do
-            const success, errorMessage =
-                runHook(testSession, hook, TestEnum.NodeType.AfterEach, "afterEach", budget, budgetSource)
+            const success, errorMessage = runHook(testSession, hook, "afterEach", budget, budgetSource)
             if not success then
                 if not testSuccess then
                     return false,
@@ -408,16 +440,10 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
     -- they are reported as skipped.
     const filteredOut = TestFilter.excludes(session.results.planNode, planNode)
 
-    -- The beforeAll and afterAll hooks belong to no single test, so they inherit the
-    -- configured budget. Without one, a hook that never returns would hang the whole run.
     local halt = false
-    for _, hook in ipairs(if filteredOut then {} else lifecycleHooks:getBeforeAllHooks()) do
-        const success, errorMessage =
-            runHook(session, hook, TestEnum.NodeType.BeforeAll, "beforeAll", TestTimeout.resolve(nil, Config.Timeout))
-        if not success then
-            session:addDummyError("beforeAll", errorMessage)
-            halt = true
-        end
+    for _, errorMessage in runBlockHooks(if filteredOut then {} else lifecycleHooks:getBeforeAllHooks(), "beforeAll") do
+        session:addDummyError("beforeAll", errorMessage)
+        halt = true
     end
 
     if not halt then
@@ -435,7 +461,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
 
         -- Run "it" tests in parallel if enabled. Inside a serial block nothing else
         -- executes, so its tests run one at a time as well.
-        if Config.Parallel and not session.holdsExclusive and #itTests > 0 then
+        if session.parallel and not session.holdsExclusive and #itTests > 0 then
             log(string.format("Running %d tests in parallel (max %d concurrent)...", #itTests, Config.MaxConcurrency))
             local completed = 0
             const total = #itTests
@@ -556,7 +582,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
             log(string.format("Parallel execution complete: %d tests in %.2fs", total, totalDuration))
         elseif #itTests > 0 then
             -- Run tests sequentially
-            if not Config.Parallel then
+            if not session.parallel then
                 log(string.format("Running %d tests sequentially (parallel disabled)...", #itTests))
             else
                 log(string.format("Running %d tests sequentially...", #itTests))
@@ -605,7 +631,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
         end
 
         -- Process describe blocks in parallel if enabled (using global concurrency limit)
-        if Config.Parallel and not session.holdsExclusive and #describeBlocks > 0 then
+        if session.parallel and not session.holdsExclusive and #describeBlocks > 0 then
             log(string.format("Running %d describe blocks in parallel...", #describeBlocks))
             local completed = 0
             const total = #describeBlocks
@@ -644,6 +670,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
                         expectationContextStack = {},
                         hasFocusNodes = session.hasFocusNodes,
                         holdsExclusive = isSerial,
+                        parallel = session.parallel,
                         semaphore = session.semaphore,
                     }
                     setmetatable(subSession, { __index = TestSession })
@@ -748,12 +775,8 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
         end
     end
 
-    for _, hook in ipairs(if filteredOut then {} else lifecycleHooks:getAfterAllHooks()) do
-        const success, errorMessage =
-            runHook(session, hook, TestEnum.NodeType.AfterAll, "afterAll", TestTimeout.resolve(nil, Config.Timeout))
-        if not success then
-            session:addDummyError("afterAll", errorMessage)
-        end
+    for _, errorMessage in runBlockHooks(if filteredOut then {} else lifecycleHooks:getAfterAllHooks(), "afterAll") do
+        session:addDummyError("afterAll", errorMessage)
     end
 
     lifecycleHooks:popHooks()

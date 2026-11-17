@@ -287,66 +287,68 @@ return function()
         end)
     end)
 
-    describe("LifecycleHooks:getHookTimeout()", function()
-        it("returns the budget a hook set on itself and nil for the others", function()
-            const withBudget = function() end
-            const withoutBudget = function() end
+    describe("LifecycleHooks hook budgets", function()
+        -- Lists the budgets of the given hooks in order, with false for a hook that set
+        -- none, so the arrays have no holes.
+        const function budgets(hooks: { LifecycleHooks.Hook }): { number | boolean }
+            const result = {}
+            for _, hook in hooks do
+                table.insert(result, if hook.timeout == nil then false else hook.timeout)
+            end
+            return result
+        end
+
+        it("carries the budget a hook set on itself and nothing for the others", function()
             const hooks = LifecycleHooks.new()
             hooks:pushHooksFrom({
                 children = {
-                    hookNode(TestEnum.NodeType.BeforeAll, withBudget, 3),
-                    hookNode(TestEnum.NodeType.BeforeAll, withoutBudget, nil),
+                    hookNode(TestEnum.NodeType.BeforeAll, function() end, 3),
+                    hookNode(TestEnum.NodeType.BeforeAll, function() end, nil),
                 },
             })
 
-            expect(hooks:getHookTimeout(TestEnum.NodeType.BeforeAll, withBudget)).to.equal(3)
-            expect(hooks:getHookTimeout(TestEnum.NodeType.BeforeAll, withoutBudget)).to.equal(nil)
-            expect(hooks:getHookTimeout(TestEnum.NodeType.BeforeAll, function() end)).to.equal(nil)
+            expect(budgets(hooks:getBeforeAllHooks())).to.deepEqual({ 3, false })
         end)
 
-        it("keeps the budgets of different hook types apart", function()
+        it("keeps every registration of the same function apart", function()
             const shared = function() end
             const hooks = LifecycleHooks.new()
             hooks:pushHooksFrom({
                 children = {
                     hookNode(TestEnum.NodeType.BeforeAll, shared, 1),
+                    hookNode(TestEnum.NodeType.BeforeAll, shared, 7),
                     hookNode(TestEnum.NodeType.AfterEach, shared, 2),
                     hookNode(TestEnum.NodeType.BeforeEach, shared, nil),
                 },
             })
 
-            expect(hooks:getHookTimeout(TestEnum.NodeType.BeforeAll, shared)).to.equal(1)
-            expect(hooks:getHookTimeout(TestEnum.NodeType.AfterEach, shared)).to.equal(2)
-            expect(hooks:getHookTimeout(TestEnum.NodeType.BeforeEach, shared)).to.equal(nil)
-            expect(hooks:getHookTimeout(TestEnum.NodeType.AfterAll, shared)).to.equal(nil)
+            expect(budgets(hooks:getBeforeAllHooks())).to.deepEqual({ 1, 7 })
+            expect(budgets(hooks:getAfterEachHooks())).to.deepEqual({ 2 })
+            expect(budgets(hooks:getBeforeEachHooks())).to.deepEqual({ false })
+            expect(budgets(hooks:getAfterAllHooks())).to.deepEqual({})
         end)
 
-        it("finds the budgets of enclosing levels until they are popped, also in a fork", function()
-            const outer = function() end
-            const inner = function() end
+        it("keeps the budget of each level when nested blocks reuse a function", function()
+            const shared = function() end
             const hooks = LifecycleHooks.new()
-            hooks:pushHooksFrom({ children = { hookNode(TestEnum.NodeType.BeforeEach, outer, 4) } })
-            hooks:pushHooksFrom({ children = { hookNode(TestEnum.NodeType.BeforeEach, inner, 5) } })
+            hooks:pushHooksFrom({ children = { hookNode(TestEnum.NodeType.BeforeEach, shared, 4) } })
+            hooks:pushHooksFrom({ children = { hookNode(TestEnum.NodeType.BeforeEach, shared, 5) } })
             const forked = hooks:fork()
 
-            expect(hooks:getHookTimeout(TestEnum.NodeType.BeforeEach, outer)).to.equal(4)
-            expect(hooks:getHookTimeout(TestEnum.NodeType.BeforeEach, inner)).to.equal(5)
+            expect(budgets(hooks:getBeforeEachHooks())).to.deepEqual({ 4, 5 })
+            expect(budgets(hooks:getAfterEachHooks())).to.deepEqual({})
 
             hooks:popHooks()
-            expect(hooks:getHookTimeout(TestEnum.NodeType.BeforeEach, outer)).to.equal(4)
-            expect(hooks:getHookTimeout(TestEnum.NodeType.BeforeEach, inner)).to.equal(nil)
-            expect(forked:getHookTimeout(TestEnum.NodeType.BeforeEach, inner)).to.equal(5)
+            expect(budgets(hooks:getBeforeEachHooks())).to.deepEqual({ 4 })
+            expect(budgets(forked:getBeforeEachHooks())).to.deepEqual({ 4, 5 })
         end)
 
-        it("ignores a budget on a node that is not a hook and rejects other node types", function()
-            const callback = function() end
+        it("ignores nodes that are not hooks", function()
             const hooks = LifecycleHooks.new()
-            hooks:pushHooksFrom({ children = { hookNode(TestEnum.NodeType.It, callback, 9) } })
+            hooks:pushHooksFrom({ children = { hookNode(TestEnum.NodeType.It, function() end, 9) } })
 
-            expect(hooks:getHookTimeout(TestEnum.NodeType.BeforeAll, callback)).to.equal(nil)
-            expect(function()
-                hooks:getHookTimeout(TestEnum.NodeType.It, callback)
-            end).to.throw("hookType must be a lifecycle hook node type")
+            expect(budgets(hooks:getBeforeAllHooks())).to.deepEqual({})
+            expect(budgets(hooks:getBeforeEachHooks())).to.deepEqual({})
         end)
     end)
 

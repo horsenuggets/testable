@@ -54,6 +54,9 @@ function TestSession.new(plan: any): any
         -- True for the sessions of a run that is inside a serial test or describe block,
         -- where nothing else executes and the semaphore is not needed.
         holdsExclusive = false,
+        -- Whether the run schedules tests in parallel, read from Config once when the
+        -- run starts.
+        parallel = true,
     }
 
     setmetatable(self, TestSession)
