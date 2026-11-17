@@ -11,11 +11,14 @@ publish step hand the version to a later test step and lets repeated local runs 
 upload. The record is only a cache, so a missing, corrupt, or outdated one just causes a
 fresh upload.
 
+The upload goes through CloudRequest, so a rate-limited or failing server is retried
+before the upload is given up on.
+
 --]]
 
 const CloudPlace = require("./CloudPlace")
+const CloudRequest = require("./CloudRequest")
 const fs = require("@lune/fs")
-const net = require("@lune/net")
 const process = require("@lune/process")
 const serde = require("@lune/serde")
 
@@ -53,7 +56,9 @@ const function _readRecord(): CloudPlace.UploadRecord?
 end
 
 const function _upload(apiKey: string, placeData: string): number
-    const response = net.request({
+    -- Retrying an upload that the server did accept only leaves an extra saved version
+    -- behind, and the version from the response that arrives is the one that gets pinned.
+    const response = CloudRequest.send("The place upload", {
         url = CloudPlace.getUploadUrl(UNIVERSE_ID, PLACE_ID),
         method = "POST",
         headers = {

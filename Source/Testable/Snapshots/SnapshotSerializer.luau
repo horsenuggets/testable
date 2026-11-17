@@ -5,12 +5,22 @@ SnapshotSerializer
 Turns a Luau value into the text stored in a snapshot. The output is deterministic and
 lossless, so equal values always serialize to the same text and different values never do.
 Table keys are sorted, nesting has no depth cap, and values that cannot be compared across
-runs (functions, threads, userdata, and so on) are written as their type name. A cyclic
-value or a table key that is not a scalar raises an error, because neither can be written
-deterministically.
+runs (functions, threads, plain userdata, and so on) are written as their type name.
+Vectors and Roblox datatypes are written by value, so two different ones never share a
+snapshot. A cyclic value or a table key that is not a scalar raises an error, because
+neither can be written deterministically.
 
 --]]
 
+const ADDRESS_PATTERN = ": 0x%x+$"
+-- How to read the text of datatypes that tostring doesn't tell apart, by typeof name.
+-- Several BrickColor values share one name (e.g., 127 and 333 are both "Gold"), so those
+-- are written by number.
+const DATATYPE_READERS: { [string]: (value: any) -> string } = {
+    BrickColor = function(value: any): string
+        return tostring(value.Number)
+    end,
+}
 const INDENT = "    "
 const KEY_TYPE_RANKS = {
     ["boolean"] = 3,
@@ -41,6 +51,26 @@ const function escapeString(text: string, isTopLevel: boolean): string
             return SIMPLE_ESCAPES[character] or string.format("\\%03d", string.byte(character))
         end)
     )
+end
+
+--[[
+    Formats a datatype from its type name and the text tostring gave for it, as in
+    "Vector3(1, 2, 3)". Text that is only a memory address (what tostring gives a userdata
+    with no text of its own) changes between runs, so it is not usable, and neither is
+    anything that isn't a string.
+
+    @param typeName - The name typeof reports for the value
+    @param text - What tostring returned for the value
+    @return The snapshot text, or nil if the value can't be written by value
+]]
+function SnapshotSerializer.formatDatatype(typeName: string, text: any): string?
+    assert(type(typeName) == "string", "typeName must be a string")
+
+    if type(text) ~= "string" or text:match(ADDRESS_PATTERN) then
+        return nil
+    end
+
+    return `{typeName}({escapeString(text, false)})`
 end
 
 const function serializeNumber(value: number): string
@@ -74,6 +104,28 @@ const function compareKeys(left: any, right: any): boolean
     return left < right
 end
 
+--[[
+    Serializes a value that is neither a scalar nor a table. Datatypes are written as
+    their typeof name and their text (e.g., "Vector3(1, 2, 3)"), since they are plain
+    values that read the same on every run. A datatype is a vector, or a userdata that
+    typeof gives a name of its own, which covers the Roblox datatypes. Everything else is
+    written as its type name alone, and so is a datatype with no usable text.
+]]
+const function serializeOpaque(value: any, valueType: string): string
+    const richType = typeof(value)
+
+    if richType ~= valueType or valueType == "vector" then
+        const read: (value: any) -> string = DATATYPE_READERS[richType] or tostring
+        const ok, text = pcall(read, value)
+        const formatted = if ok then SnapshotSerializer.formatDatatype(richType, text) else nil
+        if formatted ~= nil then
+            return formatted
+        end
+    end
+
+    return `<{valueType}>`
+end
+
 const function serializeValue(value: any, depth: number, path: string, ancestors: { [any]: boolean }): string
     const valueType = type(value)
 
@@ -84,7 +136,7 @@ const function serializeValue(value: any, depth: number, path: string, ancestors
     elseif valueType == "string" then
         return `"{escapeString(value, depth == 0)}"`
     elseif valueType ~= "table" then
-        return `<{valueType}>`
+        return serializeOpaque(value, valueType)
     end
 
     if ancestors[value] then
