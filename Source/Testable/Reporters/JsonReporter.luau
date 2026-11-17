@@ -21,8 +21,8 @@ has "ErrorMessage", and a skipped node that gave a reason also has "SkipReason".
 
 "Snapshots" is only present for results that carry a snapshot summary, which every real
 run does. Its "Obsolete" lists each obsolete snapshot that was found with its "Key" and
-"Path". A run that the focus guard failed has a failed "It" node for the guard in "Suites",
-next to the spec roots.
+"Path". A run that the focus guard failed has a failed "It" node for the guard in
+"Suites", next to the spec roots.
 
 --]]
 

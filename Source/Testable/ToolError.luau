@@ -4,8 +4,8 @@ ToolError
 
 An identifiable error that Testable throws when a run can't produce a meaningful verdict,
 such as a filter that selects no tests, a coverage threshold with nothing measured, or
-configuration options that are not valid. These are distinct from test failures, which are reported through the "passed" return
-value of a run instead of being thrown.
+configuration options that are not valid. These are distinct from test failures, which
+are reported through the "passed" return value of a run instead of being thrown.
 
 --]]
 
