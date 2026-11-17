@@ -154,6 +154,87 @@ return function()
         end)
     end)
 
+    describe("snapshots", function()
+        const function properties(suite: Xml.Element): { [string]: string }
+            expect(#suite.Children).to.equal(1)
+            expect(suite.Children[1].Name).to.equal("properties")
+            const values = {}
+            for _, property in suite.Children[1].Children do
+                expect(property.Name).to.equal("property")
+                values[property.Attributes.name] = property.Attributes.value
+            end
+            return values
+        end
+
+        it("should add a suite without cases whose properties hold the snapshot summary", function()
+            const results = ResultFixture.mixed()
+            results.snapshotSummary = { Failed = 1, Matched = 2, Obsolete = {}, Removed = 3, Updated = 4, Written = 5 }
+
+            const root = parse(results)
+            expect(#root.Children).to.equal(4)
+            expect(root.Attributes.tests).to.equal("5")
+            expect(root.Attributes.failures).to.equal("2")
+
+            const suite = root.Children[4]
+            expect(suite.Name).to.equal("testsuite")
+            expect(suite.Attributes.name).to.equal("Snapshots")
+            expect(suite.Attributes.tests).to.equal("0")
+            expect(suite.Attributes.failures).to.equal("0")
+            expect(suite.Attributes.skipped).to.equal("0")
+
+            const values = properties(suite)
+            expect(values["snapshots.written"]).to.equal("5")
+            expect(values["snapshots.updated"]).to.equal("4")
+            expect(values["snapshots.removed"]).to.equal("3")
+            expect(values["snapshots.obsolete"]).to.equal("0")
+            expect(values["snapshots.matched"]).to.equal("2")
+            expect(values["snapshots.failed"]).to.equal("1")
+        end)
+
+        it("should list each obsolete snapshot as a property of its own", function()
+            const results = ResultFixture.results({})
+            results.snapshotSummary = {
+                Failed = 0,
+                Matched = 0,
+                Obsolete = {
+                    { Key = "Spec > old 1", Path = "__snapshots__/Spec.snap" },
+                    { Key = HOSTILE_NAME, Path = HOSTILE_NAME },
+                },
+                Removed = 0,
+                Updated = 0,
+                Written = 0,
+            }
+
+            const root = parse(results)
+            expect(#root.Children).to.equal(1)
+            const values = properties(root.Children[1])
+            expect(values["snapshots.obsolete"]).to.equal("2")
+            expect(values["snapshots.obsolete.1"]).to.equal('"Spec > old 1" in "__snapshots__/Spec.snap"')
+            expect(values["snapshots.obsolete.2"]).to.equal(`"{HOSTILE_NAME}" in "{HOSTILE_NAME}"`)
+        end)
+
+        it("should leave the suite out when the run touched no snapshot", function()
+            const results = ResultFixture.mixed()
+            results.snapshotSummary = { Failed = 0, Matched = 0, Obsolete = {}, Removed = 0, Updated = 0, Written = 0 }
+
+            expect(#parse(results).Children).to.equal(3)
+            expect(JUnitReporter.format(results)).to.equal(JUnitReporter.format(ResultFixture.mixed()))
+        end)
+
+        it("should leave the suite out for results without a summary", function()
+            expect(JUnitReporter.format(ResultFixture.mixed()):find("properties", 1, true)).to.equal(nil)
+        end)
+
+        it("should add the suite for a run that only matched snapshots", function()
+            const results = ResultFixture.results({})
+            results.snapshotSummary = { Failed = 0, Matched = 1, Obsolete = {}, Removed = 0, Updated = 0, Written = 0 }
+
+            const root = parse(results)
+            expect(#root.Children).to.equal(1)
+            expect(properties(root.Children[1])["snapshots.matched"]).to.equal("1")
+        end)
+    end)
+
     describe("escaping", function()
         it("should round-trip hostile names in every attribute", function()
             const results = ResultFixture.results({

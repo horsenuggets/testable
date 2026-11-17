@@ -132,6 +132,82 @@ return function()
         end)
     end)
 
+    describe("snapshots", function()
+        it("should carry every count of the snapshot summary", function()
+            const results = ResultFixture.mixed()
+            results.snapshotSummary = { Failed = 1, Matched = 2, Obsolete = {}, Removed = 3, Updated = 4, Written = 5 }
+
+            const snapshots = decode(results).Snapshots
+            expect(snapshots.Failed).to.equal(1)
+            expect(snapshots.Matched).to.equal(2)
+            expect(snapshots.Removed).to.equal(3)
+            expect(snapshots.Updated).to.equal(4)
+            expect(snapshots.Written).to.equal(5)
+            expect(#snapshots.Obsolete).to.equal(0)
+        end)
+
+        it("should list each obsolete snapshot with its key and path", function()
+            const hostile = 'quote " backslash \\ newline \n unicode ✓'
+            const results = ResultFixture.mixed()
+            results.snapshotSummary = {
+                Failed = 0,
+                Matched = 0,
+                Obsolete = {
+                    { Key = "Spec > old 1", Path = "__snapshots__/Spec.snap" },
+                    { Key = hostile, Path = hostile },
+                },
+                Removed = 0,
+                Updated = 0,
+                Written = 0,
+            }
+
+            const obsolete = decode(results).Snapshots.Obsolete
+            expect(#obsolete).to.equal(2)
+            expect(obsolete[1].Key).to.equal("Spec > old 1")
+            expect(obsolete[1].Path).to.equal("__snapshots__/Spec.snap")
+            expect(obsolete[2].Key).to.equal(hostile)
+            expect(obsolete[2].Path).to.equal(hostile)
+        end)
+
+        it("should report a summary of zeros for a run that touched no snapshot", function()
+            const results = ResultFixture.results({})
+            results.snapshotSummary = { Failed = 0, Matched = 0, Obsolete = {}, Removed = 0, Updated = 0, Written = 0 }
+
+            const document = decode(results)
+            expect(document.Snapshots.Written).to.equal(0)
+            expect(document.Snapshots.Matched).to.equal(0)
+            expect(#document.Snapshots.Obsolete).to.equal(0)
+            expect(#document.Suites).to.equal(0)
+        end)
+
+        it("should leave the snapshots out for results without a summary", function()
+            expect(decode(ResultFixture.mixed()).Snapshots).to.equal(nil)
+            expect(JsonReporter.format(ResultFixture.mixed()):find("Snapshots", 1, true)).to.equal(nil)
+        end)
+
+        it("should write the snapshot keys in a fixed order between the totals and the suites", function()
+            const results = ResultFixture.mixed()
+            results.snapshotSummary = {
+                Failed = 0,
+                Matched = 1,
+                Obsolete = { { Key = "Spec > old 1", Path = "Spec.snap" } },
+                Removed = 0,
+                Updated = 0,
+                Written = 1,
+            }
+
+            const text = JsonReporter.format(results)
+            local position = 0
+            for _, key in
+                { "Totals", "Snapshots", "Written", "Updated", "Removed", "Matched", "Failed", "Obsolete", "Suites" }
+            do
+                const found = text:find(`"{key}":`, position + 1, true)
+                expect(found ~= nil).to.equal(true)
+                position = found :: number
+            end
+        end)
+    end)
+
     describe("encoding", function()
         it("should round-trip names with quotes, backslashes, and control characters", function()
             const name = 'quote " backslash \\ newline \n tab \t return \r bell \7 <tag> & unicode ✓'

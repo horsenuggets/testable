@@ -11,6 +11,7 @@ Here is the shape of the document...
 {
   "Version": 1,
   "Totals": { "Total", "Passed", "Failed", "Skipped", "Duration" },
+  "Snapshots": { "Written", "Updated", "Removed", "Matched", "Failed", "Obsolete" },
   "Suites": [ Node ]
 }
 
@@ -18,9 +19,15 @@ Every Node has "Name", "FullName", "Type" ("Describe" or "It"), "Status" ("Succe
 "Failure", or "Skipped"), "Duration" in seconds, and "Children". A node that failed also
 has "ErrorMessage", and a skipped node that gave a reason also has "SkipReason".
 
+"Snapshots" is only present for results that carry a snapshot summary, which every real
+run does. Its "Obsolete" lists each obsolete snapshot that was found with its "Key" and
+"Path". A run that the focus guard failed has a failed "It" node for the guard in "Suites",
+next to the spec roots.
+
 --]]
 
 const ResultTree = require("./ResultTree")
+const SnapshotSummary = require("../Snapshots/SnapshotSummary")
 const TestEnum = require("../TestEnum")
 const CONTROL_ESCAPES = {
     ["\b"] = "\\b",
@@ -85,6 +92,34 @@ const function appendNode(node: any, path: { string }, lines: { string }, depth:
 end
 
 --[[
+    Appends the "Snapshots" object, which holds the counts of the snapshot summary and the
+    obsolete snapshots that were found and left in place.
+]]
+const function appendSnapshots(summary: any, lines: { string })
+    const inner = `{INDENT}{INDENT}`
+    table.insert(lines, `{INDENT}"Snapshots": \{`)
+    for _, entry in SnapshotSummary.counts(summary) do
+        -- The obsolete snapshots are listed one by one below instead of being counted.
+        if entry.Name ~= "Obsolete" then
+            table.insert(lines, `{inner}"{entry.Name}": {entry.Value},`)
+        end
+    end
+    if #summary.Obsolete == 0 then
+        table.insert(lines, `{inner}"Obsolete": []`)
+    else
+        table.insert(lines, `{inner}"Obsolete": [`)
+        for index, obsolete in summary.Obsolete do
+            const key = JsonReporter.encodeString(ResultTree.sanitize(tostring(obsolete.Key)))
+            const path = JsonReporter.encodeString(ResultTree.sanitize(tostring(obsolete.Path)))
+            const separator = if index == #summary.Obsolete then "" else ","
+            table.insert(lines, `{inner}{INDENT}\{ "Key": {key}, "Path": {path} }{separator}`)
+        end
+        table.insert(lines, `{inner}]`)
+    end
+    table.insert(lines, `{INDENT}\},`)
+end
+
+--[[
     Returns the JSON document for the given results without emitting anything. The same
     results always produce the same text.
 ]]
@@ -115,6 +150,9 @@ function JsonReporter.format(results: any): string
         `{INDENT}{INDENT}"Duration": {ResultTree.formatSeconds(ResultTree.duration(results))}`,
         `{INDENT}\},`,
     }
+    if type(results.snapshotSummary) == "table" then
+        appendSnapshots(results.snapshotSummary, lines)
+    end
     if #results.children == 0 then
         table.insert(lines, `{INDENT}"Suites": []`)
     else

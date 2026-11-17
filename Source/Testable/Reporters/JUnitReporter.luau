@@ -5,11 +5,14 @@ JUnitReporter
 Renders test results as JUnit XML, the format CI systems read to annotate test runs. Each
 spec root becomes a testsuite and each test becomes a testcase whose classname is the path
 of describe blocks leading to it. Failed tests carry a failure element with the full error
-text, and skipped tests carry a skipped element.
+text, and skipped tests carry a skipped element. A run that the focus guard failed has a
+testsuite for the guard with one failed testcase, and a run that touched snapshots has a
+"Snapshots" testsuite without cases whose properties hold the snapshot summary.
 
 --]]
 
 const ResultTree = require("./ResultTree")
+const SnapshotSummary = require("../Snapshots/SnapshotSummary")
 const TestEnum = require("../TestEnum")
 const ATTRIBUTE_ESCAPES = {
     ["\t"] = "&#9;",
@@ -24,6 +27,8 @@ const ATTRIBUTE_ESCAPES = {
 const INDENT = "  "
 const REPLACEMENT_CHARACTER = ResultTree.ReplacementCharacter
 const ROOT_NAME = "Testable"
+const SNAPSHOT_PROPERTY_PREFIX = "snapshots."
+const SNAPSHOT_SUITE_NAME = "Snapshots"
 const TEXT_ESCAPES = {
     ["\r"] = "&#13;",
     ["&"] = "&amp;",
@@ -114,6 +119,29 @@ const function appendCase(case: ResultTree.TestCase, suiteName: string, lines: {
 end
 
 --[[
+    Appends the snapshot summary as a testsuite that has no cases and carries the counts
+    as properties. JUnit only allows properties inside a testsuite, and the summary
+    belongs to the whole run rather than to one spec root, so it gets a suite of its own.
+]]
+const function appendSnapshotSuite(summary: any, lines: { string })
+    const escape = JUnitReporter.escapeAttribute
+    const inner = `{INDENT}{INDENT}{INDENT}`
+    table.insert(lines, `{INDENT}<testsuite {totalsAttributes(SNAPSHOT_SUITE_NAME, 0, 0, 0, 0)}>`)
+    table.insert(lines, `{INDENT}{INDENT}<properties>`)
+    for _, entry in SnapshotSummary.counts(summary) do
+        const name = `{SNAPSHOT_PROPERTY_PREFIX}{string.lower(entry.Name)}`
+        table.insert(lines, `{inner}<property name="{name}" value="{entry.Value}"/>`)
+    end
+    for index, obsolete in summary.Obsolete do
+        const name = `{SNAPSHOT_PROPERTY_PREFIX}obsolete.{index}`
+        const value = `"{tostring(obsolete.Key)}" in "{tostring(obsolete.Path)}"`
+        table.insert(lines, `{inner}<property name="{name}" value="{escape(value)}"/>`)
+    end
+    table.insert(lines, `{INDENT}{INDENT}</properties>`)
+    table.insert(lines, `{INDENT}</testsuite>`)
+end
+
+--[[
     Returns the JUnit XML document for the given results without emitting anything. The
     same results always produce the same text.
 ]]
@@ -142,6 +170,9 @@ function JUnitReporter.format(results: any): string
             appendCase(case, name, suiteLines)
         end
         table.insert(suiteLines, `{INDENT}</testsuite>`)
+    end
+    if type(results.snapshotSummary) == "table" and SnapshotSummary.hasActivity(results.snapshotSummary) then
+        appendSnapshotSuite(results.snapshotSummary, suiteLines)
     end
 
     const lines = { '<?xml version="1.0" encoding="UTF-8"?>' }
