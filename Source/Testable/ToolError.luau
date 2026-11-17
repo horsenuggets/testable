@@ -3,13 +3,13 @@
 ToolError
 
 An identifiable error that Testable throws when a run can't produce a meaningful verdict,
-such as a filter that selects no tests or a coverage threshold with nothing measured.
-These are distinct from test failures, which are reported through the "passed" return
+such as a filter that selects no tests, a coverage threshold with nothing measured, or
+configuration options that are not valid. These are distinct from test failures, which are reported through the "passed" return
 value of a run instead of being thrown.
 
 --]]
 
-export type Kind = "EmptyCoverage" | "EmptyFilter" | "InvalidReporters"
+export type Kind = "EmptyCoverage" | "EmptyFilter" | "InvalidConfiguration" | "InvalidReporters"
 
 export type ToolError = {
     Kind: Kind,
@@ -19,6 +19,7 @@ export type ToolError = {
 const KINDS = {
     EmptyCoverage = "EmptyCoverage" :: Kind,
     EmptyFilter = "EmptyFilter" :: Kind,
+    InvalidConfiguration = "InvalidConfiguration" :: Kind,
     InvalidReporters = "InvalidReporters" :: Kind,
 }
 

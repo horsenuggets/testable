@@ -58,7 +58,9 @@ export type MatcherResult = SpecApi.MatcherResult
     Test failures are reported through the "passed" return value. Tool errors, where the
     run can't give a meaningful verdict, are thrown as ToolError objects instead. That
     covers a Config.Filter that selects no tests, a coverage threshold with nothing
-    measured, and reporter settings that can't work together. Catch them with pcall and ToolError.is, or use runToExitCode.
+    measured, and reporter settings that can't work together. Testable.configure throws
+    one as well when an option is not valid. Catch them with pcall and ToolError.is, or
+    use runToExitCode.
 
     @param testRoots - Array of test module roots to execute
     @return results - The test results object
@@ -157,15 +159,25 @@ const Discovery = if IS_LUNE then require("@self/Discovery") else nil
     tell test failures apart from tool errors. A caught tool error is printed. Any other
     error is rethrown with its traceback.
 
+    Options passed here are applied with Testable.configure before the run, inside the
+    same protection, so options that are not valid also end in the tool error exit code
+    instead of an uncaught error.
+
     @param testRoots - Array of test module roots to execute
+    @param options - Configuration options to set before the run, if any
     @return exitCode - One of ExitCode, 0 for a passing run, 1 for test failures (or
         coverage below its threshold), and 2 for a tool error
     @return results - The test results object, or nil after a tool error
 ]]
-const function runToExitCode(testRoots: any): (number, any?)
-    const ok, results, passed = xpcall(run, function(problem)
+const function runToExitCode(testRoots: any, options: Config.ConfigOptions?): (number, any?)
+    const ok, results, passed = xpcall(function()
+        if options ~= nil then
+            Config.set(options)
+        end
+        return run(testRoots)
+    end, function(problem)
         return if ToolError.is(problem) then problem else debug.traceback(tostring(problem), 2)
-    end, testRoots)
+    end)
 
     if not ok then
         if not ToolError.is(results) then
