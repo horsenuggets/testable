@@ -18,6 +18,7 @@ const TestEnum = require("../TestEnum")
 
 const NO_STORE_MESSAGE = "Snapshots need a store, and no filesystem is available in this runtime. "
     .. "Set one with Testable.configure({ SnapshotStore = store })."
+const RUN_ABORTED_MESSAGE = "The snapshot could not be checked because the test run was aborted."
 const UPDATE_HINT = "If the change is intended, run again with snapshot updates enabled."
 
 const SnapshotManager = {}
@@ -81,11 +82,31 @@ type File = {
 ]]
 const openFiles: { [Store]: { [string]: File } } = setmetatable({}, { __mode = "k" }) :: any
 
+--[[
+    Takes one run off a file's users and closes the file when that was the last one.
+
+    @param store - The store the file was loaded from
+    @param file - The file to release
+    @return True if no other unfinished run uses the file
+]]
+const function release(store: Store, file: File): boolean
+    file.Users -= 1
+    const isLastUser = file.Users == 0
+    if isLastUser then
+        const storeFiles = openFiles[store]
+        if storeFiles ~= nil and storeFiles[file.Path] == file then
+            storeFiles[file.Path] = nil
+        end
+    end
+    return isLastUser
+end
+
 export type SnapshotManager = typeof(setmetatable(
     {} :: {
         _displayRoot: string?,
         _files: { [string]: File },
         _hasFilesystem: boolean,
+        _isAborted: boolean,
         _isUpdating: boolean,
         _paths: { [any]: string },
         _store: Store?,
@@ -109,6 +130,7 @@ function SnapshotManager.new(options: Options?): SnapshotManager
         _hasFilesystem = if options ~= nil and options.HasFilesystem ~= nil
             then options.HasFilesystem
             else Ansi.isLune(),
+        _isAborted = false,
         _isUpdating = options ~= nil and options.Update == true,
         _paths = {},
         _store = if options then options.Store else nil,
@@ -189,9 +211,14 @@ end
     Loads a snapshot file from the store the first time it is needed, or joins the copy
     that another unfinished run already loaded. The store may yield, so another test can
     finish loading the same file first, in which case that copy is the one everybody
-    shares.
+    shares. The run can also be aborted while the store yields, and then nothing is
+    loaded and the result is nil.
 ]]
-function SnapshotManager._load(self: SnapshotManager, store: Store, path: string): File
+function SnapshotManager._load(self: SnapshotManager, store: Store, path: string): File?
+    if self._isAborted then
+        return nil
+    end
+
     const existing = self._files[path]
     if existing ~= nil then
         return existing
@@ -223,6 +250,10 @@ function SnapshotManager._load(self: SnapshotManager, store: Store, path: string
             else
                 file.Error = `Snapshot file "{self:GetDisplayPath(path)}" is not valid. {message}`
             end
+        end
+
+        if self._isAborted then
+            return nil
         end
 
         const loadedMeanwhile = self._files[path]
@@ -306,6 +337,9 @@ function SnapshotManager.Match(self: SnapshotManager, scope: Scope, value: any, 
     const key = SnapshotFormat.makeKey(SnapshotFormat.makeTestName(names), label :: string)
 
     const file = self:_load(store, self:_resolvePath(scope.PlanNode))
+    if file == nil then
+        return false, RUN_ABORTED_MESSAGE
+    end
     if file.Error ~= nil then
         return false, file.Error
     end
@@ -383,23 +417,32 @@ function SnapshotManager.Finish(self: SnapshotManager, results: any?, isPartialR
         end)
     end
 
+    -- Every file is released before anything is written. Writing can fail, and a file
+    -- that stayed open after a failed write would hand its buffered state to the next
+    -- run on the same store. Releasing never yields, so no test can load a file in
+    -- between.
     const store = self._store :: Store
+    const files = self._files
+    const lastUserPaths: { [string]: boolean } = {}
     for _, path in paths do
-        const file = self._files[path]
+        const file = files[path]
         if isPartialRun or incompletePaths[path] then
             file.IsIncomplete = true
         end
+        lastUserPaths[path] = release(store, file)
+    end
 
-        file.Users -= 1
-        const isLastUser = file.Users == 0
-        if isLastUser then
-            openFiles[store][path] = nil
-        end
+    -- The files are released, so finishing again does nothing.
+    self._files = {}
+
+    local writeProblem: any = nil
+    for _, path in paths do
+        const file = files[path]
         if file.Error ~= nil then
             continue
         end
 
-        if isLastUser and not file.IsIncomplete then
+        if lastUserPaths[path] and not file.IsIncomplete then
             for _, key in SnapshotLogic.findObsolete(file.Entries, file.UsedKeys) do
                 if self._isUpdating then
                     file.Entries[key] = nil
@@ -412,17 +455,70 @@ function SnapshotManager.Finish(self: SnapshotManager, results: any?, isPartialR
         end
 
         -- A loaded file always keeps at least the snapshot that caused it to load, so
-        -- there is never an empty file to delete.
+        -- there is never an empty file to delete. A failed write doesn't stop the other
+        -- files from being written, and the first failure is thrown once they all had
+        -- their turn.
         if file.IsDirty then
-            store.write(path, SnapshotFormat.render(file.Entries))
-            file.IsDirty = false
+            const ok, problem = pcall(store.write, path, SnapshotFormat.render(file.Entries))
+            if ok then
+                file.IsDirty = false
+            elseif writeProblem == nil then
+                writeProblem = problem
+            end
         end
     end
 
-    -- The files are released, so finishing again does nothing.
-    self._files = {}
+    if writeProblem ~= nil then
+        error(writeProblem, 0)
+    end
 
     return self._summary
+end
+
+--[[
+    Releases every file of a run that could not finish, without detecting obsolete
+    snapshots or writing anything. What the run buffered is dropped with the files, so a
+    later run on the same store starts from what the store holds. A file that another
+    unfinished run still shares stays open for that run, which skips obsolete detection
+    for it because the aborted run's tests may not have reached their assertions.
+    Snapshot assertions that arrive after this fail, so a test that is still running
+    can't load a file again. Aborting a run that already finished does nothing.
+]]
+function SnapshotManager.Abort(self: SnapshotManager)
+    self._isAborted = true
+
+    const store = self._store
+    if store ~= nil then
+        for _, file in self._files do
+            file.IsIncomplete = true
+            release(store, file)
+        end
+    end
+
+    self._files = {}
+end
+
+--[[
+    Runs the body of a test run and aborts the manager when the body throws, so that no
+    exit path leaves snapshot state behind. The error is thrown again afterward. A
+    message gets a traceback, and any other value (e.g., a ToolError) is kept as it is.
+
+    @param callback - The body of the run, which may yield
+    @return Whatever the callback returns
+]]
+function SnapshotManager.RunGuarded<Returns...>(self: SnapshotManager, callback: () -> Returns...): Returns...
+    assert(type(callback) == "function", "callback must be a function")
+
+    const results = table.pack(xpcall(callback, function(problem)
+        return if type(problem) == "string" then debug.traceback(problem, 2) else problem
+    end))
+
+    if not results[1] then
+        self:Abort()
+        error(results[2], 0)
+    end
+
+    return table.unpack(results, 2, results.n)
 end
 
 return SnapshotManager
