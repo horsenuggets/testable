@@ -12,6 +12,7 @@ sequential paths, and every budget is a fraction of a second to keep the suite f
 const Subprocess = require("./Helpers/Subprocess")
 const TestTimeout = require("../Source/Testable/TestTimeout")
 const Testable = require("../Source/Testable")
+const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 
 const Config = Testable.Config
 

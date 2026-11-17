@@ -117,24 +117,7 @@ jobs:
         run: lune setup
 
       - name: Run static analysis
-        run: |
-          cat > /tmp/coverage.d.luau << 'DEFS'
-          export type CoverageEntry = { Function: string, LineDefined: number, Depth: number, Hits: {number} }
-          declare debug: {
-            info: (...any) -> ...any,
-            traceback: ((string?, number?) -> string) & ((thread, string?, number?) -> string),
-            getcoverage: (fn: (...any) -> ...any) -> {CoverageEntry},
-            iscoverageenabled: () -> boolean,
-          }
-          DEFS
-          luau-lsp analyze \
-            --platform=lune \
-            --no-flags-enabled \
-            --definitions="/tmp/coverage.d.luau" \
-            --ignore="DevPackages/**" \
-            --ignore="Packages/**" \
-            --ignore="Submodules/**" \
-            .
+        run: ./Scripts/Lint.exec.luau
 
   check-json-format:
     name: check-json-format
