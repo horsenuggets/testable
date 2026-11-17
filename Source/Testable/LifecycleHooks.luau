@@ -9,6 +9,13 @@ exited.
 --]]
 
 const TestEnum = require("./TestEnum")
+const HOOK_TYPES = {
+    [TestEnum.NodeType.AfterAll] = true,
+    [TestEnum.NodeType.AfterEach] = true,
+    [TestEnum.NodeType.BeforeAll] = true,
+    [TestEnum.NodeType.BeforeEach] = true,
+}
+const TIMEOUTS_KEY = "Timeouts"
 
 const LifecycleHooks = {}
 LifecycleHooks.__index = LifecycleHooks
@@ -91,12 +98,43 @@ end
 function LifecycleHooks:pushHooksFrom(planNode: any): ()
     assert(planNode ~= nil)
 
+    -- The time budgets that hooks set on themselves, by hook type and then by callback.
+    const timeouts = {}
+    for _, node in ipairs(planNode.children) do
+        if HOOK_TYPES[node.type] and node.timeout ~= nil then
+            timeouts[node.type] = timeouts[node.type] or {}
+            timeouts[node.type][node.callback] = node.timeout
+        end
+    end
+
     table.insert(self._stack, {
         [TestEnum.NodeType.BeforeAll] = self:_getHooksOfType(planNode.children, TestEnum.NodeType.BeforeAll),
         [TestEnum.NodeType.AfterAll] = self:_getHooksOfType(planNode.children, TestEnum.NodeType.AfterAll),
         [TestEnum.NodeType.BeforeEach] = self:_getHooksOfType(planNode.children, TestEnum.NodeType.BeforeEach),
         [TestEnum.NodeType.AfterEach] = self:_getHooksOfType(planNode.children, TestEnum.NodeType.AfterEach),
+        [TIMEOUTS_KEY] = timeouts,
     })
+end
+
+--[[
+    Returns the time budget a hook set on itself with its Timeout option. The innermost
+    level that registered the hook wins.
+
+    @param hookType - The NodeType of the hook, such as TestEnum.NodeType.BeforeAll
+    @param hook - The hook function
+    @return The budget in seconds, or nil when the hook did not set one
+]]
+function LifecycleHooks:getHookTimeout(hookType: string, hook: any): number?
+    assert(HOOK_TYPES[hookType], "hookType must be a lifecycle hook node type")
+
+    for index = #self._stack, 1, -1 do
+        const timeouts = self._stack[index][TIMEOUTS_KEY][hookType]
+        if timeouts ~= nil and timeouts[hook] ~= nil then
+            return timeouts[hook]
+        end
+    end
+
+    return nil
 end
 
 --[[

@@ -75,18 +75,34 @@ export type Expect<Custom = {}> = ((value: any) -> Expectation<Custom>) & {
     extend: (matchers: { [string]: Matcher }) -> (),
 }
 
+-- The options a describe block accepts as the third argument of `describe`.
+export type BlockOptions = {
+    -- Runs the tests of the block one at a time, with no other test of the run executing
+    -- while they do. What tests that share global state need.
+    Serial: boolean?,
+}
+
 -- The options a single test accepts as the third argument of `it`.
 export type TestOptions = {
+    -- Runs the test with no other test of the run executing at the same time. What tests
+    -- that share global state need.
+    Serial: boolean?,
     -- The time budget of the test in seconds, which wins over the configured Timeout.
     Timeout: number?,
 }
 
+-- The options a lifecycle hook accepts as its second argument.
+export type HookOptions = {
+    -- The time budget of the hook in seconds, which wins over the one it would inherit.
+    Timeout: number?,
+}
+
 type Callback = (...any) -> ...any
-type Declare = (phrase: string, callback: Callback) -> ()
+type Declare = (phrase: string, callback: Callback, options: BlockOptions?) -> ()
 -- A skip variant, which takes an optional reason that is reported with the skipped tests.
 type DeclareSkipped = (phrase: string, callback: Callback, reason: string?) -> ()
 type DeclareTest = (phrase: string, callback: Callback, options: TestOptions?) -> ()
-type Hook = (callback: Callback) -> ()
+type Hook = (callback: Callback, options: HookOptions?) -> ()
 
 --[[
     Everything a spec can require from Testable. Apart from `bindTest`, `expect`, and

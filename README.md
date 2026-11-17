@@ -363,14 +363,48 @@ on. Here's what else to know...
 
 - Every `beforeEach` and `afterEach` hook gets the same budget as the test it surrounds,
   counted separately for each hook, so a slow hook doesn't use up the time of the test.
-- The `beforeAll` and `afterAll` hooks have no budget, since they often do slow one-time
-  setup and belong to no single test.
+- The `beforeAll` and `afterAll` hooks get the configured budget, since they belong to no
+  single test. Any hook can set a budget of its own, which wins over the one it would
+  inherit, with an options table as its second argument...
 - Only code that yields can be interrupted. A busy loop that never yields blocks the Luau
   scheduler, so the budget can't stop it and the run still hangs. Work that doesn't yield
   but does return still counts against the budget, so a test that finishes over budget is
   reported as timed out.
 - Cancelling a test stops its own thread only. Threads that the test started with
   `task.spawn` or `task.delay` keep running.
+
+```luau
+beforeAll(function()
+    -- ...
+end, { Timeout = 30 })
+```
+
+## Serial Tests
+
+By default, tests run in parallel, so tests that share global state (a module-level
+variable, `Testable.configure`, a file on disk) can see each other's changes. Mark a test
+or a whole describe block as `Serial` to run it with no other test of the run executing
+at the same time...
+
+```luau
+it("writes the shared fixture", function()
+    -- ...
+end, { Serial = true })
+
+describe("configuration", function()
+    -- ...
+end, { Serial = true })
+```
+
+Here's what that buys you...
+
+- A serial test waits for the tests that are already running to finish, and keeps new
+  ones from starting until it is done.
+- Every test under a serial describe block runs one at a time, and the block as a whole
+  waits for the rest of the run.
+- Serial tests in different specs wait for each other too, since they share one process.
+- Ordinary tests keep running in parallel, so only mark what shares state. Serial blocks
+  trade speed for isolation.
 
 ## Coverage
 
