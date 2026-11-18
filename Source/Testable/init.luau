@@ -28,6 +28,7 @@ const SnapshotSerializer = require("@self/Snapshots/SnapshotSerializer")
 const SnapshotSummary = require("@self/Snapshots/SnapshotSummary")
 const SpecApi = require("@self/SpecApi")
 const StandardOutputGuard = require("@self/Reporters/StandardOutputGuard")
+const TableRenderer = require("@self/TableRenderer")
 const TestBootstrap = require("@self/TestBootstrap")
 const TestEnum = require("@self/TestEnum")
 const TestFilter = require("@self/TestFilter")
@@ -44,10 +45,12 @@ const EXIT_CODES = {
     ToolError = 2,
 }
 
+export type Alignment = TableRenderer.Alignment
 export type Expect<Custom = {}> = SpecApi.Expect<Custom>
 export type Expectation<Custom = {}> = SpecApi.Expectation<Custom>
 export type Matcher = SpecApi.Matcher
 export type MatcherResult = SpecApi.MatcherResult
+export type TableRow = TableRenderer.TableRow
 
 --[[
     Executes tests from the specified test roots, generates a test plan, runs the tests,
@@ -222,6 +225,7 @@ const modules = {
         SnapshotSerializer = SnapshotSerializer,
         SnapshotSummary = SnapshotSummary,
     },
+    TableRenderer = TableRenderer,
     TestBootstrap = TestBootstrap,
     TestEnum = TestEnum,
     TestFilter = TestFilter,
