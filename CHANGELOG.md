@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.4.0
+- Exposed the typed `Testable.TableRenderer` API for shared bordered tables with Unicode-aware alignment and ANSI-safe cells.
+
 ## 1.3.0
 - Added a requirable, typed spec API (`Testable.describe`, `it`, `expect`, hooks, `fail`, and more) so specs import their functions instead of relying on injected globals, and set `InjectGlobals` to false to stop injecting them.
 - Added the matchers `deepEqual`, `contain`, `length`, `match`, `greaterThan`, `greaterThanOrEqual`, `lessThan`, `lessThanOrEqual`, `truthy`, `falsy`, `none`, and `matchSnapshot`, and let `a` accept type names. Built-in matcher names are now reserved in `expect.extend`.
