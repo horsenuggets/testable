@@ -235,6 +235,44 @@ return function()
         expect(Ansi.boldInline("90.0%")).to.equal("\27[1m90.0%\27[22m")
     end)
 
+    it("exports the existing table renderer through the public API", function()
+        expect(Testable.TableRenderer).to.equal(TableRenderer)
+        expect(Testable.TableRenderer.format).to.equal(TableRenderer.format)
+    end)
+
+    it("renders public tables with Unicode paths, separators, and right-aligned counts", function()
+        const rows: { TableRenderer.TableRow } = {
+            { Colored = { Ansi.brightGreen("界.luau"), "1,024" }, Raw = { "界.luau", "1,024" } },
+            { Colored = { Ansi.bold("e\u{0301}.luau"), "2" }, Raw = { "e\u{0301}.luau", "2" } },
+            { Colored = { Ansi.bold("Total"), "1,026" }, Raw = { "Total", "1,026" }, Separator = true },
+        }
+        const expected = table.concat({
+            "┌─────────┬───────┐",
+            "│ Script  │ Count │",
+            "├─────────┼───────┤",
+            "│ 界.luau │ 1,024 │",
+            "│ e\u{0301}.luau  │     2 │",
+            "├─────────┼───────┤",
+            "│ Total   │ 1,026 │",
+            "└─────────┴───────┘",
+        }, "\n")
+        for _, color in { false, true } do
+            const lines = Testable.TableRenderer.format({ "Script", "Count" }, rows, color, { "Left", "Right" })
+            expect(strip(table.concat(lines, "\n"))).to.equal(expected)
+            for _, line in lines do
+                expect(DisplayWidth.measure(strip(line))).to.equal(DisplayWidth.measure(lines[1]))
+            end
+            expect(
+                table.concat(
+                    Testable.TableRenderer.format({ "Script", "Count" }, rows, color, { "Left", "Right" }),
+                    "\n"
+                )
+            ).to.equal(table.concat(lines, "\n"))
+        end
+        expect(rows[1].Raw[1]).to.equal("界.luau")
+        expect(rows[2].Raw[2]).to.equal("2")
+    end)
+
     it("aligns table columns independently of ANSI byte lengths", function()
         const rows = {
             { Colored = { Ansi.brightGreen("é"), "10" }, Raw = { "é", "10" } },
