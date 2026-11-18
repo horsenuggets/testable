@@ -241,7 +241,7 @@ return function()
     end)
 
     it("renders public tables with Unicode paths, separators, and right-aligned counts", function()
-        const rows: { TableRenderer.TableRow } = {
+        const rows: { Testable.TableRow } = {
             { Colored = { Ansi.brightGreen("界.luau"), "1,024" }, Raw = { "界.luau", "1,024" } },
             { Colored = { Ansi.bold("e\u{0301}.luau"), "2" }, Raw = { "e\u{0301}.luau", "2" } },
             { Colored = { Ansi.bold("Total"), "1,026" }, Raw = { "Total", "1,026" }, Separator = true },
@@ -256,8 +256,9 @@ return function()
             "│ Total   │ 1,026 │",
             "└─────────┴───────┘",
         }, "\n")
+        const alignments: { Testable.Alignment } = { "Left", "Right" }
         for _, color in { false, true } do
-            const lines = Testable.TableRenderer.format({ "Script", "Count" }, rows, color, { "Left", "Right" })
+            const lines = Testable.TableRenderer.format({ "Script", "Count" }, rows, color, alignments)
             expect(strip(table.concat(lines, "\n"))).to.equal(expected)
             for _, line in lines do
                 expect(DisplayWidth.measure(strip(line))).to.equal(DisplayWidth.measure(lines[1]))
@@ -271,6 +272,22 @@ return function()
         end
         expect(rows[1].Raw[1]).to.equal("界.luau")
         expect(rows[2].Raw[2]).to.equal("2")
+    end)
+
+    it("rejects raw and colored rows with missing or extra cells", function()
+        for _, field in { "Raw", "Colored" } do
+            for _, cells in { { "one" }, { "one", "two", "three" } } do
+                for _, color in { false, true } do
+                    const row = { Colored = { "one", "two" }, Raw = { "one", "two" } }
+                    row[field] = cells
+                    const ok, message = pcall(Testable.TableRenderer.format, { "First", "Second" }, { row }, color)
+                    expect(ok).to.equal(false)
+                    expect(
+                        string.find(tostring(message), "row cell count must match the header count.", 1, true) ~= nil
+                    ).to.equal(true)
+                end
+            end
+        end
     end)
 
     it("aligns table columns independently of ANSI byte lengths", function()
