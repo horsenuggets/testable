@@ -38,6 +38,8 @@ function TableRenderer.format(
         widths[index] = DisplayWidth.measure(header)
     end
     for _, row in rows do
+        assert(#row.Raw == #headers, "Raw row cell count must match the header count.")
+        assert(#row.Colored == #headers, "Colored row cell count must match the header count.")
         for index, cell in row.Raw do
             widths[index] = math.max(widths[index], DisplayWidth.measure(cell))
         end
