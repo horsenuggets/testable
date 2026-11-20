@@ -6,6 +6,7 @@
 /Build
 
 # Dependencies
+/.wally-install/
 /DevPackages
 /Packages
 /ServerPackages
@@ -26,6 +27,7 @@
 *.lock
 !.assetfile.lock
 /*sourcemap.json
+/wally.install.json
 
 # Legacy
 aftman.toml
