@@ -112,6 +112,15 @@ return function()
                 expect(contains(output, "The configuration is not valid. options must be a table.")).to.equal(true)
             end)
 
+            it("should reject malformed suite ordering before executing tests", function()
+                const ok, output = runScript('{ SuiteOrder = { "Suite", "Suite" } }')
+                expect(ok).to.equal(false)
+                expect(contains(output, "EXIT_CODE:2")).to.equal(true)
+                expect(contains(output, "HAS_RESULTS:false")).to.equal(true)
+                expect(contains(output, "RAN:false")).to.equal(true)
+                expect(contains(output, "SuiteOrder entries must be unique")).to.equal(true)
+            end)
+
             it("should apply valid options and exit with 0 when the tests pass", function()
                 const ok, output = runScript('{ Indent = ">" }')
 
