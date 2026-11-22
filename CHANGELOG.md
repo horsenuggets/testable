@@ -2,10 +2,10 @@
 
 ## 1.5.0
 
-- Added `SuiteOrder` to prioritize spec execution without changing suite names, snapshot
-  ownership, coverage roots, or test membership. Unlisted specs remain alphabetical.
-- Preserved caller module lists when planning tests and snapshotted suite preferences
-  before discovery so configuration changes cannot reorder the current run.
+- Added `SuiteOrder` to prioritize specs while leaving unlisted specs alphabetical.
+- Preserved suite names, snapshot ownership, coverage roots, and test membership.
+- Kept caller module lists unchanged when planning tests.
+- Snapshotted suite preferences before discovery to protect the current run's order.
 
 ## 1.4.0
 - Exposed the typed `Testable.TableRenderer` API for shared bordered tables with Unicode-aware alignment and ANSI-safe cells.
