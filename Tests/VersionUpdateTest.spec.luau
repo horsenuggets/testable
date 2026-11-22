@@ -172,11 +172,11 @@ end
 
 const function copyScriptsToRepo(repoPath: string)
     fs.writeDir(`{repoPath}/Scripts`)
-    fs.writeDir(`{repoPath}/Scripts/Helpers`)
     const scriptContent = fs.readFile("Submodules/luau-cicd/Scripts/EnsureProperVersionUpdate.exec.luau")
     fs.writeFile(`{repoPath}/Scripts/EnsureProperVersionUpdate.exec.luau`, scriptContent)
-    const helperContent = fs.readFile("Submodules/luau-cicd/Scripts/Helpers/ParseVersion.func.luau")
-    fs.writeFile(`{repoPath}/Scripts/Helpers/ParseVersion.func.luau`, helperContent)
+    -- Copy every helper so the script keeps resolving its requires as luau-cicd adds or
+    -- splits helpers, instead of mirroring its exact dependency list here.
+    fs.copy("Submodules/luau-cicd/Scripts/Helpers", `{repoPath}/Scripts/Helpers`)
 end
 
 const function setupTestRepo(): string
