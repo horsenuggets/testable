@@ -80,6 +80,25 @@ return function()
             expect(Config.PrintSkipped).to.equal(true)
         end)
 
+        it("copies suite preferences and resets them to a fresh empty list", function()
+            Config.reset()
+            const preferred = { "Heavy", "Other" }
+            Testable.configure({ SuiteOrder = preferred })
+            preferred[1] = "Changed"
+            expect(table.concat(Config.SuiteOrder, ",")).to.equal("Heavy,Other")
+            Testable.configure({ Parallel = false })
+            expect(table.concat(Config.SuiteOrder, ",")).to.equal("Heavy,Other")
+            const previous = Config.SuiteOrder
+            Testable.resetConfig()
+            expect(#Config.SuiteOrder).to.equal(0)
+            expect(Config.SuiteOrder == previous).to.equal(false)
+            table.insert(previous, "Retained")
+            expect(#Config.SuiteOrder).to.equal(0)
+            Testable.configure({ SuiteOrder = { "Heavy" } })
+            Testable.configure({ SuiteOrder = {} })
+            expect(#Config.SuiteOrder).to.equal(0)
+        end)
+
         it("should set Verbose", function()
             expect(Config.Verbose).to.equal(false)
             Testable.configure({ Verbose = true })
@@ -220,6 +239,29 @@ return function()
                 end).to.throw('CoverageSort must be "HitLines" or "Percentage"')
             end
             expect(Config.CoverageSort).to.equal("Percentage")
+        end)
+
+        it("rejects malformed suite preference lists without applying other options", function()
+            for _, invalid in
+                {
+                    "Suite",
+                    { "" },
+                    { "   " },
+                    { 1 },
+                    { "Repeated", "Repeated" },
+                    { [1] = "First", [3] = "Third" },
+                    { Named = "Suite" },
+                    { [1.5] = "Suite" },
+                } :: { any }
+            do
+                Testable.configure({ SuiteOrder = { "Original" } })
+                const ok, problem = pcall(Testable.configure, { Indent = ">", SuiteOrder = invalid } :: any)
+                expect(ok).to.equal(false)
+                expect(Testable.ToolError.is(problem)).to.equal(true)
+                expect(problem.Kind).to.equal(Testable.ToolError.Kind.InvalidConfiguration)
+                expect(table.concat(Config.SuiteOrder, ",")).to.equal("Original")
+                expect(Config.Indent).to.equal("   ")
+            end
         end)
 
         it("should error if Verbose is not a boolean", function()

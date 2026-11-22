@@ -84,8 +84,9 @@ const function run(testRoots: any): (any, boolean)
     const coverageRoots = Config.CoverageRoots
     const coverageThreshold = Config.CoverageThreshold
 
-    -- The filter is snapshotted for the same reason
+    -- Discovery and spec registration can change config, so both inputs are snapshotted.
     const filter = Config.Filter
+    const suiteOrder = table.clone(Config.SuiteOrder)
 
     -- The reporter settings are resolved up front for the same reason, and so that a bad
     -- combination fails before any test runs.
@@ -112,7 +113,7 @@ const function run(testRoots: any): (any, boolean)
     -- whatever is printed while tests are planned and run goes to standard error.
     const results = StandardOutputGuard.run(selection.StandardOutput ~= nil, function()
         const modules = TestBootstrap:getModulesFromMultipleRoots(testRoots)
-        const plan = TestPlanner.createPlan(modules, filter)
+        const plan = TestPlanner.createPlan(modules, filter, nil, suiteOrder)
         return TestRunner.runPlan(plan)
     end)
 
