@@ -7,6 +7,7 @@ default values.
 
 --]]
 
+const SuiteOrder = require("./SuiteOrder")
 const TestEnum = require("./TestEnum")
 const TestTimeout = require("./TestTimeout")
 const ToolError = require("./ToolError")
@@ -36,6 +37,7 @@ export type ConfigOptions = {
     Reporters: { Reporter }?,
     SlowestTests: number?,
     SnapshotStore: SnapshotStore?,
+    SuiteOrder: { string }?,
     Timeout: number?,
     UpdateSnapshots: boolean?,
     Verbose: boolean?,
@@ -65,6 +67,7 @@ const Config = {
     Reporters = { TestEnum.Reporter.Text } :: { Reporter },
     SlowestTests = 0,
     SnapshotStore = nil :: SnapshotStore?,
+    SuiteOrder = {} :: { string },
     Timeout = nil :: number?,
     UpdateSnapshots = false,
     Verbose = false,
@@ -224,6 +227,12 @@ const function apply(options: ConfigOptions)
         Config.SnapshotStore = store
     end
 
+    if options.SuiteOrder ~= nil then
+        const problem = SuiteOrder.problem(options.SuiteOrder)
+        check(problem == nil, problem or "")
+        Config.SuiteOrder = table.clone(options.SuiteOrder)
+    end
+
     if options.Timeout ~= nil then
         check(TestTimeout.isValid(options.Timeout), "Timeout must be a positive number of seconds")
         Config.Timeout = options.Timeout
@@ -285,6 +294,7 @@ function Config.reset()
     Config.Reporters = { TestEnum.Reporter.Text }
     Config.SlowestTests = 0
     Config.SnapshotStore = nil
+    Config.SuiteOrder = {}
     Config.Timeout = nil
     Config.UpdateSnapshots = false
     Config.Verbose = false

@@ -326,9 +326,24 @@ Testable.configure({
 | `Reporters`         | `{ "Text" \| "Json" \| "JUnit" \| "Lcov" }` | `{ "Text" }`   | Reports that a run produces (see [Reporters](#reporters)).                                             |
 | `SlowestTests`      | `number`                                    | `0`            | Number of slowest tests listed after the text report, or `0` to leave the list out.                    |
 | `SnapshotStore`     | `table?`                                    | `nil`          | Where snapshot files are kept, which defaults to the filesystem in Lune (see [Snapshots](#snapshots)). |
+| `SuiteOrder`        | `{ string }`                                | `{}`           | Preferred spec identities, followed by unlisted specs in alphabetical order.                           |
 | `Timeout`           | `number?`                                   | `nil`          | Time budget in seconds for every test, or `nil` for no limit (see [Timeouts](#timeouts)).              |
 | `UpdateSnapshots`   | `boolean`                                   | `false`        | Accepts changed snapshots and removes obsolete ones (see [Snapshots](#snapshots)).                     |
 | `Verbose`           | `boolean`                                   | `false`        | Logs details about the run while it executes.                                                          |
+
+A preferred suite order can put heavyweight tool checks before fixtures allocate their
+place caches...
+
+```luau
+Testable.configure({ Parallel = false, SuiteOrder = { "ToolChecks", "BuildChecks" } })
+```
+
+Each identity is the case-sensitive spec name. Nested spec paths join their parent names
+and spec name with single spaces. Preferences never rename, add, exclude, or duplicate
+suites, and unknown identities are ignored so the same list can be used with a subset of
+specs. Unlisted specs remain alphabetical. Ordering does not disable parallel execution;
+set `Parallel = false` when suites must execute one after another. The list is copied
+when configured and snapshotted before each run's discovery.
 
 ## Filtering Tests
 
