@@ -68,6 +68,7 @@ function Entry.exec(): any
             -- Setup can create Instance-valued roots inside this VM. Spec registration and
             -- tests must not be able to erase the roots captured for this run.
             const coverageRoots = Config.CoverageRoots
+            const logging = { Log = Config.Log, Verbose = Config.Verbose }
             const roots = Discovery.load(job.Files, job.Root)
             for index, root in ipairs(roots) do
                 root.Name = job.Names[job.Files[index]]
@@ -118,6 +119,7 @@ function Entry.exec(): any
             const results = TestRunner.runPlan(plan, {
                 ForbidFocus = false,
                 HasFocus = command.HasFocus,
+                Logging = logging,
                 RootGate = {
                     Acquire = function(node)
                         requestId += 1
