@@ -7,6 +7,7 @@ default values.
 
 --]]
 
+const PathUtil = require("./Discovery/PathUtil")
 const SuiteOrder = require("./SuiteOrder")
 const TestEnum = require("./TestEnum")
 const TestTimeout = require("./TestTimeout")
@@ -41,6 +42,9 @@ export type ConfigOptions = {
     Timeout: number?,
     UpdateSnapshots: boolean?,
     Verbose: boolean?,
+    WorkerGroups: { { string } }?,
+    WorkerSetup: string?,
+    Workers: number?,
 }
 
 -- Where snapshot files are kept. Lune uses the filesystem when no store is set.
@@ -71,6 +75,9 @@ const Config = {
     Timeout = nil :: number?,
     UpdateSnapshots = false,
     Verbose = false,
+    WorkerGroups = {} :: { { string } },
+    WorkerSetup = nil :: string?,
+    Workers = 1,
 }
 
 --[[
@@ -85,6 +92,28 @@ const function check(condition: any, problem: string)
     if not condition then
         error(ToolError.new(ToolError.Kind.InvalidConfiguration, `The configuration is not valid. {problem}.`), 0)
     end
+end
+
+--[[
+    Checks every key and index explicitly, since the length operator can hide holes in
+    sparse arrays. Returns the number of elements after validating the dense layout.
+]]
+const function denseLength(value: any, label: string): number
+    check(type(value) == "table" and getmetatable(value) == nil, `{label} must be a dense array`)
+    local count = 0
+    for key in pairs(value) do
+        check(type(key) == "number" and key > 0 and key < math.huge and key % 1 == 0, `{label} must be a dense array`)
+        count += 1
+    end
+    for index = 1, count do
+        check(rawget(value, index) ~= nil, `{label} must be a dense array`)
+    end
+    return count
+end
+
+const function normalizePath(value: any, label: string): string
+    check(type(value) == "string" and string.find(value, "%S") ~= nil, `{label} must be a nonblank path`)
+    return PathUtil.normalize(value)
 end
 
 --[[
@@ -247,6 +276,39 @@ const function apply(options: ConfigOptions)
         check(type(options.Verbose) == "boolean", "Verbose must be a boolean")
         Config.Verbose = options.Verbose
     end
+
+    if options.WorkerGroups ~= nil then
+        const groups = {}
+        for groupIndex = 1, denseLength(options.WorkerGroups, "WorkerGroups") do
+            const label = `WorkerGroups[{groupIndex}]`
+            const group = options.WorkerGroups[groupIndex]
+            const count = denseLength(group, label)
+            check(count > 0, `{label} must not be empty`)
+            const paths = {}
+            for pathIndex = 1, count do
+                table.insert(paths, normalizePath(group[pathIndex], `{label}[{pathIndex}]`))
+            end
+            table.insert(groups, paths)
+        end
+        -- Overlaps are intentional. Scheduling unions all groups before selecting files,
+        -- including transitive links through files that are not part of this run.
+        Config.WorkerGroups = groups
+    end
+
+    if options.WorkerSetup ~= nil then
+        Config.WorkerSetup = normalizePath(options.WorkerSetup, "WorkerSetup")
+    end
+
+    if options.Workers ~= nil then
+        check(
+            type(options.Workers) == "number"
+                and options.Workers > 0
+                and options.Workers < math.huge
+                and options.Workers % 1 == 0,
+            "Workers must be a finite positive integer"
+        )
+        Config.Workers = options.Workers
+    end
 end
 
 --[[
@@ -298,6 +360,9 @@ function Config.reset()
     Config.Timeout = nil
     Config.UpdateSnapshots = false
     Config.Verbose = false
+    Config.WorkerGroups = {}
+    Config.WorkerSetup = nil
+    Config.Workers = 1
 end
 
 return Config

@@ -13,6 +13,8 @@ Reporter flags choose which reports the run produces and where they go...
 
 > --changed <ref> - Runs only the specs affected by the changes since a git ref.
 > --watch - Keeps running, and runs the affected specs again whenever files change.
+> --workers <count> - Runs file jobs in that many isolated Lune VMs, or locally at 1.
+> --worker-setup <path> - Loads a setup function before requiring specs in every job.
 > --filter <text> - Only runs the tests whose full name contains the text.
 > --reporter <text|json|junit|lcov> - Adds a reporter. It can be given several times, and
   "lcov" also turns on coverage for the source.
@@ -61,8 +63,9 @@ end
 
     @param files - Spec files to watch instead of every spec, when any were given
     @param childArguments - The flags to hand on to every pass
+    @param workerOptions - Worker flags parsed before the watch branch configures a run
 ]]
-const function watch(files: { string }, childArguments: { string })
+const function watch(files: { string }, childArguments: { string }, workerOptions: RunTestsArguments.WorkerOptions)
     const ok, message = pcall(Testable.Discovery.watch, {
         Include = if #files > 0 then files else INCLUDE,
         Run = function(specFiles: { string })
@@ -72,6 +75,7 @@ const function watch(files: { string }, childArguments: { string })
                 Script = SCRIPT_PATH,
             })
         end,
+        WorkerSetup = workerOptions.WorkerSetup,
     })
     if not ok then
         exitWithToolError(tostring(message))
@@ -79,11 +83,17 @@ const function watch(files: { string }, childArguments: { string })
 end
 
 function RunTests.exec()
+    const workerOptions, workerRemaining, workerProblem = RunTestsArguments.extractWorkers(process.args)
+    if workerOptions == nil then
+        exitWithToolError(workerProblem :: string, true)
+        return
+    end
+
     -- Each parser takes the flags it knows and hands the rest to the next one. Snapshot
     -- flags come after the reporter and filter flags, so a value that belongs to another
     -- flag (e.g., an output path) is never mistaken for one.
     const parsed, reporterOptions, filterOptions, unparsed = pcall(function()
-        const reporterOptions, unparsed = ReporterArguments.parse(process.args)
+        const reporterOptions, unparsed = ReporterArguments.parse(workerRemaining)
         return reporterOptions, FilterArguments.parse(unparsed)
     end)
     if not parsed then
@@ -98,7 +108,7 @@ function RunTests.exec()
     end
 
     if arguments.Watch then
-        watch(arguments.Files, RunTestsArguments.without(process.args, remaining))
+        watch(arguments.Files, RunTestsArguments.without(process.args, remaining), workerOptions)
         return
     end
 
@@ -108,9 +118,10 @@ function RunTests.exec()
         Testable.configure(reporterOptions)
         Testable.configure(filterOptions)
         Testable.configure(snapshotOptions)
+        Testable.configure(workerOptions)
         for _, reporter in reporterOptions.Reporters or {} do
             if reporter == Testable.TestEnum.Reporter.Lcov then
-                Testable.configure({ Coverage = true, CoverageRoots = script.Parent.Parent.Source.Testable })
+                Testable.configure({ Coverage = true, CoverageRoots = "Source/Testable" })
             end
         end
 
@@ -142,12 +153,14 @@ function RunTests.exec()
         files = affected
     end
 
-    const ok, testRoots = pcall(Testable.Discovery.discover, { Files = files, Include = INCLUDE })
+    -- Select paths without requiring specs. The file runner must apply setup and choose
+    -- worker ownership before any spec module is loaded.
+    const ok, specFiles = pcall(Testable.Discovery.findSpecs, { Files = files, Include = INCLUDE })
     if not ok then
-        exitWithToolError(tostring(testRoots))
+        exitWithToolError(tostring(specFiles))
     end
 
-    const exitCode = Testable.runToExitCode(testRoots)
+    const exitCode = Testable.runFilesToExitCode(specFiles)
     process.exit(exitCode)
 end
 

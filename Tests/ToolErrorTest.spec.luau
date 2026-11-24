@@ -95,6 +95,13 @@ return function()
             expect(tostring(problem)).to.equal("Nothing matched.")
         end)
 
+        it("should identify worker infrastructure failures without treating them as test failures", function()
+            const problem = ToolError.new(ToolError.Kind.WorkerFailure, "The worker returned no completion manifest.")
+            expect(ToolError.is(problem)).to.equal(true)
+            expect(problem.Kind).to.equal("WorkerFailure")
+            expect(tostring(problem)).to.equal("The worker returned no completion manifest.")
+        end)
+
         it("should recognize tool errors after they are thrown", function()
             const ok, problem = pcall(function()
                 error(ToolError.new(ToolError.Kind.EmptyCoverage, "Nothing measured."))

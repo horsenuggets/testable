@@ -41,6 +41,80 @@ return function()
             expect(resolved[1].Name).to.equal("SampleModule")
         end)
 
+        it("should reconstruct filesystem path roots without requiring their sources", function()
+            const expected = Coverage.resolveRoots(sampleScript)
+            for _, path in { "Tests/CoverageFixtures/SampleModule", "Tests/CoverageFixtures/SampleModule.luau" } do
+                const resolved = Coverage.resolveRoots(path)
+                expect(#resolved).to.equal(1)
+                expect(resolved[1].Name).to.equal("SampleModule")
+                expect(resolved[1].Script:GetFullName()).to.equal(expected[1].Script:GetFullName())
+                expect(Coverage.captureRaw(path)).to.deepEqual(Coverage.captureRaw(sampleScript))
+            end
+            const paths = Coverage.resolveRoots({ Alias = "Tests/CoverageFixtures/SampleModule.luau" })
+            expect(paths[1].Name).to.equal("Alias")
+            expect(paths[1].Script:GetFullName()).to.equal(expected[1].Script:GetFullName())
+            expect(#Coverage.resolveRoots("Tests/CoverageFixtures")).to.equal(#Coverage.resolveRoots(fixturesDir))
+        end)
+
+        it("should preserve filesystem roots when reconstructing coverage references", function()
+            const fs = require("@lune/fs")
+            const luau = require("@lune/luau")
+            const source = fs.readFile(tostring(script.Parent.Parent.Source.Testable.Coverage) .. ".luau")
+            for _, case in
+                {
+                    { "//server/share/Source/Value.luau", "/work", "//server/share/Source/Value.luau" },
+                    { "\\\\server\\share\\Source\\Value.luau", "/work", "//server/share/Source/Value.luau" },
+                    { "Source/Value.luau", "//server/share/work", "//server/share/work/Source/Value.luau" },
+                    { "../Value.luau", "\\\\server\\share\\work", "//server/share/Value.luau" },
+                    { "C:\\Source\\Value.luau", "//server/share/work", "C:/Source/Value.luau" },
+                    { "/Source/Value.luau", "//server/share/work", "/Source/Value.luau" },
+                }
+            do
+                const path, cwd, expected = case[1], case[2], case[3]
+                const dependencies = {
+                    ["@lune/fs"] = {
+                        isDir = function()
+                            return false
+                        end,
+                        isFile = function(candidate)
+                            return candidate == expected
+                        end,
+                    },
+                    ["@lune/process"] = { cwd = cwd },
+                }
+                const isolated = luau.load(source, {
+                    environment = {
+                        require = function(name)
+                            assert(dependencies[name] ~= nil, `Unexpected coverage dependency "{name}".`)
+                            return dependencies[name]
+                        end,
+                        script = setmetatable({}, {
+                            __index = function(_, candidate)
+                                return setmetatable({ Name = "Value.luau" }, {
+                                    __tostring = function()
+                                        return candidate
+                                    end,
+                                })
+                            end,
+                        }),
+                    },
+                })()
+                for _, roots in { path, { Alias = path } } do
+                    const resolved = isolated.resolveRoots(roots)
+                    expect(#resolved).to.equal(1)
+                    expect(tostring(resolved[1].Script)).to.equal(expected)
+                    expect(resolved[1].Name).to.equal(if type(roots) == "string" then "Value" else "Alias")
+                end
+            end
+        end)
+
+        it("should reject blank filesystem coverage paths", function()
+            for _, path in { "", "   " } do
+                expect(pcall(Coverage.resolveRoots, path)).to.equal(false)
+                expect(pcall(Coverage.resolveRoots, { Source = path })).to.equal(false)
+            end
+        end)
+
         it("should exclude .spec files", function()
             const testsDir = script.Parent
             const resolved = Coverage.resolveRoots(testsDir)
@@ -277,6 +351,446 @@ return function()
         end)
     end)
 
+    describe("Raw coverage transport", function()
+        const function snapshot(): any
+            return {
+                Files = {
+                    {
+                        Entries = {
+                            { Depth = 0, Function = "", Hits = { [0] = -1, [2] = 3, [9] = 0 }, LineDefined = 1 },
+                            { Depth = 1, Function = "same", Hits = { [2] = 0, [20] = 2, [21] = -1 }, LineDefined = 20 },
+                            { Depth = 2, Function = "same", Hits = { [30] = 0, [31] = -2 }, LineDefined = 30 },
+                        },
+                        Loaded = true,
+                        Name = "Module",
+                        Path = "/coverage/Module.luau",
+                    },
+                },
+                Version = 1,
+            }
+        end
+
+        const function rejects(value: any, fragment: string)
+            assert(type(fragment) == "string")
+            const ok, problem = pcall(Coverage.mergeRaw, value)
+            expect(ok).to.equal(false)
+            expect(tostring(problem):find(fragment, 1, true) ~= nil).to.equal(true)
+        end
+
+        it("should preserve sparse numeric keys, negative markers, and ordered function identities", function()
+            const original = snapshot()
+            const merged = Coverage.mergeRaw({ original })
+            expect(merged).to.deepEqual(original)
+            expect(merged.Files[1].Entries[1].Hits[1]).to.equal(nil)
+            expect(merged.Files[1].Entries[1].Hits[0]).to.equal(-1)
+            expect(merged.Files[1].Entries[3].Hits[31]).to.equal(-2)
+        end)
+
+        it("should take per-entry maxima without flattening overlapping lines", function()
+            const first, second = snapshot(), snapshot()
+            second.Files[1].Entries[1].Hits[2] = 1
+            second.Files[1].Entries[1].Hits[9] = 4
+            second.Files[1].Entries[2].Hits[2] = 7
+            const merged = Coverage.mergeRaw({ first, second })
+            expect(merged.Files[1].Entries[1].Hits[2]).to.equal(3)
+            expect(merged.Files[1].Entries[2].Hits[2]).to.equal(7)
+            const report = Coverage.collectRaw(merged)
+            const file = report.Files[1]
+            expect(file.ExecutableLines).to.equal(5)
+            expect(file.HitLines).to.equal(4)
+            expect(file.Percentage).to.equal(80)
+            expect(file.Functions[1].Name).to.equal("(top-level)")
+            expect(file.Functions[1].ExecutableLines).to.equal(2)
+            expect(file.Functions[1].HitLines).to.equal(2)
+            expect(file.Functions[3].HitLines).to.equal(0)
+            expect(file.LineHits).to.deepEqual({ [2] = 7, [9] = 4, [20] = 2, [30] = 0 })
+            expect(report.TotalExecutableLines).to.equal(5)
+            expect(report.TotalHitLines).to.equal(4)
+            expect(report.TotalPercentage).to.equal(80)
+        end)
+
+        it("should union unloaded and loaded files in either order", function()
+            const unloaded, loaded = snapshot(), snapshot()
+            unloaded.Files[1].Loaded = false
+            for _, entry in unloaded.Files[1].Entries do
+                for line, count in entry.Hits do
+                    if count >= 0 then
+                        entry.Hits[line] = 0
+                    end
+                end
+            end
+            const missed = Coverage.collectRaw(unloaded)
+            expect(missed.Files[1].Loaded).to.equal(false)
+            expect(missed.TotalExecutableLines).to.equal(5)
+            expect(missed.TotalHitLines).to.equal(0)
+            expect(missed.Files[1].LineHits).to.deepEqual({ [2] = 0, [9] = 0, [20] = 0, [30] = 0 })
+            expect(Coverage.mergeRaw({ unloaded, loaded })).to.deepEqual(loaded)
+            expect(Coverage.mergeRaw({ loaded, unloaded })).to.deepEqual(loaded)
+        end)
+
+        it("should union disjoint paths and be associative, idempotent, and permutation independent", function()
+            const first, second, third = snapshot(), snapshot(), snapshot()
+            first.Files[1].Name = "Zulu"
+            second.Files[1].Name = "Alpha"
+            second.Files[1].Entries[1].Hits[9] = 8
+            third.Files[1].Path = "/coverage/A.luau"
+            const expected = Coverage.mergeRaw({ first, second, third })
+            const inputs = { first, second, third }
+            for a = 1, 3 do
+                for b = 1, 3 do
+                    if a == b then
+                        continue
+                    end
+                    const c = 6 - a - b
+                    expect(Coverage.mergeRaw({ inputs[a], inputs[b], inputs[c] })).to.deepEqual(expected)
+                end
+            end
+            expect(expected.Files[1].Path).to.equal("/coverage/A.luau")
+            expect(expected.Files[2].Name).to.equal("Alpha")
+            expect(Coverage.mergeRaw({ Coverage.mergeRaw({ first, second }), third })).to.deepEqual(expected)
+            expect(Coverage.mergeRaw({ first, Coverage.mergeRaw({ second, third }) })).to.deepEqual(expected)
+            expect(Coverage.mergeRaw({ expected, expected })).to.deepEqual(expected)
+            expect(Coverage.collectRaw(expected).TotalExecutableLines).to.equal(10)
+            expect(Coverage.mergeRaw({})).to.deepEqual({ Files = {}, Version = 1 })
+            expect(Coverage.collectRaw({ Files = {}, Version = 1 }).TotalPercentage).to.equal(0)
+        end)
+
+        it("should reject function count, order, name, definition line, and depth mismatches", function()
+            const changes = {
+                function(file)
+                    table.remove(file.Entries)
+                end,
+                function(file)
+                    file.Entries[2], file.Entries[3] = file.Entries[3], file.Entries[2]
+                end,
+                function(file)
+                    file.Entries[2].Function = "different"
+                end,
+                function(file)
+                    file.Entries[2].LineDefined += 1
+                end,
+                function(file)
+                    file.Entries[2].Depth += 1
+                end,
+            }
+            for _, change in changes do
+                const first, second = snapshot(), snapshot()
+                change(second.Files[1])
+                rejects({ first, second }, "layout mismatch")
+                rejects({ second, first }, "layout mismatch")
+            end
+        end)
+
+        it("should reject missing and extra hit keys and both executable mask directions", function()
+            const changes = {
+                function(hits)
+                    hits[9] = nil
+                end,
+                function(hits)
+                    hits[10] = -1
+                end,
+                function(hits)
+                    hits[0] = 0
+                end,
+                function(hits)
+                    hits[9] = -1
+                end,
+            }
+            for _, change in changes do
+                const first, second = snapshot(), snapshot()
+                change(second.Files[1].Entries[1].Hits)
+                rejects({ first, second }, "layout mismatch")
+                rejects({ second, first }, "layout mismatch")
+            end
+        end)
+
+        it("should preserve negative markers with a maximum without treating them as hits", function()
+            const first, second = snapshot(), snapshot()
+            second.Files[1].Entries[3].Hits[31] = -1
+            const merged = Coverage.mergeRaw({ first, second })
+            expect(merged.Files[1].Entries[3].Hits[31]).to.equal(-1)
+            const hits = Coverage.collectRaw(merged).Files[1].LineHits
+            assert(hits ~= nil)
+            expect(hits[31]).to.equal(nil)
+            expect(Coverage.mergeRaw({ second, first })).to.deepEqual(merged)
+        end)
+
+        it("should validate complete schemas rather than silently discard malformed input", function()
+            const changes = {
+                function(raw)
+                    raw.Version = 2
+                end,
+                function(raw)
+                    raw.Files = nil
+                end,
+                function(raw)
+                    raw.Unknown = raw
+                end,
+                function(raw)
+                    raw.Files = { [2] = raw.Files[1] }
+                end,
+                function(raw)
+                    raw.Files.Extra = true
+                end,
+                function(raw)
+                    table.insert(raw.Files, raw.Files[1])
+                end,
+                function(raw)
+                    raw.Files[1].Path = "relative.luau"
+                end,
+                function(raw)
+                    raw.Files[1].Path = "/coverage/./Module.luau"
+                end,
+                function(raw)
+                    raw.Files[1].Name = false
+                end,
+                function(raw)
+                    raw.Files[1].Loaded = 1
+                end,
+                function(raw)
+                    raw.Files[1].Loaded = false
+                end,
+                function(raw)
+                    raw.Files[1].Entries[2] = nil
+                end,
+                function(raw)
+                    raw.Files[1].Entries[1].LineDefined = nil
+                end,
+                function(raw)
+                    raw.Files[1].Entries[1].Depth = -1
+                end,
+                function(raw)
+                    raw.Files[1].Entries[1].Function = function() end
+                end,
+                function(raw)
+                    raw.Files[1].Entries[1].Hits = raw
+                end,
+                function(raw)
+                    raw.Files[1].Entries[1].Hits["2"] = 3
+                end,
+                function(raw)
+                    raw.Files[1].Entries[1].Hits[0.5] = 3
+                end,
+                function(raw)
+                    raw.Files[1].Entries[1].Hits[-1] = 3
+                end,
+                function(raw)
+                    raw.Files[1].Entries[1].Hits[2] = math.huge
+                end,
+                function(raw)
+                    raw.Files[1].Entries[1].Hits[2] = 0 / 0
+                end,
+                function(raw)
+                    raw.Files[1].Entries[1].Hits[2] = 1.5
+                end,
+                function(raw)
+                    raw.Files[1].Entries[1].Hits[2] = "3"
+                end,
+                function(raw)
+                    setmetatable(raw.Files[1], {})
+                end,
+            }
+            for _, change in changes do
+                const raw = snapshot()
+                change(raw)
+                expect(function()
+                    Coverage.mergeRaw({ snapshot(), raw })
+                end).to.throw()
+                expect(function()
+                    Coverage.collectRaw(raw)
+                end).to.throw()
+            end
+            rejects(nil, "Expected an array")
+            rejects({ [2] = snapshot() }, "hole")
+            rejects({ false }, "Expected a plain table")
+        end)
+
+        it("should not change inputs on success or on a mismatch late in the batch", function()
+            const first, second, invalid = snapshot(), snapshot(), snapshot()
+            second.Files[1].Entries[1].Hits[9] = 8
+            invalid.Files[1].Path = "/coverage/Z.luau"
+            const invalidOther = snapshot()
+            invalidOther.Files[1].Path = invalid.Files[1].Path
+            invalidOther.Files[1].Entries[2].Depth += 1
+            rejects({ first, second, invalid, invalidOther }, "layout mismatch")
+            expect(first).to.deepEqual(snapshot())
+            Coverage.mergeRaw({ first, second })
+            expect(first).to.deepEqual(snapshot())
+            expect(second.Files[1].Entries[1].Hits[9]).to.equal(8)
+        end)
+
+        it("should own merged and reported data independently of every caller table", function()
+            const input = snapshot()
+            const merged = Coverage.mergeRaw({ input })
+            const report = Coverage.collectRaw(merged)
+            input.Files[1].Entries[1].Hits[2] = 999
+            input.Files[1].Entries[1].Function = "changed"
+            input.Files[1].Name = "Changed"
+            table.clear(input.Files)
+            expect(merged).to.deepEqual(snapshot())
+            merged.Files[1].Entries[1].Hits[2] = 777
+            expect(report.Files[1].LineHits[2]).to.equal(3)
+            report.Files[1].LineHits[2] = 555
+            expect(merged.Files[1].Entries[1].Hits[2]).to.equal(777)
+            expect(Coverage.mergeRaw({ snapshot() })).to.deepEqual(snapshot())
+        end)
+
+        it("should report loaded raw data without access to its source or coverage runtime", function()
+            const raw = snapshot()
+            raw.Files[1].Path = "/nonexistent/raw-coverage-source.luau"
+            const report = Coverage.collectRaw(raw)
+            expect(report.Files[1].Loaded).to.equal(true)
+            expect(report.Files[1].Path).to.equal(raw.Files[1].Path)
+            expect(report.TotalExecutableLines).to.equal(5)
+            expect(report.TotalHitLines).to.equal(2)
+        end)
+    end)
+
+    describe("Coverage.captureRaw", function()
+        it("should deduplicate extension aliases after resolving the actual source filename", function()
+            if not debug.iscoverageenabled() then
+                return
+            end
+            const expected = Coverage.captureRaw({ A = sampleScript })
+            const raw = Coverage.captureRaw({
+                A = "Tests/CoverageFixtures/SampleModule",
+                B = "Tests/CoverageFixtures/SampleModule.luau",
+            })
+            expect(raw).to.deepEqual(expected)
+        end)
+
+        it("should combine overlapping directory and file roots without losing loaded entries", function()
+            if not debug.iscoverageenabled() then
+                return
+            end
+            const directory = Coverage.captureRaw(fixturesDir)
+            const sample = Coverage.captureRaw(sampleScript)
+            const raw = Coverage.captureRaw({
+                All = "Tests/CoverageFixtures",
+                One = "Tests/CoverageFixtures/SampleModule.luau",
+            })
+            assert(raw ~= nil and directory ~= nil and sample ~= nil)
+            expect(#raw.Files).to.equal(#directory.Files)
+            const seen = {}
+            local found = false
+            for _, file in ipairs(raw.Files) do
+                expect(seen[file.Path]).to.equal(nil)
+                seen[file.Path] = true
+                if file.Path == sample.Files[1].Path then
+                    found = true
+                    expect(file.Name).to.equal("One")
+                    expect(file.Loaded).to.equal(true)
+                    expect(file.Entries).to.deepEqual(sample.Files[1].Entries)
+                end
+            end
+            expect(found).to.equal(true)
+        end)
+
+        it("should still reject duplicate physical paths inside imported raw snapshots", function()
+            const raw = Coverage.captureRaw(sampleScript)
+            if raw == nil then
+                return
+            end
+            table.insert(raw.Files, table.clone(raw.Files[1]))
+            expect(pcall(Coverage.mergeRaw, { raw })).to.equal(false)
+            expect(pcall(Coverage.collectRaw, raw)).to.equal(false)
+        end)
+
+        it("should preserve actual loaded entries without reconstructing function layouts", function()
+            if not debug.iscoverageenabled() then
+                expect(Coverage.captureRaw(sampleScript)).to.equal(nil)
+                return
+            end
+            const raw = Coverage.captureRaw(sampleScript)
+            assert(raw ~= nil)
+            expect(raw.Version).to.equal(1)
+            expect(raw.Files[1].Entries).to.deepEqual(debug.getcoverage(sampleScript))
+            expect(raw.Files[1].Loaded).to.equal(true)
+            expect(raw.Files[1].Path).to.equal(Coverage.normalizePath("Tests/CoverageFixtures/SampleModule.luau"))
+            expect(Coverage.collectRaw(raw)).to.deepEqual(Coverage.collect(sampleScript))
+            raw.Files[1].Entries[1].Hits[1] = 999
+            const fresh = Coverage.captureRaw(sampleScript)
+            assert(fresh ~= nil)
+            expect(fresh.Files[1].Entries[1].Hits[1] == 999).to.equal(false)
+        end)
+
+        it("should retain unloaded source layouts, zero hits, and exclusions", function()
+            const raw = Coverage.captureRaw(fixturesDir)
+            if raw == nil then
+                return
+            end
+            local found = false
+            for _, file in raw.Files do
+                expect(file.Name:match("%.spec$")).to.equal(nil)
+                if file.Name == "UnrequiredModule" then
+                    found = true
+                    expect(file.Loaded).to.equal(false)
+                    expect(#file.Entries > 0).to.equal(true)
+                    for _, entry in file.Entries do
+                        for _, count in entry.Hits do
+                            expect(count <= 0).to.equal(true)
+                        end
+                    end
+                end
+            end
+            expect(found).to.equal(true)
+            const specs = Coverage.captureRaw(script)
+            assert(specs ~= nil)
+            expect(#specs.Files).to.equal(0)
+        end)
+
+        it("should retain tracked loaded entries even when on-disk source no longer compiles", function()
+            if not debug.iscoverageenabled() then
+                return
+            end
+            const fs = require("@lune/fs")
+            const luau = require("@lune/luau")
+            const path = `{tostring(fixturesDir)}/GeneratedRawTracked.luau`
+            const source = "return function() return 42 end"
+            fs.writeFile(path, source)
+            const ok, problem = pcall(function()
+                const unloaded = Coverage.captureRaw(fixturesDir.GeneratedRawTracked)
+                assert(unloaded ~= nil)
+                expect(unloaded.Files[1].Loaded).to.equal(false)
+                const chunk = luau.load(source, { debugName = path })
+                chunk()()
+                Coverage.track(path, chunk)
+                fs.writeFile(path, "return function(\n")
+                const raw = Coverage.captureRaw(fixturesDir.GeneratedRawTracked)
+                assert(raw ~= nil)
+                expect(raw.Files[1].Loaded).to.equal(true)
+                expect(raw.Files[1].Entries).to.deepEqual(debug.getcoverage(chunk))
+                expect(Coverage.collectRaw(raw).TotalHitLines > 0).to.equal(true)
+                expect(Coverage.mergeRaw({ unloaded, raw })).to.deepEqual(raw)
+                expect(Coverage.mergeRaw({ raw, unloaded })).to.deepEqual(raw)
+                const alternate = luau.load("return 7", { debugName = path })
+                Coverage.track(path, alternate)
+                const accepted, mismatch = pcall(Coverage.captureRaw, fixturesDir.GeneratedRawTracked)
+                expect(accepted).to.equal(false)
+                expect(tostring(mismatch):find("layout mismatch", 1, true) ~= nil).to.equal(true)
+            end)
+            fs.removeFile(path)
+            assert(ok, problem)
+        end)
+
+        it("should never retain imported coverage between independent collections", function()
+            const before = Coverage.captureRaw(sampleScript)
+            if before == nil then
+                return
+            end
+            const imported = Coverage.mergeRaw({ before })
+            for _, entry in imported.Files[1].Entries do
+                for line, count in entry.Hits do
+                    if count >= 0 then
+                        entry.Hits[line] = 999
+                    end
+                end
+            end
+            Coverage.collectRaw(Coverage.mergeRaw({ before, imported }))
+            expect(Coverage.captureRaw(sampleScript)).to.deepEqual(before)
+        end)
+    end, { Serial = true })
+
     describe("Coverage.normalizePath", function()
         it("should collapse empty, dot, and parent segments", function()
             expect(Coverage.normalizePath("/a//b/./c/../d.luau")).to.equal("/a/b/d.luau")
@@ -428,14 +942,11 @@ return function()
             expect(Config.CoverageThreshold).to.equal(0)
         end)
 
-        it("should set Coverage to true when coverage is available", function()
-            const hasApi = type(debug.iscoverageenabled) == "function"
-            if not hasApi then
-                return
-            end
-
-            Config.set({ Coverage = true })
-            expect(Config.Coverage).to.equal(true)
+        it("should enable Coverage only when runtime coverage is available", function()
+            const available = type(debug.iscoverageenabled) == "function" and debug.iscoverageenabled()
+            const ok = pcall(Config.set, { Coverage = true })
+            expect(ok).to.equal(available)
+            expect(Config.Coverage).to.equal(available)
         end)
 
         it("should set CoverageRoots", function()
@@ -464,10 +975,8 @@ return function()
         end)
 
         it("should reset coverage options", function()
-            const hasApi = type(debug.iscoverageenabled) == "function"
-            if hasApi then
-                Config.set({ Coverage = true })
-            end
+            const available = type(debug.iscoverageenabled) == "function" and debug.iscoverageenabled()
+            Config.set({ Coverage = available })
             Config.set({ CoverageThreshold = 90 })
             Config.set({ CoverageRoots = script })
             Config.reset()

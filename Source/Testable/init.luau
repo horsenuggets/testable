@@ -44,6 +44,8 @@ const EXIT_CODES = {
     Passed = 0,
     ToolError = 2,
 }
+const Discovery = if IS_LUNE then require("@self/Discovery") else nil
+local Testable: any
 
 export type Alignment = TableRenderer.Alignment
 export type Expect<Custom = {}> = SpecApi.Expect<Custom>
@@ -51,6 +53,26 @@ export type Expectation<Custom = {}> = SpecApi.Expectation<Custom>
 export type Matcher = SpecApi.Matcher
 export type MatcherResult = SpecApi.MatcherResult
 export type TableRow = TableRenderer.TableRow
+
+const function captureFileConfiguration(): any
+    const function copy(value: any): any
+        if type(value) ~= "table" then
+            return value
+        end
+        const owned = {}
+        for key, item in pairs(value) do
+            owned[key] = copy(item)
+        end
+        return owned
+    end
+    const options = {}
+    for key, value in pairs(Config) do
+        if type(value) ~= "function" then
+            options[key] = if key == "SnapshotStore" or key == "CoverageRoots" then value else copy(value)
+        end
+    end
+    return options
+end
 
 --[[
     Executes tests from the specified test roots, generates a test plan, runs the tests,
@@ -69,13 +91,18 @@ export type TableRow = TableRenderer.TableRow
     @return results - The test results object
     @return passed - Boolean indicating if all tests passed
 ]]
-const function run(testRoots: any): (any, boolean)
+const function runConfigured(testRoots: any, fileRoot: string?, fileMode: boolean): (any, boolean)
     if not testRoots then
         error("testRoots must be provided")
     end
     if type(testRoots) == "table" and #testRoots == 0 and next(testRoots) == nil then
         error("testRoots must be a non-empty table")
     end
+
+    if fileMode and not IS_LUNE then
+        error(ToolError.new(ToolError.Kind.InvalidConfiguration, "File-oriented test execution requires Lune."), 0)
+    end
+    const fileConfiguration = if fileMode then captureFileConfiguration() else nil
 
     -- Snapshot coverage config before tests run, since tests may call
     -- Config.reset() which would wipe the coverage settings
@@ -99,7 +126,11 @@ const function run(testRoots: any): (any, boolean)
         error(ToolError.new(ToolError.Kind.InvalidReporters, message), 0)
     end
     const slowestTests = Config.SlowestTests
-    if selection.NeedsCoverage and not (coverageEnabled and coverageRoots ~= nil) then
+    const workerSetup = Config.WorkerSetup
+    if
+        selection.NeedsCoverage
+        and not (coverageEnabled and (coverageRoots ~= nil or (fileMode and workerSetup ~= nil)))
+    then
         error(
             ToolError.new(
                 ToolError.Kind.InvalidReporters,
@@ -111,11 +142,87 @@ const function run(testRoots: any): (any, boolean)
 
     -- A machine-readable report on standard output has to be the only thing there, so
     -- whatever is printed while tests are planned and run goes to standard error.
-    const results = StandardOutputGuard.run(selection.StandardOutput ~= nil, function()
+    const outcome = StandardOutputGuard.run(selection.StandardOutput ~= nil, function()
+        if fileConfiguration ~= nil then
+            const Coordinator = require("@self/Workers/Coordinator")
+            const options = {
+                Config = fileConfiguration,
+                Groups = fileConfiguration.WorkerGroups,
+                Setup = fileConfiguration.WorkerSetup,
+                Workers = fileConfiguration.Workers,
+            }
+            if options.Workers > 1 then
+                if fileConfiguration.SnapshotStore ~= nil then
+                    error(
+                        ToolError.new(
+                            ToolError.Kind.InvalidConfiguration,
+                            "SnapshotStore functions cannot cross worker VMs. Use Workers = 1 to retain a parent-owned store, "
+                                .. "or construct an independent worker-local store in WorkerSetup."
+                        ),
+                        0
+                    )
+                end
+                const roots = fileConfiguration.CoverageRoots
+                local transferableRoots = roots == nil or type(roots) == "string"
+                if type(roots) == "table" and getmetatable(roots) == nil then
+                    transferableRoots = true
+                    const ownedRoots = {}
+                    for name, value in pairs(roots) do
+                        if type(name) ~= "string" or type(value) ~= "string" then
+                            transferableRoots = false
+                            break
+                        end
+                        ownedRoots[name] = value
+                    end
+                    if transferableRoots then
+                        fileConfiguration.CoverageRoots = ownedRoots
+                    end
+                end
+                if not transferableRoots then
+                    error(
+                        ToolError.new(
+                            ToolError.Kind.InvalidConfiguration,
+                            "CoverageRoots userdata cannot cross worker VMs. Pass filesystem paths, "
+                                .. "or construct the roots inside WorkerSetup."
+                        ),
+                        0
+                    )
+                end
+                if next(TestRunner.environment) ~= nil and workerSetup == nil then
+                    error(
+                        ToolError.new(
+                            ToolError.Kind.InvalidConfiguration,
+                            "TestRunner.environment is VM-local. Recreate its bindings in WorkerSetup before running actors."
+                        ),
+                        0
+                    )
+                end
+                -- Coordinator-only settings do not recursively fan out nested file runs.
+                fileConfiguration.Workers = 1
+                fileConfiguration.WorkerGroups = {}
+                fileConfiguration.WorkerSetup = nil
+                const result = Coordinator.run(testRoots, fileRoot, options, selection.StandardOutput ~= nil)
+                result.CoverageFromWorkers = true
+                return result
+            end
+            const prepared = Coordinator.prepare(testRoots, fileRoot, options)
+            if prepared.Setup ~= nil then
+                const setup = Discovery.Loader.load(prepared.Setup)
+                assert(type(setup) == "function", "WorkerSetup must return a function.")
+                setup(Testable, { Files = table.clone(prepared.Files), JobId = 1, Root = prepared.Root })
+            end
+            const localCoverageRoots = Config.CoverageRoots
+            const roots = Discovery.load(prepared.Files, prepared.Root)
+            const modules = TestBootstrap:getModulesFromMultipleRoots(roots)
+            const plan = TestPlanner.createPlan(modules, filter, nil, suiteOrder)
+            plan.forbidFocus = fileConfiguration.ForbidFocus
+            return { CoverageRoots = localCoverageRoots, LocalFiles = true, Results = TestRunner.runPlan(plan) }
+        end
         const modules = TestBootstrap:getModulesFromMultipleRoots(testRoots)
         const plan = TestPlanner.createPlan(modules, filter, nil, suiteOrder)
-        return TestRunner.runPlan(plan)
+        return { Results = TestRunner.runPlan(plan) }
     end)
+    const results = outcome.Results
 
     if selection.Text then
         TextReporter.report(results, slowestTests)
@@ -125,8 +232,15 @@ const function run(testRoots: any): (any, boolean)
     local coverageReport = nil
 
     if coverageEnabled then
-        if coverageRoots ~= nil then
-            coverageReport = Coverage.collect(coverageRoots)
+        if outcome.CoverageFromWorkers then
+            if outcome.RawCoverage ~= nil then
+                coverageReport = Coverage.collectRaw(outcome.RawCoverage)
+            end
+        else
+            const roots = if outcome.LocalFiles then outcome.CoverageRoots else coverageRoots
+            if roots ~= nil then
+                coverageReport = Coverage.collect(roots)
+            end
         end
 
         if coverageReport ~= nil and selection.Text then
@@ -148,15 +262,28 @@ const function run(testRoots: any): (any, boolean)
         end
     end
 
+    if selection.NeedsCoverage and coverageReport == nil then
+        error(
+            ToolError.new(
+                ToolError.Kind.InvalidReporters,
+                'The "Lcov" reporter needs coverage roots in every execution VM. Configure them before loading specs.'
+            ),
+            0
+        )
+    end
     ReporterSelection.emit(selection, results, coverageReport)
 
     return results, passed
 end
 
--- Discovery needs Lune's filesystem and process libraries, so it is only required on Lune
--- and is nil everywhere else. Requiring it unconditionally would stop this package from
--- loading on Roblox.
-const Discovery = if IS_LUNE then require("@self/Discovery") else nil
+const function run(testRoots: any): (any, boolean)
+    return runConfigured(testRoots, nil, false)
+end
+
+-- Paths remain unloaded until the run has captured its configuration and reporters.
+const function runFiles(files: { string }, root: string?): (any, boolean)
+    return runConfigured(files, root, true)
+end
 
 --[[
     Runs tests like run() and turns the outcome into a process exit code, so scripts can
@@ -173,12 +300,17 @@ const Discovery = if IS_LUNE then require("@self/Discovery") else nil
         coverage below its threshold), and 2 for a tool error
     @return results - The test results object, or nil after a tool error
 ]]
-const function runToExitCode(testRoots: any, options: Config.ConfigOptions?): (number, any?)
+const function runWithExitCode(
+    runner: (any, string?) -> (any, boolean),
+    testRoots: any,
+    options: Config.ConfigOptions?,
+    root: string?
+): (number, any?)
     const ok, results, passed = xpcall(function()
         if options ~= nil then
             Config.set(options)
         end
-        return run(testRoots)
+        return runner(testRoots, root)
     end, function(problem)
         return if ToolError.is(problem) then problem else debug.traceback(tostring(problem), 2)
     end)
@@ -199,10 +331,20 @@ const function runToExitCode(testRoots: any, options: Config.ConfigOptions?): (n
     return if passed then EXIT_CODES.Passed else EXIT_CODES.Failed, results
 end
 
+const function runToExitCode(testRoots: any, options: Config.ConfigOptions?): (number, any?)
+    return runWithExitCode(run, testRoots, options, nil)
+end
+
+const function runFilesToExitCode(files: { string }, options: Config.ConfigOptions?, root: string?): (number, any?)
+    return runWithExitCode(runFiles, files, options, root)
+end
+
 const modules = {
     configure = Config.set,
     resetConfig = Config.reset,
     run = run,
+    runFiles = runFiles,
+    runFilesToExitCode = runFilesToExitCode,
     runToExitCode = runToExitCode,
 
     Config = Config,
@@ -241,7 +383,7 @@ const modules = {
 -- The spec API (describe, it, expect, and so on) is exported alongside the modules above
 -- so that specs can require it instead of relying on injected globals. SpecApi generates
 -- it from the spec environment, so it is merged in rather than listed here.
-const Testable = table.clone(modules) :: { [string]: any }
+Testable = table.clone(modules) :: { [string]: any }
 
 for key, value in SpecApi.create() :: { [string]: any } do
     assert(Testable[key] == nil, `The spec API entry "{key}" collides with a Testable export`)

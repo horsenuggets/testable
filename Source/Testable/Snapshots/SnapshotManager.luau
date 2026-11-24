@@ -35,6 +35,8 @@ export type Options = {
     -- Whether the Lune filesystem store may be used when no store is set. This is
     -- detected from the runtime when left out.
     HasFilesystem: boolean?,
+    -- Worker runs claim default-store paths at their global planning barrier.
+    PathGuard: ((path: string) -> ())?,
     Store: Store?,
     Update: boolean?,
 }
@@ -109,6 +111,7 @@ export type SnapshotManager = typeof(setmetatable(
         _isAborted: boolean,
         _isUpdating: boolean,
         _paths: { [any]: string },
+        _pathGuard: ((path: string) -> ())?,
         _store: Store?,
         _summary: Summary,
     },
@@ -123,6 +126,10 @@ export type SnapshotManager = typeof(setmetatable(
 ]]
 function SnapshotManager.new(options: Options?): SnapshotManager
     assert(options == nil or type(options) == "table", "options must be a table or nil")
+    assert(
+        options == nil or options.PathGuard == nil or type(options.PathGuard) == "function",
+        "PathGuard must be a function or nil"
+    )
 
     const self = {
         _displayRoot = nil,
@@ -133,6 +140,7 @@ function SnapshotManager.new(options: Options?): SnapshotManager
         _isAborted = false,
         _isUpdating = options ~= nil and options.Update == true,
         _paths = {},
+        _pathGuard = if options then options.PathGuard else nil,
         _store = if options then options.Store else nil,
         _summary = { Failed = 0, Matched = 0, Obsolete = {}, Removed = 0, Updated = 0, Written = 0 },
     }
@@ -217,6 +225,9 @@ end
 function SnapshotManager._load(self: SnapshotManager, store: Store, path: string): File?
     if self._isAborted then
         return nil
+    end
+    if self._pathGuard ~= nil then
+        self._pathGuard(path)
     end
 
     const existing = self._files[path]
