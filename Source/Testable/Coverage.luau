@@ -615,19 +615,10 @@ function Coverage.resolveRoots(roots: any): { { Name: string, Script: any } }
     return results
 end
 
---[[
-    Captures owned, acyclic raw coverage for transport to a coordinator. Returns nil when
-    coverage is disabled. Loaded files retain their actual ordered debug.getcoverage
-    entries, never a reconstruction from source or report totals.
-]]
-function Coverage.captureRaw(roots: any): RawSnapshot?
-    const hasApi = type(debug.iscoverageenabled) == "function"
-    if not hasApi or not debug.iscoverageenabled() then
-        return nil
-    end
-
+-- Extension aliases and directory/file roots share one physical source, while every
+-- reference contributes its actual runtime entries.
+const function groupRoots(roots: any): { [string]: { Name: string, Scripts: { any } } }
     const fs = require("@lune/fs")
-    const files: { RawFile } = {}
     const groups: { [string]: { Name: string, Scripts: { any } } } = {}
     for _, entry in Coverage.resolveRoots(roots) do
         local path = tostring(entry.Script)
@@ -646,41 +637,55 @@ function Coverage.captureRaw(roots: any): RawSnapshot?
         end
         table.insert(group.Scripts, entry.Script)
     end
-    -- Extension aliases and directory/file roots can resolve to one filename. Gather
-    -- every reference's runtime data, but compile and report that physical source once.
-    for path, group in pairs(groups) do
+    return groups
+end
+
+--[[
+    Captures owned, acyclic raw coverage for transport to a coordinator. Returns nil when
+    coverage is disabled. Loaded files retain their actual ordered debug.getcoverage
+    entries, never a reconstruction from source or report totals.
+]]
+function Coverage.captureRaw(roots: any): RawSnapshot?
+    const hasApi = type(debug.iscoverageenabled) == "function"
+    if not hasApi or not debug.iscoverageenabled() then
+        return nil
+    end
+
+    const files: { RawFile } = {}
+    for path, group in pairs(groupRoots(roots)) do
         const entries, loaded = gatherEntries(group.Scripts, path)
         table.insert(files, { Entries = entries, Loaded = loaded, Name = group.Name, Path = path })
     end
     return Coverage.mergeRaw({ { Files = files, Version = 1 } })
 end
 
---[[
-    Converts a raw snapshot into the existing report shape without reading or compiling
-    source files. Validation and copying also make standalone worker snapshots safe to
-    report without requiring a separate merge first.
-]]
-function Coverage.collectRaw(snapshot: RawSnapshot): CoverageReport
-    const owned = Coverage.mergeRaw({ snapshot })
+const function reportFile(file: RawFile): FileCoverage
+    const fileFunctions, fileHit, fileExecutable, lineHits = reportEntries(file.Entries, file.Loaded)
+    return {
+        Name = file.Name,
+        Path = file.Path,
+        Functions = fileFunctions,
+        ExecutableLines = fileExecutable,
+        HitLines = fileHit,
+        LineHits = lineHits,
+        Loaded = file.Loaded,
+        Percentage = Coverage.percentage(fileHit, fileExecutable),
+    }
+end
+
+-- File rows are independently owned and already sorted by absolute path. Convert paths
+-- only after sorting, since relative display paths can change their lexical order.
+const function reportFiles(files: { FileCoverage }): CoverageReport
     const cwd = if IS_LUNE then Coverage.normalizePath(require("@lune/process").cwd) else ""
     const prefix = if cwd:sub(-1) == "/" then cwd else `{cwd}/`
-    const files: { FileCoverage } = {}
     local grandTotalHit = 0
     local grandTotalExecutable = 0
-    for _, file in owned.Files do
-        const fileFunctions, fileHit, fileExecutable, lineHits = reportEntries(file.Entries, file.Loaded)
-        grandTotalHit += fileHit
-        grandTotalExecutable += fileExecutable
-        table.insert(files, {
-            Name = file.Name,
-            Path = if cwd ~= "" and file.Path:sub(1, #prefix) == prefix then file.Path:sub(#prefix + 1) else file.Path,
-            Functions = fileFunctions,
-            ExecutableLines = fileExecutable,
-            HitLines = fileHit,
-            LineHits = lineHits,
-            Loaded = file.Loaded,
-            Percentage = Coverage.percentage(fileHit, fileExecutable),
-        })
+    for _, file in files do
+        grandTotalHit += file.HitLines
+        grandTotalExecutable += file.ExecutableLines
+        if cwd ~= "" and file.Path:sub(1, #prefix) == prefix then
+            file.Path = file.Path:sub(#prefix + 1)
+        end
     end
     return {
         Files = files,
@@ -690,11 +695,51 @@ function Coverage.collectRaw(snapshot: RawSnapshot): CoverageReport
     }
 end
 
--- Collects local coverage through the same raw gathering and reporting paths. Imported
--- snapshots are only ever merged explicitly, so no run can inherit imported state.
+--[[
+    Converts a raw snapshot into the existing report shape without reading or compiling
+    source files. Validation and copying also make standalone worker snapshots safe to
+    report without requiring a separate merge first.
+]]
+function Coverage.collectRaw(snapshot: RawSnapshot): CoverageReport
+    const owned = Coverage.mergeRaw({ snapshot })
+    const files: { FileCoverage } = {}
+    for _, file in owned.Files do
+        table.insert(files, reportFile(file))
+    end
+    return reportFiles(files)
+end
+
+-- Serial reporting keeps raw entries for one physical file at a time. Public transport
+-- snapshots remain independently owned, but need not be materialized for a local report.
 function Coverage.collect(roots: any): CoverageReport?
-    const snapshot = Coverage.captureRaw(roots)
-    return if snapshot ~= nil then Coverage.collectRaw(snapshot) else nil
+    const hasApi = type(debug.iscoverageenabled) == "function"
+    if not hasApi or not debug.iscoverageenabled() then
+        return nil
+    end
+
+    const files: { FileCoverage } = {}
+    local validationProblem: any = nil
+    for path, group in pairs(groupRoots(roots)) do
+        const entries, loaded = gatherEntries(group.Scripts, path)
+        const file = { Entries = entries, Loaded = loaded, Name = group.Name, Path = path }
+        if validationProblem == nil then
+            const ok, problem = pcall(validateSnapshot, { Files = { file }, Version = 1 })
+            if ok then
+                table.insert(files, reportFile(file))
+            else
+                validationProblem = problem
+            end
+        end
+    end
+    -- Capture gathers every file before validating its snapshot. A later gathering
+    -- failure must still take precedence over an earlier invalid file's raw schema.
+    if validationProblem ~= nil then
+        error(validationProblem, 0)
+    end
+    table.sort(files, function(first, second)
+        return first.Path < second.Path
+    end)
+    return reportFiles(files)
 end
 
 --[[

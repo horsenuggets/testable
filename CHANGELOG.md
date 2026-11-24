@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.2
+
+- Reduced serial coverage reporting's raw snapshot retention to one physical source file at a time, while preserving full source eligibility and actual native entries.
+- Preserved public raw transport ownership, strict layouts, validation error precedence, aliases, function totals, line-hit maxima and late tracked callback hits.
+- Added report parity, malformed native data, failure ordering and repeated collection regressions.
+
 ## 1.6.1
 
 - Avoided formatting per-hit layout error messages for matching raw coverage snapshots while preserving validation order and exact failure messages.
