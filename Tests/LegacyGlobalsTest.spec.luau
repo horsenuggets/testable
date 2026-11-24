@@ -62,7 +62,7 @@ return function()
             expect.extend({
                 beLegacy = function(value)
                     return { message = "Expected the legacy value", pass = value == "legacy" }
-                end,
+                end
             })
 
             expect("legacy").to.beLegacy()

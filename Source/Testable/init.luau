@@ -42,7 +42,7 @@ const ToolError = require("@self/ToolError")
 const EXIT_CODES = {
     Failed = 1,
     Passed = 0,
-    ToolError = 2,
+    ToolError = 2
 }
 const Discovery = if IS_LUNE then require("@self/Discovery") else nil
 local Testable: any
@@ -159,7 +159,7 @@ const function runConfigured(testRoots: any, fileRoot: string?, fileMode: boolea
                 Config = fileConfiguration,
                 Groups = fileConfiguration.WorkerGroups,
                 Setup = fileConfiguration.WorkerSetup,
-                Workers = fileConfiguration.Workers,
+                Workers = fileConfiguration.Workers
             }
             if options.Workers > 1 then
                 if fileConfiguration.SnapshotStore ~= nil then
@@ -229,7 +229,7 @@ const function runConfigured(testRoots: any, fileRoot: string?, fileMode: boolea
             return {
                 CoverageRoots = localCoverageRoots,
                 LocalFiles = true,
-                Results = TestRunner.runPlan(plan, { Logging = logging }),
+                Results = TestRunner.runPlan(plan, { Logging = logging })
             }
         end
         const modules = TestBootstrap:getModulesFromMultipleRoots(testRoots)
@@ -371,7 +371,7 @@ const modules = {
         JUnitReporter = JUnitReporter,
         JsonReporter = JsonReporter,
         LcovReporter = LcovReporter,
-        TextReporter = TextReporter,
+        TextReporter = TextReporter
     },
     Snapshots = {
         MemorySnapshotStore = MemorySnapshotStore,
@@ -380,7 +380,7 @@ const modules = {
         SnapshotLogic = SnapshotLogic,
         SnapshotManager = SnapshotManager,
         SnapshotSerializer = SnapshotSerializer,
-        SnapshotSummary = SnapshotSummary,
+        SnapshotSummary = SnapshotSummary
     },
     TableRenderer = TableRenderer,
     TestBootstrap = TestBootstrap,
@@ -391,7 +391,7 @@ const modules = {
     TestResults = TestResults,
     TestRunner = TestRunner,
     TestSession = TestSession,
-    ToolError = ToolError,
+    ToolError = ToolError
 }
 
 -- The spec API (describe, it, expect, and so on) is exported alongside the modules above

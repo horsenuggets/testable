@@ -23,7 +23,7 @@ const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 const BOOLEANS = { false, true }
 const EXECUTION_MODES = {
     { Name = "parallel", Parallel = true },
-    { Name = "sequential", Parallel = false },
+    { Name = "sequential", Parallel = false }
 }
 -- Each body focuses one test named "focused" and leaves two others excluded.
 const FOCUS_VARIANTS = {
@@ -33,7 +33,7 @@ const FOCUS_VARIANTS = {
             it("first excluded", function() end)
             it("second excluded", function() end)
         ]],
-        Name = "itFOCUS",
+        Name = "itFOCUS"
     },
     {
         Body = [[
@@ -41,7 +41,7 @@ const FOCUS_VARIANTS = {
             it("first excluded", function() end)
             it("second excluded", function() end)
         ]],
-        Name = "fit",
+        Name = "fit"
     },
     {
         Body = [[
@@ -53,7 +53,7 @@ const FOCUS_VARIANTS = {
             end)
             it("second excluded", function() end)
         ]],
-        Name = "describeFOCUS",
+        Name = "describeFOCUS"
     },
     {
         Body = [[
@@ -65,7 +65,7 @@ const FOCUS_VARIANTS = {
             end)
             it("second excluded", function() end)
         ]],
-        Name = "fdescribe",
+        Name = "fdescribe"
     },
     {
         Body = [[
@@ -80,8 +80,8 @@ const FOCUS_VARIANTS = {
                 it("second excluded", function() end)
             end)
         ]],
-        Name = "FOCUS",
-    },
+        Name = "FOCUS"
+    }
 }
 const FOCUS_SUMMARY = "tests were excluded by focus."
 const GUARD_ERROR = 'Focus is forbidden by "ForbidFocus"'
@@ -115,8 +115,8 @@ const function runPlan(focusPresent: boolean, guardEnabled: boolean, focusedFail
                 Testable.it("second excluded", function() end)
             end,
             path = { "GuardSpec" },
-            pathStringForSorting = "guardspec",
-        },
+            pathStringForSorting = "guardspec"
+        }
     })
     plan.forbidFocus = guardEnabled
     return Testable.TestRunner.runPlan(plan)
@@ -420,13 +420,13 @@ return function()
                                     end)
                                 end,
                                 path = { "Shard" },
-                                pathStringForSorting = "shard",
-                            },
+                                pathStringForSorting = "shard"
+                            }
                         })
                         plan.forbidFocus = true
                         const results = Testable.TestRunner.runPlan(plan, {
                             ForbidFocus = guard,
-                            HasFocus = globalFocus,
+                            HasFocus = globalFocus
                         })
                         const excluded = if not globalFocus then 0 elseif localFocus then 1 else 2
                         expect(executed).to.equal(2 - excluded)
@@ -446,7 +446,7 @@ return function()
                     { HasFocus = 1 },
                     { ForbidFocus = "yes" },
                     { RootGate = false },
-                    { RootGate = { Acquire = function() end } },
+                    { RootGate = { Acquire = function() end } }
                 }
             do
                 expect(pcall(Testable.TestRunner.runPlan, plan, options :: any)).to.equal(false)

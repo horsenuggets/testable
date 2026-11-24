@@ -14,7 +14,7 @@ const TestEnum = require("./TestEnum")
 export type Selection = {
     Matched: number,
     PlanningErrors: number,
-    Total: number,
+    Total: number
 }
 
 const TestFilter = {}

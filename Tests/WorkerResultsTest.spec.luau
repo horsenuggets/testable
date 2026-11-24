@@ -63,7 +63,7 @@ const function run(
             method = methods[name],
             path = { name },
             pathStringForSorting = name,
-            snapshotPath = `Tests/{name}.spec.luau`,
+            snapshotPath = `Tests/{name}.spec.luau`
         })
     end
     const plan = Testable.TestPlanner.createPlan(modules, nil, nil, names)
@@ -155,7 +155,7 @@ return function()
                     Testable.it("excluded beta", function() end)
                     Testable.it("excluded gamma", function() end)
                 end)
-            end,
+            end
         }
         const first = run({ "Alpha" }, methods, true)
         const second = run({ "Beta" }, methods, true)
@@ -202,7 +202,7 @@ return function()
                 end, "group reason")
                 Testable.itFOCUS("filtered focus", function() end)
                 Testable.it("keep passes", function() end)
-            end,
+            end
         }
         const input = run({ "Spec" }, methods, nil, false, "keep")
         const merged = Results.merge({ input }, { "Spec" }, "keep", true, 12.5)
@@ -224,7 +224,7 @@ return function()
             Spec = function()
                 Testable.itFOCUS("selected", function() end)
                 Testable.it("excluded", function() end)
-            end,
+            end
         }
         const input = run({ "Spec" }, methods, true)
         const merged = Results.merge({ input }, { "Spec" }, nil, false, 12.5)
@@ -249,7 +249,7 @@ return function()
                         Testable.it("never runs", function() end)
                     end)
                 end)
-            end,
+            end
         }
         const input = run({ "Hooks" }, methods)
         const merged = Results.merge({ input }, { "Hooks" }, nil, false, 12.5)
@@ -308,7 +308,7 @@ return function()
             Obsolete = { { Path = "z.snap", Key = "a" }, { Path = "a.snap", Key = "z" } },
             Removed = 3,
             Updated = 4,
-            Written = 5,
+            Written = 5
         }
         const second = shard({ "Beta" })
         second.snapshotSummary = {
@@ -317,7 +317,7 @@ return function()
             Obsolete = { { Path = "a.snap", Key = "b" }, { Path = "a.snap", Key = "a" } },
             Removed = 8,
             Updated = 9,
-            Written = 10,
+            Written = 10
         }
         const merged = Results.merge({ second, first }, { "Alpha", "Beta" }, nil, false, 0)
         const summary = merged.snapshotSummary

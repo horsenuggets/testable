@@ -11,7 +11,7 @@ All decisions are synchronous and own their input data without loading or runnin
 export type Grant = {
     JobId: number,
     Name: string,
-    RequestId: number,
+    RequestId: number
 }
 
 export type State = {
@@ -24,7 +24,7 @@ export type State = {
     OwnerByName: { [string]: number },
     ReleasedCount: number,
     RequestedByName: { [string]: Grant },
-    UsedRequestIds: { [number]: { [number]: boolean } },
+    UsedRequestIds: { [number]: { [number]: boolean } }
 }
 
 const Gates = {}
@@ -115,7 +115,7 @@ function Gates.new(order: { string }, exclusiveByName: { [string]: boolean }, ow
         OwnerByName = ownedOwners,
         ReleasedCount = 0,
         RequestedByName = {},
-        UsedRequestIds = {},
+        UsedRequestIds = {}
     }
 end
 

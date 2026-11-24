@@ -185,7 +185,7 @@ const function newEnvironment(currentNode, extraEnvironment)
         [TestEnum.NodeType.BeforeAll] = "beforeAll",
         [TestEnum.NodeType.AfterAll] = "afterAll",
         [TestEnum.NodeType.BeforeEach] = "beforeEach",
-        [TestEnum.NodeType.AfterEach] = "afterEach",
+        [TestEnum.NodeType.AfterEach] = "afterEach"
     }
 
     for nodeType, name in pairs(lifecycleHooks) do
@@ -233,11 +233,11 @@ const function newEnvironment(currentNode, extraEnvironment)
     env.expect = setmetatable({
         extend = function(...)
             error('Cannot call "expect.extend" from within a "describe" node.')
-        end,
+        end
     }, {
         __call = function(_self, ...)
             return Expectation.new(...)
-        end,
+        end
     })
 
     return env
@@ -262,7 +262,7 @@ function TestNode.new(plan, phrase, nodeType, nodeModifier)
         children = {},
         callback = nil,
         parent = nil,
-        skipReason = nil,
+        skipReason = nil
     }
 
     node.environment = newEnvironment(node, plan.extraEnvironment)
@@ -348,7 +348,7 @@ function TestPlan.new(extraEnvironment)
         filter = nil,
         -- Snapshot the focus guard before any spec code runs, since a describe block or
         -- a test may call Config.reset() which would turn it back off.
-        forbidFocus = Config.ForbidFocus,
+        forbidFocus = Config.ForbidFocus
     }
 
     return setmetatable(plan, TestPlan)

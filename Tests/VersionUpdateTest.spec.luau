@@ -162,8 +162,8 @@ const function runVersionCheck(repoPath: string): (boolean, string)
         cwd = repoPath,
         stdio = {
             stdout = "default",
-            stderr = "default",
-        },
+            stderr = "default"
+        }
     })
     const stdout = result.stdout or ""
     const stderr = result.stderr or ""

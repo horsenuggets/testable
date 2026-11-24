@@ -13,14 +13,14 @@ const ENTITIES = {
     apos = "'",
     gt = ">",
     lt = "<",
-    quot = '"',
+    quot = '"'
 }
 
 export type Element = {
     Attributes: { [string]: string },
     Children: { Element },
     Name: string,
-    Text: string,
+    Text: string
 }
 
 const Xml = {}
@@ -104,7 +104,7 @@ function Xml.parse(document: string): Element
                 Attributes = parseAttributes(body:sub(#name + 1)),
                 Children = {},
                 Name = name,
-                Text = "",
+                Text = ""
             }
             if #stack > 0 then
                 table.insert(stack[#stack].Children, element)

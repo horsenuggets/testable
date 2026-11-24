@@ -22,7 +22,7 @@ const process = require("@lune/process")
 -- A directory and the same directory with every symlink resolved.
 export type Mapping = {
     Logical: string,
-    Physical: string,
+    Physical: string
 }
 
 const WORKING_DIRECTORY_SCRIPT = 'require("@lune/stdio").write(require("@lune/process").cwd)'
@@ -43,7 +43,7 @@ local hasCachedMapping = false
 const function resolveSymlinks(directory: string): string?
     const ok, result = pcall(process.exec, "lune", { "run", "-" }, {
         cwd = directory,
-        stdio = { stdin = WORKING_DIRECTORY_SCRIPT },
+        stdio = { stdin = WORKING_DIRECTORY_SCRIPT }
     })
     if not ok or not result.ok or result.stdout == "" then
         return nil

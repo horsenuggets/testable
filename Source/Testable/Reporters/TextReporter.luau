@@ -16,7 +16,7 @@ const SEPARATOR = string.rep("─", 64)
 const STATUS_SYMBOLS = {
     [TestEnum.TestStatus.Failure] = "✗",
     [TestEnum.TestStatus.Skipped] = "○",
-    [TestEnum.TestStatus.Success] = "✓",
+    [TestEnum.TestStatus.Success] = "✓"
 }
 const TestService = game and game:GetService("TestService")
 
@@ -26,7 +26,7 @@ export type Options = {
     AlphabeticalSort: boolean,
     Color: boolean,
     Indent: string,
-    PrintSkipped: boolean,
+    PrintSkipped: boolean
 }
 
 const function getOptions(): Options
@@ -34,7 +34,7 @@ const function getOptions(): Options
         AlphabeticalSort = Config.AlphabeticalSort,
         Color = IS_LUNE,
         Indent = Config.Indent,
-        PrintSkipped = Config.PrintSkipped,
+        PrintSkipped = Config.PrintSkipped
     }
 end
 

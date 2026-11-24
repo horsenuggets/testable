@@ -36,7 +36,7 @@ const CONTROL_ESCAPES = {
     ["\r"] = "\\r",
     ["\t"] = "\\t",
     ['"'] = '\\"',
-    ["\\"] = "\\\\",
+    ["\\"] = "\\\\"
 }
 const INDENT = "  "
 const VERSION = 1
@@ -148,7 +148,7 @@ function JsonReporter.format(results: any): string
         `{INDENT}{INDENT}"Failed": {failed},`,
         `{INDENT}{INDENT}"Skipped": {skipped},`,
         `{INDENT}{INDENT}"Duration": {ResultTree.formatSeconds(ResultTree.duration(results))}`,
-        `{INDENT}\},`,
+        `{INDENT}\},`
     }
     if type(results.snapshotSummary) == "table" then
         appendSnapshots(results.snapshotSummary, lines)

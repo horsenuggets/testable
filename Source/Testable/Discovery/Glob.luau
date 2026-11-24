@@ -14,7 +14,7 @@ export type FileSystem = {
     IsDir: (path: string) -> boolean,
     IsFile: (path: string) -> boolean,
     ReadDir: (path: string) -> { string },
-    ReadFile: (path: string) -> string,
+    ReadFile: (path: string) -> string
 }
 
 const Glob = {}

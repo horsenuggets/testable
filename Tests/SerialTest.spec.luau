@@ -22,7 +22,7 @@ const WINDOW = 0.04
 
 const function runSuite(body: () -> ()): any
     return TestRunner.runPlan(TestPlanner.createPlan({
-        { method = body, path = { "Suite" }, pathStringForSorting = "suite" },
+        { method = body, path = { "Suite" }, pathStringForSorting = "suite" }
     }))
 end
 
@@ -92,8 +92,8 @@ return function()
                         expect(node).to.equal(root)
                         expect(granted).to.equal(token)
                         table.insert(events, "release")
-                    end,
-                },
+                    end
+                }
             })
             expect(results.failureCount).to.equal(0)
             expect(events).to.deepEqual({ "acquire", "beforeAll", "test", "afterAll", "release" })
@@ -121,8 +121,8 @@ return function()
                     Release = function(_node, token)
                         expect(token).to.equal(7)
                         table.insert(events, "release")
-                    end,
-                },
+                    end
+                }
             })
             expect(results.failureCount).to.equal(1)
             expect(events).to.deepEqual({ "acquire", "afterAll", "release" })

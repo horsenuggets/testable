@@ -16,7 +16,7 @@ const INLINE_WIDTH = 72
 const KEY_TYPE_ORDER = {
     number = 1,
     string = 2,
-    boolean = 3,
+    boolean = 3
 }
 const LAST_KEY_TYPE_ORDER = 4
 const STRING_ESCAPES = {
@@ -24,14 +24,14 @@ const STRING_ESCAPES = {
     ["\r"] = "\\r",
     ["\t"] = "\\t",
     ['"'] = '\\"',
-    ["\\"] = "\\\\",
+    ["\\"] = "\\\\"
 }
 
 const ValueInspector = {}
 
 export type FormatOptions = {
     MaxDepth: number?,
-    MaxItems: number?,
+    MaxItems: number?
 }
 
 type VisitedPairs = { [any]: { [any]: boolean } }

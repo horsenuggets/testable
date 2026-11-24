@@ -13,7 +13,7 @@ export type Kind = "EmptyCoverage" | "EmptyFilter" | "InvalidConfiguration" | "I
 
 export type ToolError = {
     Kind: Kind,
-    Message: string,
+    Message: string
 }
 
 const KINDS = {
@@ -21,7 +21,7 @@ const KINDS = {
     EmptyFilter = "EmptyFilter" :: Kind,
     InvalidConfiguration = "InvalidConfiguration" :: Kind,
     InvalidReporters = "InvalidReporters" :: Kind,
-    WorkerFailure = "WorkerFailure" :: Kind,
+    WorkerFailure = "WorkerFailure" :: Kind
 }
 
 const ToolError = {}
@@ -29,7 +29,7 @@ const ToolError = {}
 const metatable = {
     __tostring = function(self: ToolError): string
         return self.Message
-    end,
+    end
 }
 
 --[[

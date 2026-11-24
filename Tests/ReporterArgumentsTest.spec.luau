@@ -35,7 +35,7 @@ return function()
             "--reporter",
             "junit",
             "--reporter",
-            "Lcov",
+            "Lcov"
         })
         const reporters = options.Reporters :: { string }
         expect(table.concat(reporters, ",")).to.equal("Text,Json,JUnit,Lcov")
@@ -52,7 +52,7 @@ return function()
             "--reporter",
             "junit",
             "--output",
-            "reports/junit.xml",
+            "reports/junit.xml"
         })
         expect(options.ReporterOutputs.Json).to.equal("results.json")
         expect(options.ReporterOutputs.JUnit).to.equal("reports/junit.xml")

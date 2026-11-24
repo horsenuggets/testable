@@ -67,7 +67,7 @@ return function()
                     { "Source/Value.luau", "//server/share/work", "//server/share/work/Source/Value.luau" },
                     { "../Value.luau", "\\\\server\\share\\work", "//server/share/Value.luau" },
                     { "C:\\Source\\Value.luau", "//server/share/work", "C:/Source/Value.luau" },
-                    { "/Source/Value.luau", "//server/share/work", "/Source/Value.luau" },
+                    { "/Source/Value.luau", "//server/share/work", "/Source/Value.luau" }
                 }
             do
                 const path, cwd, expected = case[1], case[2], case[3]
@@ -78,9 +78,9 @@ return function()
                         end,
                         isFile = function(candidate)
                             return candidate == expected
-                        end,
+                        end
                     },
-                    ["@lune/process"] = { cwd = cwd },
+                    ["@lune/process"] = { cwd = cwd }
                 }
                 const isolated = luau.load(source, {
                     environment = {
@@ -93,11 +93,11 @@ return function()
                                 return setmetatable({ Name = "Value.luau" }, {
                                     __tostring = function()
                                         return candidate
-                                    end,
+                                    end
                                 })
-                            end,
-                        }),
-                    },
+                            end
+                        })
+                    }
                 })()
                 for _, roots in { path, { Alias = path } } do
                     const resolved = isolated.resolveRoots(roots)
@@ -285,7 +285,7 @@ return function()
                 { Depth = 0, Function = "", Hits = { [0] = -1, [3] = 2, [8] = 0 }, LineDefined = 0 },
                 { Depth = 1, Function = "nested", Hits = { [8] = 0, [12] = 3, [14] = -2 }, LineDefined = 10 },
                 { Depth = 2, Function = "nested", Hits = { [8] = 4, [18] = 0, [19] = -1 }, LineDefined = 20 },
-                { Depth = 1, Function = "empty", Hits = { [0] = -2 }, LineDefined = 30 },
+                { Depth = 1, Function = "empty", Hits = { [0] = -2 }, LineDefined = 30 }
             }
         end
 
@@ -293,7 +293,7 @@ return function()
             return setmetatable({}, {
                 __tostring = function()
                     return path
-                end,
+                end
             })
         end
 
@@ -312,7 +312,7 @@ return function()
                     readFile = function(path)
                         table.insert(reads, path)
                         return path
-                    end,
+                    end
                 },
                 ["@lune/luau"] = {
                     compile = function(path, options)
@@ -323,9 +323,9 @@ return function()
                     load = function(path, options)
                         expect(options.debugName).to.equal(path)
                         return path
-                    end,
+                    end
                 },
-                ["@lune/process"] = { cwd = "/work" },
+                ["@lune/process"] = { cwd = "/work" }
             }
             const isolated = luau.load(source, {
                 environment = {
@@ -341,13 +341,13 @@ return function()
                         end,
                         iscoverageenabled = function()
                             return true
-                        end,
+                        end
                     },
                     require = function(name)
                         assert(dependencies[name] ~= nil, `Unexpected coverage dependency "{name}".`)
                         return dependencies[name]
-                    end,
-                },
+                    end
+                }
             })()
             isolated.resolveRoots = function()
                 return references
@@ -390,7 +390,7 @@ return function()
                 [empty] = {},
                 [outside] = entries(),
                 [directory] = entries(),
-                [tracked] = third,
+                [tracked] = third
             }
             const compiled = { ["/work/Source/Unloaded.lua"] = missed }
             for _, native in { first, second, third, missed, runtime[outside], runtime[directory], runtime[empty] } do
@@ -408,7 +408,7 @@ return function()
                 { Name = "Broken", Script = broken },
                 { Name = "Outside", Script = outside },
                 { Name = "PackageAlias", Script = directory },
-                { Name = "PackageFile", Script = file },
+                { Name = "PackageFile", Script = file }
             }, runtime, compiled)
             isolated.track("/work/Source/Loaded.luau", tracked)
             const raw = isolated.captureRaw({})
@@ -425,7 +425,7 @@ return function()
                 "Source/Empty.luau",
                 "Source/Loaded.luau",
                 "Source/Package/init.luau",
-                "Source/Unloaded.lua",
+                "Source/Unloaded.lua"
             })
             const result = report.Files[4]
             expect(result.Name).to.equal("Alpha")
@@ -437,7 +437,7 @@ return function()
                 { ExecutableLines = 3, HitLines = 3, Name = "(top-level)", Percentage = 100 },
                 { ExecutableLines = 2, HitLines = 2, Name = "nested", Percentage = 100 },
                 { ExecutableLines = 2, HitLines = 2, Name = "nested", Percentage = 100 },
-                { ExecutableLines = 0, HitLines = 0, Name = "empty", Percentage = 0 },
+                { ExecutableLines = 0, HitLines = 0, Name = "empty", Percentage = 0 }
             })
             expect(report.Files[2].Loaded).to.equal(false)
             expect(report.Files[2].Functions).to.deepEqual({})
@@ -471,99 +471,99 @@ return function()
                 Change = function(value)
                     value[1].Function = nil
                 end,
-                Name = "missing function",
+                Name = "missing function"
             },
             {
                 Change = function(value)
                     value[1].LineDefined = nil
                 end,
-                Name = "missing definition line",
+                Name = "missing definition line"
             },
             {
                 Change = function(value)
                     value[1].Depth = nil
                 end,
-                Name = "missing depth",
+                Name = "missing depth"
             },
             {
                 Change = function(value)
                     value[1].Function = false
                 end,
-                Name = "nonstring function",
+                Name = "nonstring function"
             },
             {
                 Change = function(value)
                     value[1].LineDefined = -1
                 end,
-                Name = "negative definition line",
+                Name = "negative definition line"
             },
             {
                 Change = function(value)
                     value[1].LineDefined = 1.5
                 end,
-                Name = "fractional definition line",
+                Name = "fractional definition line"
             },
             {
                 Change = function(value)
                     value[1].Depth = -1
                 end,
-                Name = "negative depth",
+                Name = "negative depth"
             },
             {
                 Change = function(value)
                     value[1].Depth = 0.5
                 end,
-                Name = "fractional depth",
+                Name = "fractional depth"
             },
             {
                 Change = function(value)
                     value[2] = nil
                 end,
-                Name = "entry array hole",
+                Name = "entry array hole"
             },
             {
                 Change = function(value)
                     value[1].Hits["3"] = 1
                 end,
-                Name = "string line key",
+                Name = "string line key"
             },
             {
                 Change = function(value)
                     value[1].Hits[-1] = 1
                 end,
-                Name = "negative line key",
+                Name = "negative line key"
             },
             {
                 Change = function(value)
                     value[1].Hits[0.5] = 1
                 end,
-                Name = "fractional line key",
+                Name = "fractional line key"
             },
             {
                 Change = function(value)
                     value[1].Hits[3] = 1.5
                 end,
-                Name = "fractional count",
+                Name = "fractional count"
             },
             {
                 Change = function(value)
                     value[1].Hits[3] = math.huge
                 end,
-                Name = "infinite count",
+                Name = "infinite count"
             },
             {
                 Change = function(value)
                     value[1].Hits[3] = 0 / 0
                 end,
-                Name = "NaN count",
+                Name = "NaN count"
             },
             {
                 Change = function(value)
                     value[1].Hits[3] = "1"
                 end,
-                Name = "string count",
+                Name = "string count"
             },
-            { Change = function() end, Name = "unloaded positive count", Unloaded = true },
+            { Change = function() end, Name = "unloaded positive count", Unloaded = true }
         }
         for _, case in malformed do
             it(`should preserve the raw validation failure for {case.Name}`, function()
@@ -636,7 +636,7 @@ return function()
                 [mismatched] = entries(),
                 [late] = function()
                     error("Synthetic late acquisition failure.", 0)
-                end,
+                end
             }
             runtime[mismatched][3].Depth += 1
             const isolated = collector({ { Name = "Ordered", Script = target } }, runtime, {})
@@ -649,7 +649,7 @@ return function()
                     end,
                     function()
                         return isolated.collect({})
-                    end,
+                    end
                 }
             do
                 expect(failure(run)).to.equal("Synthetic late acquisition failure.")
@@ -676,7 +676,7 @@ return function()
             const isolated = collector({ { Name = "Tracked", Script = reference(path) } }, {
                 [chunk] = function()
                     return debug.getcoverage(chunk)
-                end,
+                end
             }, {})
             isolated.track(path, chunk)
             const before = isolated.collect({})
@@ -739,8 +739,8 @@ return function()
                     {
                         iscoverageenabled = function()
                             return false
-                        end,
-                    },
+                        end
+                    }
                 }
             do
                 const isolated = luau.load(source, { environment = { debug = nativeDebug } })()
@@ -849,14 +849,14 @@ return function()
                         Entries = {
                             { Depth = 0, Function = "", Hits = { [0] = -1, [2] = 3, [9] = 0 }, LineDefined = 1 },
                             { Depth = 1, Function = "same", Hits = { [2] = 0, [20] = 2, [21] = -1 }, LineDefined = 20 },
-                            { Depth = 2, Function = "same", Hits = { [30] = 0, [31] = -2 }, LineDefined = 30 },
+                            { Depth = 2, Function = "same", Hits = { [30] = 0, [31] = -2 }, LineDefined = 30 }
                         },
                         Loaded = true,
                         Name = "Module",
-                        Path = "/coverage/Module.luau",
-                    },
+                        Path = "/coverage/Module.luau"
+                    }
                 },
-                Version = 1,
+                Version = 1
             }
         end
 
@@ -961,7 +961,7 @@ return function()
                 end,
                 function(file)
                     file.Entries[2].Depth += 1
-                end,
+                end
             }
             for _, change in changes do
                 const first, second = snapshot(), snapshot()
@@ -984,7 +984,7 @@ return function()
                 end,
                 function(hits)
                     hits[9] = -1
-                end,
+                end
             }
             for _, change in changes do
                 const first, second = snapshot(), snapshot()
@@ -999,7 +999,7 @@ return function()
                 { Count = false, Line = 9, Message = "Hits key set" },
                 { Count = -1, Line = 10, Message = "Hits key set" },
                 { Count = 0, Line = 0, Message = "Executable mask" },
-                { Count = -1, Line = 9, Message = "Executable mask" },
+                { Count = -1, Line = 9, Message = "Executable mask" }
             }
             for _, case in cases do
                 const first, second = snapshot(), snapshot()
@@ -1030,7 +1030,7 @@ return function()
                         Depth = index - 1,
                         Function = "same",
                         Hits = pair.Hits,
-                        LineDefined = index * 10,
+                        LineDefined = index * 10
                     })
                 end
             end
@@ -1140,7 +1140,7 @@ return function()
                 end,
                 function(raw)
                     setmetatable(raw.Files[1], {})
-                end,
+                end
             }
             for _, change in changes do
                 const raw = snapshot()
@@ -1206,7 +1206,7 @@ return function()
             const expected = Coverage.captureRaw({ A = sampleScript })
             const raw = Coverage.captureRaw({
                 A = "Tests/CoverageFixtures/SampleModule",
-                B = "Tests/CoverageFixtures/SampleModule.luau",
+                B = "Tests/CoverageFixtures/SampleModule.luau"
             })
             expect(raw).to.deepEqual(expected)
         end)
@@ -1219,7 +1219,7 @@ return function()
             const sample = Coverage.captureRaw(sampleScript)
             const raw = Coverage.captureRaw({
                 All = "Tests/CoverageFixtures",
-                One = "Tests/CoverageFixtures/SampleModule.luau",
+                One = "Tests/CoverageFixtures/SampleModule.luau"
             })
             assert(raw ~= nil and directory ~= nil and sample ~= nil)
             expect(#raw.Files).to.equal(#directory.Files)
@@ -1430,7 +1430,7 @@ return function()
                 "C:/",
                 "C:\\Users\\dev\\project",
                 "//server/share/",
-                "//server/share/project",
+                "//server/share/project"
             }
             const paths = {
                 "Module.luau",
@@ -1447,7 +1447,7 @@ return function()
                 "//server/share/a/../..",
                 "\\\\server\\share\\x.luau",
                 "//server//share/../x.luau",
-                "///a//b/../c.luau",
+                "///a//b/../c.luau"
             }
             for _, workingDirectory in workingDirectories do
                 for _, path in paths do
@@ -1552,7 +1552,7 @@ return function()
             Testable.configure({
                 Coverage = true,
                 CoverageThreshold = 0,
-                CoverageRoots = sampleScript,
+                CoverageRoots = sampleScript
             })
 
             const _, passed = Testable.run({
@@ -1562,7 +1562,7 @@ return function()
                             SampleModule.add(1, 2)
                         end)
                     end)
-                end,
+                end
             })
             expect(passed).to.equal(true)
         end)
@@ -1570,7 +1570,7 @@ return function()
         it("should not run coverage when Coverage is false", function()
             Testable.configure({
                 Coverage = false,
-                CoverageRoots = sampleScript,
+                CoverageRoots = sampleScript
             })
 
             const _, passed = Testable.run({
@@ -1580,7 +1580,7 @@ return function()
                             expect(true).to.be.ok()
                         end)
                     end)
-                end,
+                end
             })
             expect(passed).to.equal(true)
         end)

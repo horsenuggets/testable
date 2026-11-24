@@ -36,14 +36,14 @@ const FILES = {
     ["/root/Tests/Nested/.luaurc"] = '{ "aliases": { "source": "./Local" } }',
     ["/root/Tests/Nested/Local/Shared.luau"] = "return {}",
     ["/root/Tests/Nested/Override.spec.luau"] = 'return require("@source/Shared"), require("@packages/Dependency")',
-    ["/root/Tests/Standalone.spec.luau"] = "return function() end",
+    ["/root/Tests/Standalone.spec.luau"] = "return function() end"
 }
 const SPECS = {
     "/root/Tests/Cycle.spec.luau",
     "/root/Tests/Library.spec.luau",
     "/root/Tests/Missing.spec.luau",
     "/root/Tests/Nested/Override.spec.luau",
-    "/root/Tests/Standalone.spec.luau",
+    "/root/Tests/Standalone.spec.luau"
 }
 
 const function parse(source: string): string
@@ -229,7 +229,7 @@ return function()
             const fileSystem = FakeFileSystem.new({
                 ["/root/A.luau"] = "",
                 ["/root/A/init.luau"] = "",
-                ["/root/Main.luau"] = "",
+                ["/root/Main.luau"] = ""
             })
             expect((RequireGraph.resolve(fileSystem, "/root/Main.luau", "./A"))).to.equal("/root/A.luau")
         end)
@@ -290,7 +290,7 @@ return function()
             const dependents = RequireGraph.invert({
                 ["A"] = { "C" },
                 ["B"] = { "C", "D" },
-                ["C"] = {},
+                ["C"] = {}
             })
             expect(table.concat(dependents["C"], ",")).to.equal("A,B")
             expect(table.concat(dependents["D"], ",")).to.equal("B")

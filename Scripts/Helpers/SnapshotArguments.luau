@@ -9,7 +9,7 @@ know are handed back for the caller to deal with.
 --]]
 
 export type Options = {
-    UpdateSnapshots: boolean?,
+    UpdateSnapshots: boolean?
 }
 
 const SnapshotArguments = {}

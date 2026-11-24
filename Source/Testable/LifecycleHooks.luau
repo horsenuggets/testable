@@ -15,7 +15,7 @@ const TestEnum = require("./TestEnum")
 -- from.
 export type Hook = {
     callback: (...any) -> ...any,
-    timeout: number?,
+    timeout: number?
 }
 
 const LifecycleHooks = {}
@@ -28,7 +28,7 @@ LifecycleHooks.__index = LifecycleHooks
 ]]
 function LifecycleHooks.new(): any
     const self = {
-        _stack = {},
+        _stack = {}
     }
     return setmetatable(self, LifecycleHooks)
 end
@@ -103,7 +103,7 @@ function LifecycleHooks:pushHooksFrom(planNode: any): ()
         [TestEnum.NodeType.BeforeAll] = self:_getHooksOfType(planNode.children, TestEnum.NodeType.BeforeAll),
         [TestEnum.NodeType.AfterAll] = self:_getHooksOfType(planNode.children, TestEnum.NodeType.AfterAll),
         [TestEnum.NodeType.BeforeEach] = self:_getHooksOfType(planNode.children, TestEnum.NodeType.BeforeEach),
-        [TestEnum.NodeType.AfterEach] = self:_getHooksOfType(planNode.children, TestEnum.NodeType.AfterEach),
+        [TestEnum.NodeType.AfterEach] = self:_getHooksOfType(planNode.children, TestEnum.NodeType.AfterEach)
     })
 end
 

@@ -58,7 +58,7 @@ const function git(root: string, arguments: { string })
         "-c",
         "user.email=test@example.com",
         "-c",
-        "commit.gpgsign=false",
+        "commit.gpgsign=false"
     }
     for _, argument in arguments do
         table.insert(allArguments, argument)
@@ -152,7 +152,7 @@ const function startWatch(root: string, runOnStart: boolean)
         Run = function(specFiles: { string })
             table.insert(runs, table.concat(specFiles, ","))
         end,
-        RunOnStart = runOnStart,
+        RunOnStart = runOnStart
     })
 
     return handle, runs, messages
@@ -380,7 +380,7 @@ return function()
             const excluded = Discovery.findSpecs({
                 Exclude = { `{root}/Tests/Library.spec.luau` },
                 Include = { `{root}/Tests/*.spec.luau` },
-                Root = root,
+                Root = root
             })
             expect(table.concat(excluded, ",")).to.equal("Tests/Standalone.spec.luau")
         end)
@@ -403,7 +403,7 @@ return function()
             expect(Discovery.findSpecs({
                 Files = { "Broken/Throws.spec.luau" },
                 Include = { "Broken/*.spec.luau" },
-                Root = root,
+                Root = root
             })).to.deepEqual({ "Broken/Throws.spec.luau" })
         end)
 
@@ -412,10 +412,10 @@ return function()
                 Files = {
                     `{root}/Tests/Standalone.spec.luau`,
                     ".\\Tests\\Nested\\Deep.spec.luau",
-                    "Tests/Nested/../Standalone.spec.luau",
+                    "Tests/Nested/../Standalone.spec.luau"
                 },
                 Include = INCLUDE,
-                Root = root,
+                Root = root
             })
             expect(files).to.deepEqual({ "Tests/Nested/Deep.spec.luau", "Tests/Standalone.spec.luau" })
         end)
@@ -435,7 +435,7 @@ return function()
                         Exclude = { "Tests/Standalone.spec.luau" },
                         Files = { file },
                         Include = INCLUDE,
-                        Root = root,
+                        Root = root
                     })
                 end).to.throw("is not a spec file matched by")
             end
@@ -468,7 +468,7 @@ return function()
             const testRoots = Discovery.discover({
                 Files = { `{root}/Tests/Standalone.spec.luau`, "Tests/Nested/Deep.spec.luau" },
                 Include = INCLUDE,
-                Root = root,
+                Root = root
             })
             expect(#testRoots).to.equal(2)
             expect(testRoots[1].Name).to.equal("Deep")
@@ -509,7 +509,7 @@ return function()
             const affected = Discovery.findAffected({
                 Changed = { `{root}/Source/Library.luau` },
                 Include = INCLUDE,
-                Root = root,
+                Root = root
             })
             expect(table.concat(affected, ",")).to.equal("Tests/Library.spec.luau")
         end)
@@ -518,7 +518,7 @@ return function()
             const affected = Discovery.findAffected({
                 Changed = { `{root}/README.md` },
                 Include = INCLUDE,
-                Root = root,
+                Root = root
             })
             expect(#affected).to.equal(0)
         end)
@@ -541,7 +541,7 @@ return function()
                 [specs[2]] = 'error("Spec loaded.")',
                 [`{root}/Setup.luau`] = 'require("./Prepare")\nerror("Setup loaded.")',
                 [`{root}/Prepare.luau`] = 'require("./Deep")\nerror("Helper loaded.")',
-                [`{root}/Deep.luau`] = 'error("Deep helper loaded.")',
+                [`{root}/Deep.luau`] = 'error("Deep helper loaded.")'
             }
         end
 
@@ -582,7 +582,7 @@ return function()
             const graph, watched = Discovery.buildGraph(FakeFileSystem.new(files), specs, {
                 Include = INCLUDE,
                 Root = root,
-                WorkerSetup = ".Setup.luau",
+                WorkerSetup = ".Setup.luau"
             })
             for _, file in { entry, `{root}/.Setup.luau`, `{root}/.Prepare.luau` } do
                 expect(table.find(watched, file)).never.to.equal(nil)
@@ -602,7 +602,7 @@ return function()
                     "Bootstrap/init.luau",
                     "Bootstrap/init.lua",
                     ".",
-                    "init.luau",
+                    "init.luau"
                 }
             do
                 const files = sourceFiles()
@@ -621,7 +621,7 @@ return function()
                 const graph, watched = Discovery.buildGraph(FakeFileSystem.new(files), specs, {
                     Include = INCLUDE,
                     Root = root,
-                    WorkerSetup = setup,
+                    WorkerSetup = setup
                 })
                 expect(Discovery.RequireGraph.findAffected(graph, specs, { setupFile })).to.deepEqual(specs)
                 expect(Discovery.RequireGraph.findAffected(graph, specs, { helper })).to.deepEqual(specs)
@@ -675,7 +675,7 @@ return function()
                 const explicit = Discovery.buildGraph(FakeFileSystem.new(files), specs, {
                     Include = INCLUDE,
                     Root = root,
-                    WorkerSetup = "Other.luau",
+                    WorkerSetup = "Other.luau"
                 })
                 expect(Discovery.RequireGraph.findAffected(explicit, specs, { `{root}/OtherHelper.luau` })).to.deepEqual(
                     specs
@@ -703,14 +703,14 @@ return function()
                         Changed = { changed },
                         Include = INCLUDE,
                         Root = root,
-                        WorkerSetup = "Setup.luau",
+                        WorkerSetup = "Setup.luau"
                     })).to.deepEqual({ "Tests/Library.spec.luau", "Tests/Standalone.spec.luau" })
                 end
                 expect(Discovery.findAffected({
                     Changed = { "Source/Unrelated.luau" },
                     Include = INCLUDE,
                     Root = root,
-                    WorkerSetup = "Setup.luau",
+                    WorkerSetup = "Setup.luau"
                 })).to.deepEqual({})
             end)
         end)
@@ -721,7 +721,7 @@ return function()
                 expect(Discovery.findAffected({
                     Changed = { entry },
                     Include = INCLUDE,
-                    Root = root,
+                    Root = root
                 })).to.deepEqual({ "Tests/Library.spec.luau", "Tests/Standalone.spec.luau" })
             end)
         end)
@@ -759,14 +759,14 @@ return function()
                     Include = INCLUDE,
                     Ref = "HEAD",
                     Root = root,
-                    WorkerSetup = "Setup.luau",
+                    WorkerSetup = "Setup.luau"
                 })).to.deepEqual({ "Tests/Library.spec.luau", "Tests/Standalone.spec.luau" })
                 fs.removeFile(`{root}/Setup.luau`)
                 expect(Discovery.findChanged({
                     Include = INCLUDE,
                     Ref = "HEAD",
                     Root = root,
-                    WorkerSetup = "Setup.luau",
+                    WorkerSetup = "Setup.luau"
                 })).to.deepEqual({ "Tests/Library.spec.luau", "Tests/Standalone.spec.luau" })
             end)
         end)
@@ -827,7 +827,7 @@ return function()
                     Arguments = { "--flag" },
                     Files = { "Tests/A.spec.luau", "Tests/B.spec.luau" },
                     Root = root,
-                    Script = "Run.luau",
+                    Script = "Run.luau"
                 })
                 expect(ok).to.equal(true)
                 expect(fs.readFile(`{root}/Output.txt`)).to.equal("first|--flag,Tests/A.spec.luau,Tests/B.spec.luau")
@@ -973,7 +973,7 @@ return function()
                     Run = function(specFiles: { string })
                         table.insert(runs, table.concat(specFiles, ","))
                     end,
-                    RunOnStart = false,
+                    RunOnStart = false
                 })
 
                 TempDirectory.write(root, ".luaurc", '{ "aliases": { "source": "./Source" } }\n')
@@ -1027,7 +1027,7 @@ return function()
                         runCount += 1
                         error("The pass blew up.")
                     end,
-                    RunOnStart = false,
+                    RunOnStart = false
                 })
 
                 TempDirectory.write(root, "Source/Library.luau", 'return "second, and longer"\n')
@@ -1050,7 +1050,7 @@ return function()
                     Discovery.watch({
                         Include = { "Tests/**/*.story.luau" },
                         Root = root,
-                        Run = function() end,
+                        Run = function() end
                     })
                 end).to.throw("No spec files")
             end)

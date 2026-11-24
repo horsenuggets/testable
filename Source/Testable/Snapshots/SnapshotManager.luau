@@ -28,7 +28,7 @@ SnapshotManager.__index = SnapshotManager
 -- that does not exist.
 export type Store = {
     read: (path: string) -> string?,
-    write: (path: string, contents: string) -> (),
+    write: (path: string, contents: string) -> ()
 }
 
 export type Options = {
@@ -38,19 +38,19 @@ export type Options = {
     -- Worker runs claim default-store paths at their global planning barrier.
     PathGuard: ((path: string) -> ())?,
     Store: Store?,
-    Update: boolean?,
+    Update: boolean?
 }
 
 -- Identifies the running test to the matcher and numbers its snapshots.
 export type Scope = {
     Count: number,
     Manager: SnapshotManager,
-    PlanNode: any,
+    PlanNode: any
 }
 
 export type ObsoleteSnapshot = {
     Key: string,
-    Path: string,
+    Path: string
 }
 
 export type Summary = {
@@ -59,7 +59,7 @@ export type Summary = {
     Obsolete: { ObsoleteSnapshot },
     Removed: number,
     Updated: number,
-    Written: number,
+    Written: number
 }
 
 type File = {
@@ -71,7 +71,7 @@ type File = {
     Path: string,
     UsedKeys: { [string]: boolean },
     -- How many unfinished runs are using the file.
-    Users: number,
+    Users: number
 }
 
 --[[
@@ -113,7 +113,7 @@ export type SnapshotManager = typeof(setmetatable(
         _paths: { [any]: string },
         _pathGuard: ((path: string) -> ())?,
         _store: Store?,
-        _summary: Summary,
+        _summary: Summary
     },
     SnapshotManager
 ))
@@ -142,7 +142,7 @@ function SnapshotManager.new(options: Options?): SnapshotManager
         _paths = {},
         _pathGuard = if options then options.PathGuard else nil,
         _store = if options then options.Store else nil,
-        _summary = { Failed = 0, Matched = 0, Obsolete = {}, Removed = 0, Updated = 0, Written = 0 },
+        _summary = { Failed = 0, Matched = 0, Obsolete = {}, Removed = 0, Updated = 0, Written = 0 }
     }
 
     return setmetatable(self, SnapshotManager)
@@ -249,7 +249,7 @@ function SnapshotManager._load(self: SnapshotManager, store: Store, path: string
             IsIncomplete = false,
             Path = path,
             UsedKeys = {},
-            Users = 0,
+            Users = 0
         }
         const ok, contents = pcall(store.read, path)
         if not ok then

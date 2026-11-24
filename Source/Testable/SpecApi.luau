@@ -21,7 +21,7 @@ const TestScope = require("./TestScope")
 -- The result a custom matcher returns. The lowercase keys are the TestEZ matcher contract.
 export type MatcherResult = {
     message: string?,
-    pass: boolean,
+    pass: boolean
 }
 
 -- A custom matcher passed to `expect.extend`, called with the received value first.
@@ -67,19 +67,19 @@ export type Expectation<Custom = {}> = Custom & {
     none: MatcherMethod<Expectation<Custom>, ()>,
     ok: MatcherMethod<Expectation<Custom>, ()>,
     throw: MatcherMethod<Expectation<Custom>, string?>,
-    truthy: MatcherMethod<Expectation<Custom>, ()>,
+    truthy: MatcherMethod<Expectation<Custom>, ()>
 }
 
 -- The `expect` function, which also carries `expect.extend` for adding custom matchers.
 export type Expect<Custom = {}> = ((value: any) -> Expectation<Custom>) & {
-    extend: (matchers: { [string]: Matcher }) -> (),
+    extend: (matchers: { [string]: Matcher }) -> ()
 }
 
 -- The options a describe block accepts as the third argument of `describe`.
 export type BlockOptions = {
     -- Runs the tests of the block one at a time, with no other test of the run executing
     -- while they do. What tests that share global state need.
-    Serial: boolean?,
+    Serial: boolean?
 }
 
 -- The options a single test accepts as the third argument of `it`.
@@ -88,13 +88,13 @@ export type TestOptions = {
     -- that share global state need.
     Serial: boolean?,
     -- The time budget of the test in seconds, which wins over the configured Timeout.
-    Timeout: number?,
+    Timeout: number?
 }
 
 -- The options a lifecycle hook accepts as its second argument.
 export type HookOptions = {
     -- The time budget of the hook in seconds, which wins over the one it would inherit.
-    Timeout: number?,
+    Timeout: number?
 }
 
 type Callback = (...any) -> ...any
@@ -132,7 +132,7 @@ export type Api = {
     itTODO: (phrase: string) -> (),
     SKIP: (reason: string?) -> (),
     xdescribe: DeclareSkipped,
-    xit: DeclareSkipped,
+    xit: DeclareSkipped
 }
 
 const OUTSIDE_COLLECTION_HINT = "Tests, describe blocks, and hooks must be registered while the spec is being "
@@ -193,7 +193,7 @@ function SpecApi.createExpect(fallbackScope: TestScope.RunScope?): Expect
             end
 
             scope.ExpectationContext:extend(matchers)
-        end,
+        end
     }, {
         __call = function(_self, ...)
             const scope = resolveRunScope(fallbackScope)
@@ -203,7 +203,7 @@ function SpecApi.createExpect(fallbackScope: TestScope.RunScope?): Expect
             end
 
             return scope.ExpectationContext:startExpectationChain(...)
-        end,
+        end
     })
 
     return expect :: any

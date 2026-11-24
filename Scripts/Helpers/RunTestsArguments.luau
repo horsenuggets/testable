@@ -9,13 +9,13 @@ reading the process or exiting, so the parsing rules can be unit tested.
 
 export type WorkerOptions = {
     WorkerSetup: string?,
-    Workers: number?,
+    Workers: number?
 }
 
 export type Arguments = WorkerOptions & {
     Changed: string?,
     Files: { string },
-    Watch: boolean,
+    Watch: boolean
 }
 
 -- Values belonging to another parser are opaque, even when they look like worker flags.
@@ -24,7 +24,7 @@ const VALUE_FLAGS = {
     ["--filter"] = true,
     ["--output"] = true,
     ["--reporter"] = true,
-    ["--slowest"] = true,
+    ["--slowest"] = true
 }
 
 const RunTestsArguments = {}
@@ -100,7 +100,7 @@ function RunTestsArguments.parse(arguments: { string }): (Arguments?, string?)
         Files = {},
         Watch = false,
         WorkerSetup = workers.WorkerSetup,
-        Workers = workers.Workers,
+        Workers = workers.Workers
     }
 
     local index = 1

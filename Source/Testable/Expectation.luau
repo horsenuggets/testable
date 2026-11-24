@@ -40,13 +40,13 @@ const MATCHER_NAMES = {
     "none",
     "ok",
     "throw",
-    "truthy",
+    "truthy"
 }
 --[[
     These keys invert the condition expressed by the Expectation.
 ]]
 const NEGATION_KEYS = {
-    never = true,
+    never = true
 }
 --[[
     These keys don't do anything except make expectations read more cleanly
@@ -57,7 +57,7 @@ const SELF_KEYS = {
     been = true,
     have = true,
     was = true,
-    at = true,
+    at = true
 }
 
 const Expectation = {}
@@ -126,7 +126,7 @@ const function comparisonMessage(self, headline, expected, received)
     return table.concat({
         headline,
         `Expected: {expectedPrefix}{expected}`,
-        `Received: {received}`,
+        `Received: {received}`
     }, "\n")
 end
 
@@ -235,7 +235,7 @@ function Expectation.new(value)
         successCondition = true,
         condition = false,
         matchers = {},
-        _boundMatchers = {},
+        _boundMatchers = {}
     }
 
     setmetatable(self, Expectation)

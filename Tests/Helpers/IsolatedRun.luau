@@ -43,12 +43,12 @@ const SCRIPT_TEMPLATE = [[
 export type Options = {
     ForbidFocus: boolean,
     Parallel: boolean,
-    PrintSkipped: boolean,
+    PrintSkipped: boolean
 }
 
 export type NodeOutcome = {
     Reason: string?,
-    Status: string,
+    Status: string
 }
 
 export type Outcome = {
@@ -60,7 +60,7 @@ export type Outcome = {
     Output: string,
     Passed: boolean,
     SkippedCount: number,
-    SuccessCount: number,
+    SuccessCount: number
 }
 
 const IsolatedRun = {}
@@ -127,7 +127,7 @@ function IsolatedRun.parse(exitedCleanly: boolean, rawOutput: string): Outcome
         Output = output,
         Passed = values.Passed == "true",
         SkippedCount = tonumber(values.SkippedCount) or -1,
-        SuccessCount = tonumber(values.SuccessCount) or -1,
+        SuccessCount = tonumber(values.SuccessCount) or -1
     }
 end
 

@@ -12,13 +12,13 @@ or lost some of its lines, be told apart from one that simply had fewer checks.
 export type TestResult = {
     Error: string?,
     Name: string,
-    Passed: boolean,
+    Passed: boolean
 }
 
 export type Parsed = {
     -- How many checks the script said it ran, or nil if it never reached its last line.
     ReportedCount: number?,
-    Results: { TestResult },
+    Results: { TestResult }
 }
 
 const RemoteResults = {}

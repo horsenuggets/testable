@@ -9,7 +9,7 @@ it doesn't know are handed back for the caller to deal with.
 --]]
 
 export type Options = {
-    Filter: string?,
+    Filter: string?
 }
 
 const FILTER_FLAG = "--filter"

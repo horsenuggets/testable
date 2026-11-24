@@ -17,7 +17,7 @@ type FakeOptions = {
     DiffFails: boolean?,
     InRepository: boolean?,
     RefExists: boolean?,
-    Untracked: string?,
+    Untracked: string?
 }
 
 --[[
@@ -82,7 +82,7 @@ return function()
                 "rev-parse --is-inside-work-tree",
                 "rev-parse --verify --quiet HEAD~1^{commit}",
                 "diff --name-only --no-renames --relative -z HEAD~1 --",
-                "ls-files --others --exclude-standard -z",
+                "ls-files --others --exclude-standard -z"
             }, "\n"))
         end)
 

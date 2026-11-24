@@ -72,10 +72,10 @@ const function watch(files: { string }, childArguments: { string }, workerOption
             Testable.Discovery.runInChild({
                 Arguments = childArguments,
                 Files = specFiles,
-                Script = SCRIPT_PATH,
+                Script = SCRIPT_PATH
             })
         end,
-        WorkerSetup = workerOptions.WorkerSetup,
+        WorkerSetup = workerOptions.WorkerSetup
     })
     if not ok then
         exitWithToolError(tostring(message))
@@ -141,7 +141,7 @@ function RunTests.exec()
     if arguments.Changed ~= nil then
         const ok, affected = pcall(Testable.Discovery.findChanged, {
             Include = INCLUDE,
-            Ref = arguments.Changed,
+            Ref = arguments.Changed
         })
         if not ok then
             exitWithToolError(tostring(affected))

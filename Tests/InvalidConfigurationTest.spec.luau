@@ -16,7 +16,7 @@ const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 
 const EXECUTION_MODES = {
     { Name = "parallel", Parallel = true },
-    { Name = "sequential", Parallel = false },
+    { Name = "sequential", Parallel = false }
 }
 const SCRIPT_TEMPLATE = [[
     const process = require("@lune/process")
@@ -71,7 +71,7 @@ end
 const function runTestsScriptWithoutCoverage(arguments: { string }): (number, string)
     const result = process.exec("lune", { "run", "Scripts/RunTests.exec.luau", table.unpack(arguments) }, {
         cwd = process.cwd,
-        env = { LUNE_COVERAGE = "0", TESTABLE_CICD_ROBLOX_API_KEY = "" },
+        env = { LUNE_COVERAGE = "0", TESTABLE_CICD_ROBLOX_API_KEY = "" }
     })
     return result.code, `{result.stdout or ""}{result.stderr or ""}`
 end

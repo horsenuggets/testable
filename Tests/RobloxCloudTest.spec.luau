@@ -37,7 +37,7 @@ const REMOTE_SCRIPT_PATH = "Tests/RobloxCloud/RemoteTestScript.luau"
 
 type RemoteRun = {
     Problem: string?,
-    Results: { RemoteResults.TestResult },
+    Results: { RemoteResults.TestResult }
 }
 
 const function _loadApiKey(): string?
@@ -54,12 +54,12 @@ const function _createTask(apiKey: string, scriptSource: string, versionNumber: 
         method = "POST",
         headers = {
             ["Content-Type"] = "application/json",
-            ["x-api-key"] = apiKey,
+            ["x-api-key"] = apiKey
         },
         body = serde.encode("json", {
             script = scriptSource,
-            timeout = "120s",
-        }),
+            timeout = "120s"
+        })
     })
 
     if not response.ok then
@@ -78,8 +78,8 @@ const function _pollTask(apiKey: string, taskPath: string): { [string]: any }
             url = `{BASE_URL}/{taskPath}`,
             method = "GET",
             headers = {
-                ["x-api-key"] = apiKey,
-            },
+                ["x-api-key"] = apiKey
+            }
         })
 
         if not response.ok then
@@ -107,8 +107,8 @@ const function _getTaskLogs(apiKey: string, taskPath: string): { string }
         url = `{BASE_URL}/{taskPath}/logs`,
         method = "GET",
         headers = {
-            ["x-api-key"] = apiKey,
-        },
+            ["x-api-key"] = apiKey
+        }
     })
 
     if not response.ok then
@@ -158,7 +158,7 @@ const function _runRemoteTests(apiKey: string): RemoteRun
 
     return {
         Problem = RemoteResults.findProblem(parsed, taskError),
-        Results = parsed.Results,
+        Results = parsed.Results
     }
 end
 

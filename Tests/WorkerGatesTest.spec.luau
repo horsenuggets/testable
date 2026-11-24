@@ -367,7 +367,7 @@ return function()
             { false },
             { 1 },
             { "A", "A" },
-            setmetatable({}, { __index = { "A" } }),
+            setmetatable({}, { __index = { "A" } })
         }
         for index, value in ipairs(invalidOrders) do
             it(`should reject malformed order {index}`, function()
@@ -397,7 +397,7 @@ return function()
             { ["A"] = true, [1] = true },
             { ["A"] = true, [math.huge] = true },
             setmetatable({ A = true }, {}),
-            setmetatable({}, { __index = { A = true } }),
+            setmetatable({}, { __index = { A = true } })
         }
         for index, value in ipairs(invalidMaps) do
             it(`should reject missing, extra, or malformed flags {index}`, function()

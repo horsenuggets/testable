@@ -26,7 +26,7 @@ const YELLOW_FROM = 25
 -- How the table orders its rows and how many file rows it lists before the summary row.
 export type Layout = {
     Rows: number,
-    Sort: Config.CoverageSort,
+    Sort: Config.CoverageSort
 }
 
 -- The layout from before rows and order were configurable.
@@ -195,7 +195,7 @@ function CoverageReporter.format(
         const hit = CoverageReporter.formatCount(file.HitLines)
         table.insert(rows, {
             Colored = { path, executable, hit, styledPct },
-            Raw = { rawPath, executable, hit, pct },
+            Raw = { rawPath, executable, hit, pct }
         })
     end
     const hiddenCount = #sorted - maxRows
@@ -210,7 +210,7 @@ function CoverageReporter.format(
             `{CoverageReporter.formatCount(hiddenCount)} more {if hiddenCount == 1 then "module" else "modules"}`,
             CoverageReporter.formatCount(hiddenExecutable),
             CoverageReporter.formatCount(hiddenHit),
-            percentage(Coverage.percentage(hiddenHit, hiddenExecutable)),
+            percentage(Coverage.percentage(hiddenHit, hiddenExecutable))
         }
         const colored = {}
         for _, cell in raw do
@@ -230,7 +230,7 @@ function CoverageReporter.format(
             then { Ansi.bold("Total"), Ansi.bold(totalExecutable), Ansi.bold(totalHit), Ansi.bold(styledTotalPct) }
             else { "Total", totalExecutable, totalHit, totalPct },
         Raw = { "Total", totalExecutable, totalHit, totalPct },
-        Separator = hiddenCount <= 0,
+        Separator = hiddenCount <= 0
     })
     for _, line in TableRenderer.format({ "Script", "Executable Lines", "Hit", "Percent" }, rows, color, ALIGNMENTS) do
         table.insert(lines, line)
@@ -247,12 +247,12 @@ function CoverageReporter.format(
                     {
                         children = {},
                         planNode = { phrase = message },
-                        status = if passed then TestEnum.TestStatus.Success else TestEnum.TestStatus.Failure,
-                    },
+                        status = if passed then TestEnum.TestStatus.Success else TestEnum.TestStatus.Failure
+                    }
                 },
-                planNode = { phrase = "Code Coverage" },
-            },
-        },
+                planNode = { phrase = "Code Coverage" }
+            }
+        }
     }
     table.insert(lines, "")
     for _, line in

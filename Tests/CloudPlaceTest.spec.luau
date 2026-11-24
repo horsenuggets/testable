@@ -23,7 +23,7 @@ const function _createRecord(): CloudPlace.UploadRecord
         Hash = HASH,
         PlaceId = PLACE_ID,
         UniverseId = UNIVERSE_ID,
-        VersionNumber = 7,
+        VersionNumber = 7
     }
 end
 
@@ -97,7 +97,7 @@ return function()
                 Hash = 5,
                 PlaceId = 222,
                 UniverseId = 111,
-                VersionNumber = "7",
+                VersionNumber = "7"
             }
 
             for field, value in wrongValues do

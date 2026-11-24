@@ -25,7 +25,7 @@ const PLAN_FIELDS = {
     Serial = { "serial", "boolean" },
     SkipReason = { "skipReason", "string" },
     Timeout = { "timeout", "positive" },
-    Type = { "type", "nodeType", true },
+    Type = { "type", "nodeType", true }
 }
 const RESULT_FIELDS = {
     Duration = { "duration", "nonnegative" },
@@ -33,7 +33,7 @@ const RESULT_FIELDS = {
     ExcludedByFocus = { "excludedByFocus", "boolean" },
     Messages = { "messages", "strings" },
     SkipReason = { "skipReason", "string" },
-    Status = { "status", "status" },
+    Status = { "status", "status" }
 }
 const ROOT_FIELDS = {
     FailureCount = { "failureCount", "count", true },
@@ -41,12 +41,12 @@ const ROOT_FIELDS = {
     FocusExcludedCount = { "focusExcludedCount", "count" },
     FocusGuardFailed = { "focusGuardFailed", "boolean" },
     SkippedCount = { "skippedCount", "count", true },
-    SuccessCount = { "successCount", "count", true },
+    SuccessCount = { "successCount", "count", true }
 }
 const SPEC_FIELDS = {
     Path = { "path", "strings" },
     PathStringForSorting = { "pathStringForSorting", "string" },
-    SnapshotPath = { "snapshotPath", "string" },
+    SnapshotPath = { "snapshotPath", "string" }
 }
 
 export type Manifest = {
@@ -54,7 +54,7 @@ export type Manifest = {
     Completed: { string },
     JobId: number,
     RunId: string,
-    Version: number,
+    Version: number
 }
 
 const Protocol = {}
@@ -208,7 +208,7 @@ function Protocol.encodeResults(results: any): any
     const dto = {
         Detached = {},
         Plan = { Children = {}, Filter = copyPlain(plan.filter), ForbidFocus = copyPlain(plan.forbidFocus) },
-        Version = VERSION,
+        Version = VERSION
     } :: any
     array(plan.children, "plan children")
     for _, child in ipairs(plan.children) do
@@ -425,7 +425,7 @@ function Protocol.makeManifest(runId: string, jobId: number, assigned: { string 
         Completed = completed,
         JobId = jobId,
         RunId = runId,
-        Version = VERSION,
+        Version = VERSION
     }, runId, jobId, assigned)
 end
 
@@ -450,7 +450,7 @@ function Protocol.encodeProblem(problem: any, runId: string, jobId: number): any
         Kind = problem.Kind,
         Message = problem.Message,
         RunId = runId,
-        Version = VERSION,
+        Version = VERSION
     }
     Protocol.decodeProblem(dto, runId, jobId)
     return dto

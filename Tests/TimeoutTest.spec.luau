@@ -18,7 +18,7 @@ const Config = Testable.Config
 
 const EXECUTION_MODES = {
     { Name = "parallel", Parallel = true },
-    { Name = "sequential", Parallel = false },
+    { Name = "sequential", Parallel = false }
 }
 const INVALID_BUDGETS: { any } = { 0, -1, 0 / 0, "1", true, {} }
 const SCRIPT_HEADER = [[

@@ -22,7 +22,7 @@ const ATTRIBUTE_ESCAPES = {
     ["&"] = "&amp;",
     ["'"] = "&apos;",
     ["<"] = "&lt;",
-    [">"] = "&gt;",
+    [">"] = "&gt;"
 }
 const INDENT = "  "
 const REPLACEMENT_CHARACTER = ResultTree.ReplacementCharacter
@@ -33,7 +33,7 @@ const TEXT_ESCAPES = {
     ["\r"] = "&#13;",
     ["&"] = "&amp;",
     ["<"] = "&lt;",
-    [">"] = "&gt;",
+    [">"] = "&gt;"
 }
 
 const JUnitReporter = {}

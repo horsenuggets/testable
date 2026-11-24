@@ -9,7 +9,7 @@ Overlapping ownership groups stay together, including overlaps through unselecte
 
 export type Job = {
     Files: { string },
-    Id: number,
+    Id: number
 }
 
 const Scheduling = {}

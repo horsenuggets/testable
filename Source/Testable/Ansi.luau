@@ -14,7 +14,7 @@ const Colors = {
     BrightGreen = `{ESCAPE}92m`,
     BrightRed = `{ESCAPE}91m`,
     BrightYellow = `{ESCAPE}93m`,
-    Dim = `{ESCAPE}2m`,
+    Dim = `{ESCAPE}2m`
 }
 
 const IS_LUNE = pcall(function()

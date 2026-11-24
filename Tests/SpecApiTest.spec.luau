@@ -20,14 +20,14 @@ const SPEC_API_PATH = "Source/Testable/SpecApi.luau"
 const COLLECTION_HINT = "must be registered while the spec is being collected"
 const EXECUTION_MODES = {
     { Name = "parallel", Parallel = true },
-    { Name = "sequential", Parallel = false },
+    { Name = "sequential", Parallel = false }
 }
 -- Members of the Expectation table that are not matchers a spec can chain.
 const EXPECTATION_INTERNALS = {
     __index = true,
     checkMatcherNameCollisions = true,
     extend = true,
-    new = true,
+    new = true
 }
 -- Exports that exist only on the requirable API, not in the spec environment.
 const RUN_TIME_EXPORTS = { "bindTest", "expect", "fail" }
@@ -63,13 +63,13 @@ const SPEC_STYLES = {
             const afterEach, beforeAll, beforeEach = Testable.afterEach, Testable.beforeAll, Testable.beforeEach
             const describe, expect, fail, it = Testable.describe, Testable.expect, Testable.fail, Testable.it
             const fdescribe, fit, xdescribe, xit = Testable.fdescribe, Testable.fit, Testable.xdescribe, Testable.xit
-        ]],
+        ]]
     },
     {
         InjectGlobals = true,
         Name = "injected globals",
-        Preamble = "",
-    },
+        Preamble = ""
+    }
 }
 
 type SpecStyle = typeof(SPEC_STYLES[1])
@@ -104,7 +104,7 @@ end
 ]]
 const function plan(spec: () -> ()): any
     return Testable.TestPlanner.createPlan({
-        { method = spec, path = { "Planned" }, pathStringForSorting = "planned" },
+        { method = spec, path = { "Planned" }, pathStringForSorting = "planned" }
     })
 end
 
@@ -328,7 +328,7 @@ return function()
             typedExpect.extend({
                 beBound = function(value)
                     return { message = "not bound", pass = value == "bound" }
-                end,
+                end
             })
 
             const unboundMatcher = onFreshCoroutine(function()

@@ -27,7 +27,7 @@ const NEW_MATCHERS = {
     "lessThanOrEqual",
     "match",
     "none",
-    "truthy",
+    "truthy"
 }
 
 --[[
@@ -229,7 +229,7 @@ return function()
                         greaterThan = left > right,
                         greaterThanOrEqual = left >= right,
                         lessThan = left < right,
-                        lessThanOrEqual = left <= right,
+                        lessThanOrEqual = left <= right
                     }
 
                     for name, expected in outcomes do
@@ -256,14 +256,14 @@ return function()
                 { Value = true, Truthy = true, None = false },
                 { Value = 0, Truthy = true, None = false },
                 { Value = "", Truthy = true, None = false },
-                { Value = {}, Truthy = true, None = false },
+                { Value = {}, Truthy = true, None = false }
             }
 
             for _, case in cases do
                 const outcomes = {
                     falsy = not case.Truthy,
                     none = case.None,
-                    truthy = case.Truthy,
+                    truthy = case.Truthy
                 }
 
                 for name, expected in outcomes do
@@ -410,7 +410,7 @@ return function()
                 { 1, nil },
                 { nil, 1 },
                 { {}, {} },
-                { true, false },
+                { true, false }
             }
 
             for _, name in names do
@@ -467,7 +467,7 @@ return function()
             const callable = setmetatable({}, {
                 __call = function()
                     error("from callable")
-                end,
+                end
             })
 
             expect(callable).to.throw("from callable")
@@ -478,7 +478,7 @@ return function()
                 __call = function()
                     error("from protected callable")
                 end,
-                __metatable = "locked",
+                __metatable = "locked"
             })
 
             expect(callable).to.throw("from protected callable")
@@ -621,7 +621,7 @@ return function()
                     context:extend({
                         [name] = function()
                             return { pass = true, message = "" }
-                        end,
+                        end
                     })
                 end).to.throw("Cannot overwrite matcher")
             end
@@ -633,7 +633,7 @@ return function()
             context:extend({
                 even = function(value)
                     return { pass = value % 2 == 0, message = "Expected an even number." }
-                end,
+                end
             })
 
             context:startExpectationChain(4).to.be.even().to.be.greaterThan(3).never.to.be.lessThan(4)

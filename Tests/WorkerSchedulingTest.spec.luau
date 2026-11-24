@@ -72,7 +72,7 @@ return function()
             const jobs = Scheduling.partition(FILES, namesFor(FILES), 2, {})
             assertJobs(jobs, {
                 { FILES[1], FILES[3], FILES[5] },
-                { FILES[2], FILES[4], FILES[6] },
+                { FILES[2], FILES[4], FILES[6] }
             })
             assertOwnership(FILES, jobs, 2)
         end)
@@ -83,13 +83,13 @@ return function()
             assertJobs(jobs, {
                 { FILES[1], FILES[6] },
                 { FILES[2], FILES[4] },
-                { FILES[3], FILES[5] },
+                { FILES[3], FILES[5] }
             })
             assertOwnership(FILES, jobs, 3)
             assertJobs(Scheduling.partition(FILES, namesFor(FILES), 3, { groups[2], groups[1] }), {
                 { FILES[1], FILES[6] },
                 { FILES[2], FILES[4] },
-                { FILES[3], FILES[5] },
+                { FILES[3], FILES[5] }
             })
         end)
 
@@ -102,12 +102,12 @@ return function()
                 { FILES[5], FILES[6] },
                 { FILES[3], FILES[5] },
                 { FILES[1], FILES[3] },
-                { FILES[1], FILES[1] },
+                { FILES[1], FILES[1] }
             }
             assertJobs(Scheduling.partition(FILES, namesFor(FILES), 6, groups), {
                 { FILES[1], FILES[3], FILES[5], FILES[6] },
                 { FILES[2] },
-                { FILES[4] },
+                { FILES[4] }
             })
         end)
 
@@ -118,18 +118,18 @@ return function()
                 { FILES[1], "AbsentOne" },
                 { "AbsentTwo", FILES[6] },
                 { "AbsentOne", "AbsentTwo" },
-                { "AbsentThree", "AbsentFour" },
+                { "AbsentThree", "AbsentFour" }
             }
             assertJobs(Scheduling.partition(files, names, 3, groups), {
                 { FILES[1], FILES[6] },
-                { FILES[4] },
+                { FILES[4] }
             })
             assertOwnership(files, Scheduling.partition(files, namesFor(files), 3, groups), 3)
         end)
 
         it("should allow extra global names and groups unrelated to the selection", function()
             assertJobs(Scheduling.partition({ FILES[3] }, namesFor(FILES), 100, { { "Missing" } }), {
-                { FILES[3] },
+                { FILES[3] }
             })
         end)
 
@@ -149,7 +149,7 @@ return function()
             assertJobs(Scheduling.partition(files, namesFor(files), 100, {}), {
                 { files[1] },
                 { files[2] },
-                { files[3] },
+                { files[3] }
             })
             assertJobs(Scheduling.partition(files, namesFor(files), 100, { files }), { files })
             assertJobs(Scheduling.partition(files, namesFor(files), 1, {}), { files })
@@ -243,8 +243,8 @@ return function()
             setmetatable({}, {
                 __index = function()
                     return "A"
-                end,
-            }),
+                end
+            })
         }
         for index, value in ipairs(malformedArrays) do
             it(`should reject malformed file array {index}`, function()
@@ -281,7 +281,7 @@ return function()
             { A = "Same", B = "Same" },
             { ["A"] = "Suite A", [""] = "Empty path" },
             { ["A"] = "Suite A", [1] = "Numeric path" },
-            setmetatable({}, { __index = { A = "Suite A" } }),
+            setmetatable({}, { __index = { A = "Suite A" } })
         }
         for index, names in ipairs(invalidNames) do
             it(`should reject invalid or incomplete names {index}`, function()

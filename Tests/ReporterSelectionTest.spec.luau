@@ -28,12 +28,12 @@ const COVERAGE_REPORT = {
             HitLines = 1,
             LineHits = { [1] = 1 },
             Name = "A",
-            Path = "Source/A.luau",
-        },
+            Path = "Source/A.luau"
+        }
     },
     TotalExecutableLines = 1,
     TotalHitLines = 1,
-    TotalPercentage = 100,
+    TotalPercentage = 100
 }
 const MACHINE_REPORTERS = { "JUnit", "Json", "Lcov" }
 const GUARD_SCRIPT = [[
@@ -157,7 +157,7 @@ const function recordingSinks(): (ReporterSelection.Sinks, { string }, { [string
         end,
         WriteFile = function(path: string, contents: string)
             written[path] = contents
-        end,
+        end
     },
         printed,
         written
@@ -289,7 +289,7 @@ return function()
                 "reports//same.out",
                 "reports/./same.out",
                 "reports/nested/../same.out",
-                "reports\\same.out",
+                "reports\\same.out"
             }
             for _, spelling in spellings do
                 expect(hasError(function()
@@ -408,7 +408,7 @@ return function()
                 { ReporterOutputs = { Json = 5 } },
                 { SlowestTests = -1 },
                 { SlowestTests = 1.5 },
-                { SlowestTests = "3" },
+                { SlowestTests = "3" }
             }
             for _, options in invalid do
                 expect(function()

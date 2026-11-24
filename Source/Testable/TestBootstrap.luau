@@ -105,7 +105,7 @@ const function getModulesImplRoblox(root: any, inputModules: { any }?, current: 
         table.insert(modules, {
             method = method,
             path = path,
-            pathStringForSorting = pathString:lower(),
+            pathStringForSorting = pathString:lower()
         })
     end
 end
@@ -128,7 +128,7 @@ function TestBootstrap:getModules(root: any): { any }
             method = root.Func,
             path = { root.Name },
             pathStringForSorting = root.Name:lower(),
-            snapshotPath = root.SnapshotPath,
+            snapshotPath = root.SnapshotPath
         })
     elseif IS_ROBLOX and (typeof(root) :: string) == "Instance" then
         -- Roblox Instance: recursively find .spec ModuleScripts
@@ -313,7 +313,7 @@ function TestBootstrap:run(roots: { any }, reporter: any?, inputOtherOptions: { 
             ("Took %f seconds to locate test modules"):format(afterModules - startTime),
             ("Took %f seconds to create test plan"):format(afterPlan - afterModules),
             ("Took %f seconds to run tests"):format(afterRun - afterPlan),
-            ("Took %f seconds to report tests"):format(afterReport - afterRun),
+            ("Took %f seconds to report tests"):format(afterReport - afterRun)
         }
 
         print(table.concat(timing, "\n"))

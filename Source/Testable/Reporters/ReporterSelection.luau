@@ -25,7 +25,7 @@ const Reporter = TestEnum.Reporter
 -- standard output.
 export type Output = {
     Path: string?,
-    Reporter: string,
+    Reporter: string
 }
 
 -- StandardOutput names the machine-readable reporter that writes to standard output, if
@@ -34,13 +34,13 @@ export type Selection = {
     NeedsCoverage: boolean,
     Outputs: { Output },
     StandardOutput: string?,
-    Text: boolean,
+    Text: boolean
 }
 
 -- Where rendered reports are delivered.
 export type Sinks = {
     Print: (contents: string) -> (),
-    WriteFile: (path: string, contents: string) -> (),
+    WriteFile: (path: string, contents: string) -> ()
 }
 
 const ReporterSelection = {}
@@ -154,7 +154,7 @@ const DEFAULT_SINKS: Sinks = {
     Print = function(contents: string)
         print(contents)
     end,
-    WriteFile = writeFile,
+    WriteFile = writeFile
 }
 
 --[[

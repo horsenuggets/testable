@@ -12,7 +12,7 @@ const TestEnum = {}
 TestEnum.TestStatus = {
     Success = "Success",
     Failure = "Failure",
-    Skipped = "Skipped",
+    Skipped = "Skipped"
 }
 
 TestEnum.NodeType = {
@@ -21,13 +21,13 @@ TestEnum.NodeType = {
     BeforeAll = "BeforeAll",
     AfterAll = "AfterAll",
     BeforeEach = "BeforeEach",
-    AfterEach = "AfterEach",
+    AfterEach = "AfterEach"
 }
 
 TestEnum.NodeModifier = {
     None = "None",
     Skip = "Skip",
-    Focus = "Focus",
+    Focus = "Focus"
 }
 
 -- Reasons the framework attaches to skipped tests on its own. Tests skipped with a skip
@@ -36,14 +36,14 @@ TestEnum.SkipReason = {
     Filter = "excluded by filter",
     Fixme = "fixme",
     Focus = "excluded by focus",
-    Todo = "todo",
+    Todo = "todo"
 }
 
 TestEnum.Reporter = {
     JUnit = "JUnit",
     Json = "Json",
     Lcov = "Lcov",
-    Text = "Text",
+    Text = "Text"
 }
 
 return TestEnum

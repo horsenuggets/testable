@@ -59,7 +59,7 @@ const function fixture(): any
         method = function() end,
         path = { "Spec", "Tests" },
         pathStringForSorting = "tests.spec",
-        snapshotPath = "Tests/Spec.spec.luau",
+        snapshotPath = "Tests/Spec.spec.luau"
     }
     const success = suite:addChild("selected", TestEnum.NodeType.It)
     success.timeout = 2
@@ -110,7 +110,7 @@ const function fixture(): any
         Obsolete = { { Key = "old key", Path = "Tests/__snapshots__/Spec.snap" } },
         Removed = 3,
         Updated = 4,
-        Written = 5,
+        Written = 5
     }
     results.snapshots = { Results = results, Finish = function() end }
     return results
@@ -164,7 +164,7 @@ return function()
                     end,
                     function(dto)
                         setmetatable(dto, {})
-                    end,
+                    end
                 }
             do
                 const dto = table.clone(base)
@@ -277,8 +277,8 @@ return function()
                     end,
                     path = { "ActualSpec" },
                     pathStringForSorting = "actualspec",
-                    snapshotPath = "Tests/ActualSpec.spec.luau",
-                },
+                    snapshotPath = "Tests/ActualSpec.spec.luau"
+                }
             })
             plan.forbidFocus = true
             const original = Testable.TestRunner.runPlan(plan)
@@ -300,8 +300,8 @@ return function()
                         Testable.it("never runs", function() end)
                     end,
                     path = { "HookSpec" },
-                    pathStringForSorting = "hookspec",
-                },
+                    pathStringForSorting = "hookspec"
+                }
             })
             const original = Testable.TestRunner.runPlan(plan)
             const dto = Protocol.encodeResults(original)
@@ -334,7 +334,7 @@ return function()
                         Errors = { "hidden failure" },
                         Id = 999,
                         PlanId = 999,
-                        Status = TestEnum.TestStatus.Failure,
+                        Status = TestEnum.TestStatus.Failure
                     }
                 end
                 dto[field].Children = children
@@ -380,85 +380,85 @@ return function()
                 Name = "unknown version",
                 Change = function(dto)
                     dto.Version = 2
-                end,
+                end
             },
             {
                 Name = "missing plan",
                 Change = function(dto)
                     dto.Plan = nil
-                end,
+                end
             },
             {
                 Name = "missing results",
                 Change = function(dto)
                     dto.Results = nil
-                end,
+                end
             },
             {
                 Name = "unknown field",
                 Change = function(dto)
                     dto.Executable = true
-                end,
+                end
             },
             {
                 Name = "invalid status",
                 Change = function(dto)
                     dto.Results.Children[1].Status = "Passed"
-                end,
+                end
             },
             {
                 Name = "unfinished node",
                 Change = function(dto)
                     dto.Results.Children[1].Status = nil
-                end,
+                end
             },
             {
                 Name = "wrong error type",
                 Change = function(dto)
                     dto.Results.Errors = { 1 }
-                end,
+                end
             },
             {
                 Name = "missing errors",
                 Change = function(dto)
                     dto.Results.Errors = nil
-                end,
+                end
             },
             {
                 Name = "wrong total",
                 Change = function(dto)
                     dto.Results.FailureCount = 0
-                end,
+                end
             },
             {
                 Name = "fractional total",
                 Change = function(dto)
                     dto.Results.SuccessCount = 0.5
-                end,
+                end
             },
             {
                 Name = "wrong root errors",
                 Change = function(dto)
                     dto.Results.Errors[1] = "wrong"
-                end,
+                end
             },
             {
                 Name = "invalid reference",
                 Change = function(dto)
                     dto.Results.Children[1].PlanId = 999
-                end,
+                end
             },
             {
                 Name = "wrong result parent",
                 Change = function(dto)
                     dto.Results.Children[1].Children[1].PlanId = dto.Plan.Children[3].Id
-                end,
+                end
             },
             {
                 Name = "duplicate test phrase",
                 Change = function(dto)
                     dto.Plan.Children[1].Children[3].Phrase = "selected"
-                end,
+                end
             },
             {
                 Name = "unused detached node",
@@ -466,152 +466,152 @@ return function()
                     const extra = Protocol.encodeResults(fixture()).Detached[1]
                     extra.Id += 1
                     table.insert(dto.Detached, extra)
-                end,
+                end
             },
             {
                 Name = "userdata",
                 Change = function(dto)
                     dto.Results.SnapshotSummary.Userdata = newproxy(false)
-                end,
+                end
             },
             {
                 Name = "executable spec metadata",
                 Change = function(dto)
                     dto.Plan.Children[1].SpecModule.Method = "unsafe"
-                end,
+                end
             },
             {
                 Name = "duplicate result",
                 Change = function(dto)
                     table.insert(dto.Results.Children, dto.Results.Children[1])
-                end,
+                end
             },
             {
                 Name = "duplicate plan id",
                 Change = function(dto)
                     dto.Plan.Children[2].Id = 1
-                end,
+                end
             },
             {
                 Name = "missing phrase",
                 Change = function(dto)
                     dto.Plan.Children[1].Phrase = nil
-                end,
+                end
             },
             {
                 Name = "invalid node type",
                 Change = function(dto)
                     dto.Plan.Children[1].Type = "Test"
-                end,
+                end
             },
             {
                 Name = "invalid modifier",
                 Change = function(dto)
                     dto.Plan.Children[1].Modifier = "Unknown"
-                end,
+                end
             },
             {
                 Name = "invalid metadata",
                 Change = function(dto)
                     dto.Plan.Children[1].SpecModule.Path = { false }
-                end,
+                end
             },
             {
                 Name = "invalid timeout",
                 Change = function(dto)
                     dto.Plan.Children[1].Timeout = 0
-                end,
+                end
             },
             {
                 Name = "negative duration",
                 Change = function(dto)
                     dto.Results.Duration = -1
-                end,
+                end
             },
             {
                 Name = "nan duration",
                 Change = function(dto)
                     dto.Results.Duration = 0 / 0
-                end,
+                end
             },
             {
                 Name = "infinite duration",
                 Change = function(dto)
                     dto.Results.Duration = math.huge
-                end,
+                end
             },
             {
                 Name = "sparse array",
                 Change = function(dto)
                     dto.Plan.Children[10] = dto.Plan.Children[1]
-                end,
+                end
             },
             {
                 Name = "dictionary children",
                 Change = function(dto)
                     dto.Results.Children.Extra = {}
-                end,
+                end
             },
             {
                 Name = "cyclic children",
                 Change = function(dto)
                     dto.Plan.Children[1].Children[1] = dto.Plan.Children[1]
-                end,
+                end
             },
             {
                 Name = "cyclic summary",
                 Change = function(dto)
                     dto.Results.SnapshotSummary.Obsolete = dto.Results.SnapshotSummary
-                end,
+                end
             },
             {
                 Name = "function",
                 Change = function(dto)
                     dto.Results.SnapshotSummary.Callback = function() end
-                end,
+                end
             },
             {
                 Name = "thread",
                 Change = function(dto)
                     dto.Results.SnapshotSummary.Thread = coroutine.create(function() end)
-                end,
+                end
             },
             {
                 Name = "metatable",
                 Change = function(dto)
                     setmetatable(dto.Results, {})
-                end,
+                end
             },
             {
                 Name = "missing summary count",
                 Change = function(dto)
                     dto.Results.SnapshotSummary.Matched = nil
-                end,
+                end
             },
             {
                 Name = "invalid obsolete entry",
                 Change = function(dto)
                     dto.Results.SnapshotSummary.Obsolete[1].Key = false
-                end,
+                end
             },
             {
                 Name = "missing focus guard",
                 Change = function(dto)
                     dto.FocusGuardId = nil
-                end,
+                end
             },
             {
                 Name = "wrong focus guard",
                 Change = function(dto)
                     dto.FocusGuardId = 2
-                end,
+                end
             },
             {
                 Name = "invalid guard flag",
                 Change = function(dto)
                     dto.Results.FocusGuardFailed = "true"
-                end,
-            },
+                end
+            }
         }
         for _, case in malformed do
             it(`should reject a DTO with {case.Name}`, function()
@@ -689,116 +689,116 @@ return function()
                 Name = "wrong run",
                 Change = function(value)
                     value.RunId = "other"
-                end,
+                end
             },
             {
                 Name = "wrong job",
                 Change = function(value)
                     value.JobId = 2
-                end,
+                end
             },
             {
                 Name = "wrong version",
                 Change = function(value)
                     value.Version = 2
-                end,
+                end
             },
             {
                 Name = "missing assignment",
                 Change = function(value)
                     value.Assigned = nil
-                end,
+                end
             },
             {
                 Name = "missing completion",
                 Change = function(value)
                     value.Completed = nil
-                end,
+                end
             },
             {
                 Name = "missing completed file",
                 Change = function(value)
                     table.remove(value.Completed)
-                end,
+                end
             },
             {
                 Name = "unexpected completed file",
                 Change = function(value)
                     table.insert(value.Completed, "Other.spec.luau")
-                end,
+                end
             },
             {
                 Name = "duplicate completed file",
                 Change = function(value)
                     value.Completed[2] = value.Completed[1]
-                end,
+                end
             },
             {
                 Name = "duplicate assigned file",
                 Change = function(value)
                     value.Assigned[2] = value.Assigned[1]
-                end,
+                end
             },
             {
                 Name = "wrong assigned order",
                 Change = function(value)
                     value.Assigned[1], value.Assigned[2] = value.Assigned[2], value.Assigned[1]
-                end,
+                end
             },
             {
                 Name = "wrong completed order",
                 Change = function(value)
                     value.Completed[1], value.Completed[2] = value.Completed[2], value.Completed[1]
-                end,
+                end
             },
             {
                 Name = "wrong assigned identity",
                 Change = function(value)
                     value.Assigned[1] = "Other.spec.luau"
-                end,
+                end
             },
             {
                 Name = "wrong completed identity",
                 Change = function(value)
                     value.Completed[1] = "Other.spec.luau"
-                end,
+                end
             },
             {
                 Name = "empty identity",
                 Change = function(value)
                     value.Completed[1] = ""
-                end,
+                end
             },
             {
                 Name = "non-string identity",
                 Change = function(value)
                     value.Completed[1] = 1
-                end,
+                end
             },
             {
                 Name = "sparse completion",
                 Change = function(value)
                     value.Completed[5] = "Other.spec.luau"
-                end,
+                end
             },
             {
                 Name = "extra field",
                 Change = function(value)
                     value.Extra = true
-                end,
+                end
             },
             {
                 Name = "cyclic data",
                 Change = function(value)
                     value.Completed[1] = value
-                end,
+                end
             },
             {
                 Name = "metatable",
                 Change = function(value)
                     setmetatable(value, {})
-                end,
-            },
+                end
+            }
         }
         for _, case in malformed do
             it(`should reject a manifest with {case.Name}`, function()
