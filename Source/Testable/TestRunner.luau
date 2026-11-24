@@ -120,16 +120,11 @@ const function releaseRunningFlag()
     end
 end
 
---[[
-    Logs messages when verbose mode is enabled.
-
-    @param ... - Messages to log
-]]
-const function log(...: any): ()
-    if Config.Verbose then
-        print("[Testable]", ...)
-    end
-end
+-- Captured before planning by the public run APIs, or at runPlan entry for direct use.
+export type Logging = {
+    Log: ((message: string) -> ())?,
+    Verbose: boolean,
+}
 
 --[[
     Runs the given TestPlan and returns a TestResults object representing the
@@ -143,6 +138,7 @@ function TestRunner.runPlan(
     options: {
         HasFocus: boolean?,
         ForbidFocus: boolean?,
+        Logging: Logging?,
         RootGate: { Acquire: (node: any) -> any, Release: (node: any, token: any) -> () }?,
     }?
 ): any
@@ -163,8 +159,33 @@ function TestRunner.runPlan(
             "RootGate must provide Acquire and Release functions"
         )
     end
+    const logging = if options and options.Logging then options.Logging else Config
+    const sink = logging.Log
+    const verbose = logging.Verbose
+    assert(sink == nil or type(sink) == "function", "Log must be a function or nil")
+    assert(type(verbose) == "boolean", "Verbose must be a boolean")
+    local logFailed = false
+    local logProblem: any = nil
+    const function log(message: string, detail: boolean?): ()
+        if not verbose or logFailed then
+            return
+        end
+        if sink ~= nil then
+            -- A failing sink must not strand an async task before it releases its slot.
+            const ok, problem = pcall(sink, if detail then `    Error: {message}` else `[Testable] {message}`)
+            if not ok then
+                logFailed = true
+                logProblem = problem
+            end
+        elseif detail then
+            print("    Error:", message)
+        else
+            print("[Testable]", message)
+        end
+    end
     log("Starting test plan execution...")
     const session = TestSession.new(plan)
+    session.log = log
     session.rootGate = if options then options.RootGate else nil
     const planStartTime = os.clock()
     const lifecycleHooks = LifecycleHooks.new()
@@ -212,6 +233,9 @@ function TestRunner.runPlan(
         -- for obsolete.
         results.snapshotSummary = snapshots:Finish(results, session.hasFocusNodes or plan.filter ~= nil)
 
+        if logFailed then
+            error(logProblem, 0)
+        end
         return results
     end)
 end
@@ -225,6 +249,7 @@ end
     @param lifecycleHooks - The LifecycleHooks manager for before/after hooks
 ]]
 const function runPlanNode(session: any, planNode: any, lifecycleHooks: any): ()
+    const log = session.log
     --[[
         Runs a callback function in a protected environment with error handling.
 
@@ -586,9 +611,7 @@ const function runPlanNode(session: any, planNode: any, lifecycleHooks: any): ()
                                     testDuration
                                 )
                             )
-                            if Config.Verbose then
-                                print("    Error:", errorMessage)
-                            end
+                            log(tostring(errorMessage), true)
                         end
                     end
 
@@ -705,6 +728,7 @@ const function runPlanNode(session: any, planNode: any, lifecycleHooks: any): ()
                         expectationContextStack = {},
                         hasFocusNodes = session.hasFocusNodes,
                         holdsExclusive = isSerial,
+                        log = log,
                         parallel = session.parallel,
                         rootGate = session.rootGate,
                         semaphore = session.semaphore,

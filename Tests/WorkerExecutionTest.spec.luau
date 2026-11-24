@@ -70,6 +70,90 @@ const function run(sources: { [string]: string }, body: string): (string, string
 end
 
 return function()
+    it("retains a parent Log for local file runs before setup and specs reset configuration", function()
+        const output, errors = run(
+            {
+                ["Local.spec.luau"] = [[
+                    const Testable = require("../Source/Testable")
+                    Testable.resetConfig()
+                    return function()
+                        it("local test", function() Testable.resetConfig() end)
+                    end
+                ]],
+                ["Setup.luau"] = [[
+                    return function(testable) testable.resetConfig() end
+                ]],
+            },
+            [[
+                const messages = {}
+                const sink = function(message) table.insert(messages, message) end
+                Testable.configure({ Log = sink, Verbose = true, Workers = 1, WorkerSetup = "Setup.luau" })
+                const results, passed = Testable.runFiles({ "Local.spec.luau" }, fixtureRoot)
+                assert(passed and results.successCount == 1)
+                assert(messages[1] == "[Testable] Starting test plan execution...")
+                assert(messages[#messages] == "[Testable] Test plan execution complete.")
+                assert(string.find(table.concat(messages, "\n"), "Passed: local test", 1, true))
+            ]]
+        )
+        expect(output).to.equal("")
+        expect(errors).to.equal("")
+    end)
+
+    it("rejects parent Log callbacks before any worker or spec can run", function()
+        run(
+            { ["Never.spec.luau"] = 'error("Specs must not be loaded.")' },
+            [[
+                for _, verbose in { false, true } do
+                    Testable.configure({ Log = function() error("No delivery expected.") end, Verbose = verbose })
+                    const ok, problem = pcall(Testable.runFiles, { "Never.spec.luau" }, fixtureRoot)
+                    assert(not ok and Testable.ToolError.is(problem) and problem.Kind == "InvalidConfiguration")
+                    assert(string.find(problem.Message, "Log callbacks cannot cross worker VMs", 1, true))
+                    assert(string.find(problem.Message, "Workers = 1", 1, true))
+                    const code, results = Testable.runFilesToExitCode({ "Never.spec.luau" }, nil, fixtureRoot)
+                    assert(code == Testable.ExitCode.ToolError and results == nil)
+                end
+            ]]
+        )
+    end)
+
+    it("captures independently constructed worker-local Log callbacks before spec loading", function()
+        const output, errors = run(
+            {
+                ["A.spec.luau"] = [[
+                    const Testable = require("../Source/Testable")
+                    Testable.resetConfig()
+                    return function() it("worker test", function() Testable.resetConfig() end) end
+                ]],
+                ["B.spec.luau"] = 'return function() it("other worker", function() end) end',
+                ["Setup.luau"] = [[
+                    const fs = require("@lune/fs")
+                    return function(testable, context)
+                        const path = context.Root .. "/log-" .. context.JobId
+                        const messages = {}
+                        testable.configure({ Log = function(message)
+                            table.insert(messages, message)
+                            if message == "[Testable] Test plan execution complete." then
+                                fs.writeFile(path, table.concat(messages, "\n"))
+                            end
+                        end, Verbose = true })
+                    end
+                ]],
+            },
+            [[
+                Testable.configure({ WorkerSetup = "Setup.luau" })
+                const results, passed = Testable.runFiles({ "A.spec.luau", "B.spec.luau" }, fixtureRoot)
+                assert(passed and results.successCount == 2, table.concat(results.errors, "\n"))
+                for job = 1, 2 do
+                    const messages = fs.readFile(fixtureRoot .. "/log-" .. job)
+                    assert(string.find(messages, "[Testable] Starting test plan execution...", 1, true), messages)
+                    assert(string.find(messages, "[Testable] Test plan execution complete.", 1, true), messages)
+                end
+            ]]
+        )
+        expect(output).to.equal("")
+        expect(errors).to.equal("")
+    end)
+
     it("should preserve globally disambiguated names and SuiteOrder under reversed completion", function()
         run(
             {
