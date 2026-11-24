@@ -275,6 +275,496 @@ return function()
         end)
     end, { Serial = true })
 
+    describe("Coverage.collect report-only contracts", function()
+        const fs = require("@lune/fs")
+        const luau = require("@lune/luau")
+        const source = fs.readFile(`{tostring(script.Parent.Parent.Source.Testable.Coverage)}.luau`)
+
+        const function entries(): any
+            return {
+                { Depth = 0, Function = "", Hits = { [0] = -1, [3] = 2, [8] = 0 }, LineDefined = 0 },
+                { Depth = 1, Function = "nested", Hits = { [8] = 0, [12] = 3, [14] = -2 }, LineDefined = 10 },
+                { Depth = 2, Function = "nested", Hits = { [8] = 4, [18] = 0, [19] = -1 }, LineDefined = 20 },
+                { Depth = 1, Function = "empty", Hits = { [0] = -2 }, LineDefined = 30 },
+            }
+        end
+
+        const function reference(path: string): any
+            return setmetatable({}, {
+                __tostring = function()
+                    return path
+                end,
+            })
+        end
+
+        -- Load the complete module, replacing only native and filesystem boundaries.
+        -- Root discovery is synthetic; filename resolution and grouping remain real.
+        const function collector(references: { any }, runtime: any, compiled: any): (any, { any }, { string })
+            const calls, reads = {}, {}
+            const dependencies = {
+                ["@lune/fs"] = {
+                    isDir = function(path)
+                        return path:match("/Package$") ~= nil
+                    end,
+                    isFile = function(path)
+                        return path:match("%.luau$") ~= nil or path:match("%.lua$") ~= nil
+                    end,
+                    readFile = function(path)
+                        table.insert(reads, path)
+                        return path
+                    end,
+                },
+                ["@lune/luau"] = {
+                    compile = function(path, options)
+                        expect(options.coverageLevel).to.equal(1)
+                        assert(compiled[path] ~= nil, "Synthetic compilation failure.")
+                        return path
+                    end,
+                    load = function(path, options)
+                        expect(options.debugName).to.equal(path)
+                        return path
+                    end,
+                },
+                ["@lune/process"] = { cwd = "/work" },
+            }
+            const isolated = luau.load(source, {
+                environment = {
+                    debug = {
+                        getcoverage = function(target)
+                            table.insert(calls, target)
+                            const value = if type(target) == "string" then compiled[target] else runtime[target]
+                            if type(value) == "function" then
+                                return value()
+                            end
+                            assert(value ~= nil, "Synthetic runtime reference unavailable.")
+                            return value
+                        end,
+                        iscoverageenabled = function()
+                            return true
+                        end,
+                    },
+                    require = function(name)
+                        assert(dependencies[name] ~= nil, `Unexpected coverage dependency "{name}".`)
+                        return dependencies[name]
+                    end,
+                },
+            })()
+            isolated.resolveRoots = function()
+                return references
+            end
+            return isolated, calls, reads
+        end
+
+        const function failure(callback: () -> any): string
+            const ok, problem = pcall(callback)
+            expect(ok).to.equal(false)
+            const message = tostring(problem)
+            return message:match(":%d+: (.*)$") or message
+        end
+
+        it("should deeply match raw reports for mixed native sources, aliases, and nested loads", function()
+            const loaded, alias = reference("/work/Source/Loaded"), reference("/work/Source/./Loaded.luau")
+            const unloaded, empty = reference("/work/Source/Unloaded.lua"), reference("/work/Source/Empty.luau")
+            const broken, outside = reference("/work/Source/Broken.luau"), reference("/work-sibling/Outside.luau")
+            const directory, file = reference("/work/Source/Package"), reference("/work/Source/Package/init.luau")
+            const tracked = function() end
+            const first, second, third, missed = entries(), entries(), entries(), entries()
+            first[1].Hits[0] = 0
+            second[1].Hits[0] = 2
+            third[1].Hits[0] = 0
+            second[1].Hits[8] = 5
+            second[2].Hits[8] = 7
+            second[3].Hits[18] = 2
+            second[3].Hits[19] = -2
+            third[1].Hits[3] = 9
+            for _, entry in missed do
+                for line, count in entry.Hits do
+                    if count >= 0 then
+                        entry.Hits[line] = 0
+                    end
+                end
+            end
+            const runtime = {
+                [loaded] = first,
+                [alias] = second,
+                [empty] = {},
+                [outside] = entries(),
+                [directory] = entries(),
+                [tracked] = third,
+            }
+            const compiled = { ["/work/Source/Unloaded.lua"] = missed }
+            for _, native in { first, second, third, missed, runtime[outside], runtime[directory], runtime[empty] } do
+                for _, entry in native do
+                    table.freeze(entry.Hits)
+                    table.freeze(entry)
+                end
+                table.freeze(native)
+            end
+            const isolated, _, reads = collector({
+                { Name = "Zulu", Script = loaded },
+                { Name = "Alpha", Script = alias },
+                { Name = "Unloaded", Script = unloaded },
+                { Name = "Empty", Script = empty },
+                { Name = "Broken", Script = broken },
+                { Name = "Outside", Script = outside },
+                { Name = "PackageAlias", Script = directory },
+                { Name = "PackageFile", Script = file },
+            }, runtime, compiled)
+            isolated.track("/work/Source/Loaded.luau", tracked)
+            const raw = isolated.captureRaw({})
+            const expected = isolated.collectRaw(raw)
+            const report = isolated.collect({})
+            expect(report).to.deepEqual(expected)
+            const paths = {}
+            for _, result in report.Files do
+                table.insert(paths, result.Path)
+            end
+            expect(paths).to.deepEqual({
+                "/work-sibling/Outside.luau",
+                "Source/Broken.luau",
+                "Source/Empty.luau",
+                "Source/Loaded.luau",
+                "Source/Package/init.luau",
+                "Source/Unloaded.lua",
+            })
+            const result = report.Files[4]
+            expect(result.Name).to.equal("Alpha")
+            expect(result.Loaded).to.equal(true)
+            expect(result.ExecutableLines).to.equal(7)
+            expect(result.HitLines).to.equal(7)
+            expect(result.LineHits).to.deepEqual({ [0] = 2, [3] = 9, [8] = 7, [12] = 3, [18] = 2 })
+            expect(result.Functions).to.deepEqual({
+                { ExecutableLines = 3, HitLines = 3, Name = "(top-level)", Percentage = 100 },
+                { ExecutableLines = 2, HitLines = 2, Name = "nested", Percentage = 100 },
+                { ExecutableLines = 2, HitLines = 2, Name = "nested", Percentage = 100 },
+                { ExecutableLines = 0, HitLines = 0, Name = "empty", Percentage = 0 },
+            })
+            expect(report.Files[2].Loaded).to.equal(false)
+            expect(report.Files[2].Functions).to.deepEqual({})
+            expect(report.Files[3].Loaded).to.equal(true)
+            expect(report.Files[3].ExecutableLines).to.equal(0)
+            expect(report.Files[5].Name).to.equal("PackageAlias")
+            expect(report.Files[6].Loaded).to.equal(false)
+            expect(report.Files[6].LineHits).to.deepEqual({ [3] = 0, [8] = 0, [12] = 0, [18] = 0 })
+            expect(report.TotalExecutableLines).to.equal(25)
+            expect(report.TotalHitLines).to.equal(13)
+            expect(report.TotalPercentage).to.equal(52)
+            for _, path in reads do
+                expect(path == "/work/Source/Unloaded.lua" or path == "/work/Source/Broken.luau").to.equal(true)
+            end
+
+            result.LineHits[3] = 999
+            result.Functions[1].Name = "Changed"
+            result.Name = "Changed"
+            table.clear(report.Files)
+            expect(isolated.collect({})).to.deepEqual(expected)
+            expect(isolated.captureRaw({})).to.deepEqual(raw)
+            raw.Files[4].Entries[1].Hits[3] = 777
+            raw.Files[4].Entries[1].Function = "Changed"
+            raw.Files[4].Name = "Changed"
+            expect(expected.Files[4].LineHits[3]).to.equal(9)
+            expect(isolated.collect({})).to.deepEqual(expected)
+        end)
+
+        const malformed = {
+            {
+                Change = function(value)
+                    value[1].Function = nil
+                end,
+                Name = "missing function",
+            },
+            {
+                Change = function(value)
+                    value[1].LineDefined = nil
+                end,
+                Name = "missing definition line",
+            },
+            {
+                Change = function(value)
+                    value[1].Depth = nil
+                end,
+                Name = "missing depth",
+            },
+            {
+                Change = function(value)
+                    value[1].Function = false
+                end,
+                Name = "nonstring function",
+            },
+            {
+                Change = function(value)
+                    value[1].LineDefined = -1
+                end,
+                Name = "negative definition line",
+            },
+            {
+                Change = function(value)
+                    value[1].LineDefined = 1.5
+                end,
+                Name = "fractional definition line",
+            },
+            {
+                Change = function(value)
+                    value[1].Depth = -1
+                end,
+                Name = "negative depth",
+            },
+            {
+                Change = function(value)
+                    value[1].Depth = 0.5
+                end,
+                Name = "fractional depth",
+            },
+            {
+                Change = function(value)
+                    value[2] = nil
+                end,
+                Name = "entry array hole",
+            },
+            {
+                Change = function(value)
+                    value[1].Hits["3"] = 1
+                end,
+                Name = "string line key",
+            },
+            {
+                Change = function(value)
+                    value[1].Hits[-1] = 1
+                end,
+                Name = "negative line key",
+            },
+            {
+                Change = function(value)
+                    value[1].Hits[0.5] = 1
+                end,
+                Name = "fractional line key",
+            },
+            {
+                Change = function(value)
+                    value[1].Hits[3] = 1.5
+                end,
+                Name = "fractional count",
+            },
+            {
+                Change = function(value)
+                    value[1].Hits[3] = math.huge
+                end,
+                Name = "infinite count",
+            },
+            {
+                Change = function(value)
+                    value[1].Hits[3] = 0 / 0
+                end,
+                Name = "NaN count",
+            },
+            {
+                Change = function(value)
+                    value[1].Hits[3] = "1"
+                end,
+                Name = "string count",
+            },
+            { Change = function() end, Name = "unloaded positive count", Unloaded = true },
+        }
+        for _, case in malformed do
+            it(`should preserve the raw validation failure for {case.Name}`, function()
+                const target = reference("/work/Source/Invalid.luau")
+                const native = entries()
+                case.Change(native)
+                const isolated = collector(
+                    { { Name = "Invalid", Script = target } },
+                    if case.Unloaded then {} else { [target] = native },
+                    if case.Unloaded then { ["/work/Source/Invalid.luau"] = native } else {}
+                )
+                const expected = failure(function()
+                    return isolated.collectRaw(isolated.captureRaw({}))
+                end)
+                expect(
+                    expected:find(if case.Unloaded then "Unloaded raw coverage" else "Invalid raw coverage", 1, true)
+                        ~= nil
+                ).to.equal(true)
+                expect(failure(function()
+                    return isolated.collect({})
+                end)).to.equal(expected)
+            end)
+        end
+
+        it("should defer validation until later files finish acquisition and layout checks", function()
+            const references, runtime = {}, {}
+            for _, name in { "A", "B", "C" } do
+                const target = reference(`/work/Source/{name}.luau`)
+                table.insert(references, { Name = name, Script = target })
+                runtime[target] = entries()
+            end
+            const isolated, calls = collector(references, runtime, {})
+            isolated.captureRaw({})
+            -- Observe the actual grouping traversal instead of guessing dictionary order.
+            expect(#calls).to.equal(3)
+            const earlier, middle, later = calls[1], calls[2], calls[3]
+            runtime[earlier][1].Depth = nil
+            runtime[middle][1].LineDefined = -1
+            const tracked = function() end
+            isolated.track(tostring(later), tracked)
+            runtime[tracked] = function()
+                error("Synthetic tracked acquisition failure.", 0)
+            end
+            const function matchesRaw(suffix: string)
+                const expected = failure(function()
+                    return isolated.collectRaw(isolated.captureRaw({}))
+                end)
+                expect(expected).to.equal(suffix)
+                expect(failure(function()
+                    return isolated.collect({})
+                end)).to.equal(expected)
+            end
+            matchesRaw("Synthetic tracked acquisition failure.")
+            runtime[tracked] = entries()
+            runtime[tracked][2].LineDefined += 1
+            matchesRaw(`Raw coverage layout mismatch for "{tostring(later)}". Function identity differs at entry 2.`)
+            runtime[tracked][2].LineDefined -= 1
+            matchesRaw('Invalid raw coverage entry. Missing field "Depth".')
+            runtime[earlier][1].Depth = 0
+            matchesRaw("Invalid raw coverage definition line.")
+            runtime[middle][1].LineDefined = 0
+            expect(isolated.collect({})).to.deepEqual(isolated.collectRaw(isolated.captureRaw({})))
+        end)
+
+        it("should acquire every load in a file before checking earlier pair layouts", function()
+            const target = reference("/work/Source/Ordered.luau")
+            const mismatched, late = function() end, function() end
+            const runtime = {
+                [target] = entries(),
+                [mismatched] = entries(),
+                [late] = function()
+                    error("Synthetic late acquisition failure.", 0)
+                end,
+            }
+            runtime[mismatched][3].Depth += 1
+            const isolated = collector({ { Name = "Ordered", Script = target } }, runtime, {})
+            isolated.track(tostring(target), mismatched)
+            isolated.track(tostring(target), late)
+            for _, run in
+                {
+                    function()
+                        return isolated.collectRaw(isolated.captureRaw({}))
+                    end,
+                    function()
+                        return isolated.collect({})
+                    end,
+                }
+            do
+                expect(failure(run)).to.equal("Synthetic late acquisition failure.")
+            end
+            runtime[late] = entries()
+            const expected = failure(function()
+                return isolated.collectRaw(isolated.captureRaw({}))
+            end)
+            expect(expected).to.equal(
+                'Raw coverage layout mismatch for "/work/Source/Ordered.luau". Function identity differs at entry 3.'
+            )
+            expect(failure(function()
+                return isolated.collect({})
+            end)).to.equal(expected)
+        end)
+
+        it("should match repeated raw reports after real nested hits and Config.reset", function()
+            if not debug.iscoverageenabled() then
+                return
+            end
+            const path = "/work/Source/Tracked.luau"
+            const chunk = luau.load(fs.readFile(`{tostring(fixturesDir)}/TrackedModule.luau`), { debugName = path })
+            const value = chunk()
+            const isolated = collector({ { Name = "Tracked", Script = reference(path) } }, {
+                [chunk] = function()
+                    return debug.getcoverage(chunk)
+                end,
+            }, {})
+            isolated.track(path, chunk)
+            const before = isolated.collect({})
+            expect(before).to.deepEqual(isolated.collectRaw(isolated.captureRaw({})))
+            value.classify(1)
+            Config.reset()
+            const after = isolated.collect({})
+            expect(after.TotalHitLines > before.TotalHitLines).to.equal(true)
+            expect(after).to.deepEqual(isolated.collectRaw(isolated.captureRaw({})))
+            expect(isolated.collect({})).to.deepEqual(after)
+            value.classify(-1)
+            const complete = isolated.collect({})
+            expect(complete.TotalHitLines > after.TotalHitLines).to.equal(true)
+            expect(complete).to.deepEqual(isolated.collectRaw(isolated.captureRaw({})))
+            expect(isolated.collect({})).to.deepEqual(complete)
+            expect(before.TotalHitLines < after.TotalHitLines).to.equal(true)
+        end)
+
+        it("should preserve report parity across many independent source files", function()
+            const references, runtime, compiled = {}, {}, {}
+            for index = 64, 1, -1 do
+                const name = string.format("Module%02d", index)
+                const path = `/work/Source/{name}.luau`
+                const target = reference(path)
+                const native = entries()
+                table.insert(references, { Name = name, Script = target })
+                if index % 2 == 0 then
+                    runtime[target] = native
+                else
+                    for _, entry in native do
+                        for line, count in entry.Hits do
+                            if count >= 0 then
+                                entry.Hits[line] = 0
+                            end
+                        end
+                    end
+                    compiled[path] = native
+                end
+            end
+            const isolated = collector(references, runtime, compiled)
+            const expected = isolated.collectRaw(isolated.captureRaw({}))
+            const report = isolated.collect({})
+            expect(report).to.deepEqual(expected)
+            expect(#report.Files).to.equal(64)
+            expect(report.TotalExecutableLines).to.equal(384)
+            expect(report.TotalHitLines).to.equal(96)
+            expect(report.TotalPercentage).to.equal(25)
+            for index, file in report.Files do
+                expect(file.Path).to.equal(string.format("Source/Module%02d.luau", index))
+                expect(file.Loaded).to.equal(index % 2 == 0)
+            end
+            expect(isolated.collect({})).to.deepEqual(expected)
+        end)
+
+        it("should not discover sources when the native coverage API is absent or disabled", function()
+            for _, nativeDebug in
+                {
+                    {},
+                    { iscoverageenabled = false },
+                    {
+                        iscoverageenabled = function()
+                            return false
+                        end,
+                    },
+                }
+            do
+                const isolated = luau.load(source, { environment = { debug = nativeDebug } })()
+                isolated.resolveRoots = function()
+                    error("Disabled coverage must not discover sources.")
+                end
+                expect(isolated.collect({})).to.equal(nil)
+                expect(isolated.captureRaw({})).to.equal(nil)
+            end
+        end)
+
+        it("should report native data without calling public raw transport functions", function()
+            const target = reference("/work/Source/Direct.luau")
+            const isolated = collector({ { Name = "Direct", Script = target } }, { [target] = entries() }, {})
+            const expected = isolated.collectRaw(isolated.captureRaw({}))
+            for _, name in { "captureRaw", "collectRaw", "mergeRaw" } do
+                isolated[name] = function()
+                    error(`Public raw transport "{name}" must not be used by collect.`, 0)
+                end
+            end
+            expect(isolated.collect({})).to.deepEqual(expected)
+        end)
+    end, { Serial = true })
+
     describe("Coverage.track", function()
         const fs = require("@lune/fs")
         const luau = require("@lune/luau")
