@@ -8,6 +8,7 @@ membership, original descriptors, snapshot ownership and default ordering stay i
 --]]
 
 const Subprocess = require("./Helpers/Subprocess")
+const SuiteOrder = require("../Source/Testable/SuiteOrder")
 const Testable = require("../Source/Testable")
 const expect, it = Testable.expect, Testable.it
 const PERMUTATIONS = { { 1, 2, 3 }, { 1, 3, 2 }, { 2, 1, 3 }, { 2, 3, 1 }, { 3, 1, 2 }, { 3, 2, 1 } }
@@ -114,6 +115,39 @@ return function()
             end
         )
     end
+
+    it("totally orders case-equivalent names and remains idempotent across worker planning", function()
+        const function permutations(prefix, remaining)
+            if #remaining == 0 then
+                for _, preference in { {}, { "fOO", "Foo" }, { "foo" } } do
+                    const input = {}
+                    for _, name in ipairs(prefix) do
+                        table.insert(input, descriptor(name))
+                    end
+                    const ordered = SuiteOrder.modules(input, preference)
+                    const reordered = SuiteOrder.modules(ordered, preference)
+                    const names = {}
+                    for index, module in ipairs(ordered) do
+                        expect(reordered[index]).to.equal(module)
+                        table.insert(names, module.path[1])
+                        expect(input[index].path[1]).to.equal(prefix[index])
+                    end
+                    const expected = if #preference == 2 then "fOO,Foo,FOO,FoO" else "FOO,FoO,Foo,fOO"
+                    expect(table.concat(names, ",")).to.equal(expected)
+                    expect(planNames(Testable.TestPlanner.createPlan(ordered, nil, nil, preference))).to.equal(expected)
+                end
+                return
+            end
+            for index, name in ipairs(remaining) do
+                const nextPrefix = table.clone(prefix)
+                table.insert(nextPrefix, name)
+                const nextRemaining = table.clone(remaining)
+                table.remove(nextRemaining, index)
+                permutations(nextPrefix, nextRemaining)
+            end
+        end
+        permutations({}, { "Foo", "FOO", "FoO", "fOO" })
+    end)
 
     it("retains alphabetical ordering when preferences are absent or empty", function()
         for _, order in { { Value = nil }, { Value = {} } } do

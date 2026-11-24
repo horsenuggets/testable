@@ -54,11 +54,19 @@ function SuiteOrder.modules(modules: { any }, order: { string }?): { any }
     end
     const ordered = table.clone(modules)
     table.sort(ordered, function(left, right)
-        const leftPriority = priorities[identity(left.path)] or math.huge
-        const rightPriority = priorities[identity(right.path)] or math.huge
-        return if leftPriority == rightPriority
-            then left.pathStringForSorting < right.pathStringForSorting
-            else leftPriority < rightPriority
+        const leftIdentity = identity(left.path)
+        const rightIdentity = identity(right.path)
+        const leftPriority = priorities[leftIdentity] or math.huge
+        const rightPriority = priorities[rightIdentity] or math.huge
+        if leftPriority ~= rightPriority then
+            return leftPriority < rightPriority
+        end
+        if left.pathStringForSorting ~= right.pathStringForSorting then
+            return left.pathStringForSorting < right.pathStringForSorting
+        end
+        -- A worker sorts an already ordered subset again. Case-equivalent names need a
+        -- total order so sequential workers request grants in the coordinator's order.
+        return leftIdentity < rightIdentity
     end)
     return ordered
 end

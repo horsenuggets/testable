@@ -33,6 +33,25 @@ const EXCLUDED_SUFFIXES = {
     "%.storybook$",
 }
 
+export type RawEntry = {
+    Depth: number,
+    Function: string,
+    Hits: { [number]: number },
+    LineDefined: number,
+}
+
+export type RawFile = {
+    Entries: { RawEntry },
+    Loaded: boolean,
+    Name: string,
+    Path: string,
+}
+
+export type RawSnapshot = {
+    Files: { RawFile },
+    Version: number,
+}
+
 export type FunctionCoverage = {
     Name: string,
     ExecutableLines: number,
@@ -151,39 +170,161 @@ function Coverage.track(path: string, chunk: (...any) -> ...any)
     table.insert(chunks, chunk)
 end
 
---[[
-    Merges coverage entries from several loads of the same source. Loads of one source
-    share their function order, so hits merge elementwise and the highest count wins.
-    Sources with a different function layout than the first are skipped.
-
-    @param sources - Arrays of debug.getcoverage entries
-    @return The merged entries
-]]
-const function mergeEntries(sources: { { any } }): { any }
-    const merged = {}
-    for index, entry in sources[1] do
-        merged[index] = { Function = entry.Function, Hits = table.clone(entry.Hits) }
+-- Strict shapes keep transport data acyclic and reject fields that would otherwise be
+-- silently discarded. Numeric keys stay numeric, including negative hit markers.
+const function assertFields(value: any, fields: { [string]: boolean }, context: string)
+    assert(
+        type(value) == "table" and getmetatable(value) == nil,
+        `Invalid raw coverage {context}. Expected a plain table.`
+    )
+    for key in value do
+        assert(fields[key] == true, `Invalid raw coverage {context}. Unexpected field "{tostring(key)}".`)
     end
-    for sourceIndex = 2, #sources do
-        const source = sources[sourceIndex]
-        local matches = #source == #merged
-        for index, entry in source do
-            if not matches or entry.Function ~= merged[index].Function then
-                matches = false
-                break
+    for key in fields do
+        assert(value[key] ~= nil, `Invalid raw coverage {context}. Missing field "{key}".`)
+    end
+end
+
+const function isInteger(value: any): boolean
+    return type(value) == "number" and value > -math.huge and value < math.huge and value % 1 == 0
+end
+
+const function assertArray(value: any, context: string)
+    assert(type(value) == "table" and getmetatable(value) == nil, `Invalid raw coverage {context}. Expected an array.`)
+    local count = 0
+    for key in value do
+        assert(isInteger(key) and key >= 1, `Invalid raw coverage {context}. Expected dense numeric indices.`)
+        count += 1
+    end
+    for index = 1, count do
+        assert(value[index] ~= nil, `Invalid raw coverage {context}. Array contains a hole.`)
+    end
+end
+
+const function validateSnapshot(snapshot: any)
+    assertFields(snapshot, { Files = true, Version = true }, "snapshot")
+    assert(snapshot.Version == 1, "Invalid raw coverage version. Expected 1.")
+    assertArray(snapshot.Files, "files")
+    const seen: { [string]: boolean } = {}
+    for _, file in snapshot.Files do
+        assertFields(file, { Entries = true, Loaded = true, Name = true, Path = true }, "file")
+        assert(type(file.Path) == "string" and file.Path ~= "", "Invalid raw coverage path.")
+        assert(
+            Coverage.normalizePath(file.Path, "/") == file.Path,
+            "Raw coverage paths must be normalized absolute paths."
+        )
+        assert(not seen[file.Path], `Duplicate raw coverage file "{file.Path}".`)
+        seen[file.Path] = true
+        assert(type(file.Name) == "string", "Invalid raw coverage display name.")
+        assert(type(file.Loaded) == "boolean", "Invalid raw coverage loaded flag.")
+        assertArray(file.Entries, `entries for "{file.Path}"`)
+        for _, entry in file.Entries do
+            assertFields(entry, { Depth = true, Function = true, Hits = true, LineDefined = true }, "entry")
+            assert(type(entry.Function) == "string", "Invalid raw coverage function name.")
+            assert(isInteger(entry.LineDefined) and entry.LineDefined >= 0, "Invalid raw coverage definition line.")
+            assert(isInteger(entry.Depth) and entry.Depth >= 0, "Invalid raw coverage function depth.")
+            assert(type(entry.Hits) == "table" and getmetatable(entry.Hits) == nil, "Invalid raw coverage hits.")
+            for line, count in entry.Hits do
+                assert(isInteger(line) and line >= 0, "Invalid raw coverage numeric line key.")
+                assert(isInteger(count), "Invalid raw coverage hit count.")
+                assert(file.Loaded or count <= 0, "Unloaded raw coverage cannot contain positive hits.")
             end
         end
-        if not matches then
-            continue
+    end
+end
+
+const function assertLayout(first: { RawEntry }, other: { RawEntry }, path: string)
+    const message = `Raw coverage layout mismatch for "{path}".`
+    assert(#first == #other, `{message} Function count differs.`)
+    for index, entry in first do
+        const candidate = other[index]
+        assert(
+            entry.Function == candidate.Function
+                and entry.LineDefined == candidate.LineDefined
+                and entry.Depth == candidate.Depth,
+            `{message} Function identity differs at entry {index}.`
+        )
+        for line, count in entry.Hits do
+            const otherCount = candidate.Hits[line]
+            assert(otherCount ~= nil, `{message} Hits key set differs at entry {index}, line {line}.`)
+            assert(
+                (count >= 0) == (otherCount >= 0),
+                `{message} Executable mask differs at entry {index}, line {line}.`
+            )
         end
-        for index, entry in source do
-            const hits = merged[index].Hits
-            for line, hitCount in entry.Hits do
-                hits[line] = math.max(hits[line] or -1, hitCount)
+        for line in candidate.Hits do
+            assert(entry.Hits[line] ~= nil, `{message} Hits key set differs at entry {index}, line {line}.`)
+        end
+    end
+end
+
+-- Every layout is checked before any hit arithmetic. Local tracked loads and imported
+-- snapshots use exactly the same function identities, masks, and elementwise maximum.
+const function mergeEntries(sources: { { RawEntry } }, path: string): { RawEntry }
+    for index = 2, #sources do
+        assertLayout(sources[1], sources[index], path)
+    end
+    const merged: { RawEntry } = {}
+    for index, entry in sources[1] do
+        merged[index] = {
+            Depth = entry.Depth,
+            Function = entry.Function,
+            Hits = table.clone(entry.Hits),
+            LineDefined = entry.LineDefined,
+        }
+    end
+    for sourceIndex = 2, #sources do
+        for index, entry in sources[sourceIndex] do
+            for line, count in entry.Hits do
+                merged[index].Hits[line] = math.max(merged[index].Hits[line], count)
             end
         end
     end
     return merged
+end
+
+--[[
+    Validates and merges explicit snapshots without reading source or retaining imported
+    state. Files sort by normalized absolute path. Aliased display names use the smallest
+    name lexically, so merging remains independent of snapshot order.
+]]
+function Coverage.mergeRaw(snapshots: { RawSnapshot }): RawSnapshot
+    assertArray(snapshots, "snapshots")
+    const byPath: { [string]: { RawFile } } = {}
+    const paths: { string } = {}
+    for _, snapshot in snapshots do
+        validateSnapshot(snapshot)
+        for _, file in snapshot.Files do
+            if byPath[file.Path] == nil then
+                byPath[file.Path] = {}
+                table.insert(paths, file.Path)
+            end
+            table.insert(byPath[file.Path], file)
+        end
+    end
+    -- Validate every file before merging any file, even when a mismatch is in the last
+    -- snapshot or a different path from the one whose hits would be merged first.
+    for path, files in byPath do
+        for index = 2, #files do
+            assertLayout(files[1].Entries, files[index].Entries, path)
+        end
+    end
+    table.sort(paths)
+    const files: { RawFile } = {}
+    for _, path in paths do
+        const sources: { { RawEntry } } = {}
+        local loaded = false
+        local name = byPath[path][1].Name
+        for _, file in byPath[path] do
+            loaded = loaded or file.Loaded
+            if file.Name < name then
+                name = file.Name
+            end
+            table.insert(sources, file.Entries)
+        end
+        table.insert(files, { Entries = mergeEntries(sources, path), Loaded = loaded, Name = name, Path = path })
+    end
+    return { Files = files, Version = 1 }
 end
 
 --[[
@@ -307,45 +448,32 @@ const function compileCoverageEntries(path: string): { any }?
     return if ok and type(entries) == "table" then entries else nil
 end
 
---[[
-    Collects coverage data for a single file by passing its script
-    instance to debug.getcoverage. Returns per-function coverage
-    entries for ALL functions in the file, including local ones.
-    Hits from chunks registered with Coverage.track merge in. Modules
-    that were never required or tracked are compiled instead, with
-    every executable line counted as missed.
-
-    @param scriptInstance - The script instance to collect coverage for
-    @param path - The filesystem path of the module source
-    @return fileFunctions - Array of FunctionCoverage entries
-    @return fileHit - Total hit lines across all functions
-    @return fileExecutable - Total executable lines across all functions
-    @return loaded - Whether the module ran during the test session
-    @return lineHits - Hit count of every executable line, keyed by line number
-]]
-const function collectFileCoverage(
-    scriptInstance: any,
-    path: string
-): ({ FunctionCoverage }, number, number, boolean, { [number]: number })
-    const sources: { { any } } = {}
-    const ok, runtimeEntries = pcall(debug.getcoverage, scriptInstance)
-    if ok and type(runtimeEntries) == "table" then
-        table.insert(sources, runtimeEntries)
+-- Gathers actual runtime entries, including tracked loads. Only never-loaded sources
+-- are compiled, without execution, to retain zero-hit executable lines.
+const function gatherEntries(scriptInstances: { any }, path: string): ({ RawEntry }, boolean)
+    const sources: { { RawEntry } } = {}
+    for _, scriptInstance in ipairs(scriptInstances) do
+        const ok, runtimeEntries = pcall(debug.getcoverage, scriptInstance)
+        if ok and type(runtimeEntries) == "table" then
+            table.insert(sources, runtimeEntries)
+        end
     end
     const chunks: { (...any) -> ...any } = trackedChunks[Coverage.normalizePath(path)] or {}
     for _, chunk in chunks do
         table.insert(sources, debug.getcoverage(chunk))
     end
 
-    const loaded = #sources > 0
-    local entries = if loaded then mergeEntries(sources) else nil
-    if not loaded then
-        entries = compileCoverageEntries(path)
-        if entries == nil then
-            return {}, 0, 0, false, {}
-        end
+    if #sources > 0 then
+        return mergeEntries(sources, path), true
     end
+    return compileCoverageEntries(path) or {}, false
+end
 
+-- Reports function totals separately, while overlapping source lines use a maximum.
+const function reportEntries(
+    entries: { RawEntry },
+    loaded: boolean
+): ({ FunctionCoverage }, number, number, { [number]: number })
     const fileFunctions: { FunctionCoverage } = {}
     const lineHits: { [number]: number } = {}
     local fileHit = 0
@@ -384,7 +512,7 @@ const function collectFileCoverage(
         })
     end
 
-    return fileFunctions, fileHit, fileExecutable, loaded, lineHits
+    return fileFunctions, fileHit, fileExecutable, lineHits
 end
 
 --[[
@@ -437,8 +565,9 @@ const function resolveScript(
 end
 
 --[[
-    Resolves CoverageRoots into a flat list of modules. Accepts either
-    a single script instance or a dictionary of script instances.
+    Resolves CoverageRoots into a flat list of modules. Accepts a script reference,
+    filesystem path, or dictionary of named references or paths. Relative paths use the
+    working directory and reconstruct VM-local references without requiring source.
 
     Single script: script.Parent.Source
     Dictionary:    { Chalk = script.Parent.Source.Chalk, Utils = ... }
@@ -447,6 +576,17 @@ end
     @return scripts - Array of { Name, Script } entries
 ]]
 function Coverage.resolveRoots(roots: any): { { Name: string, Script: any } }
+    const function resolveValue(value: any): any
+        if type(value) ~= "string" then
+            return value
+        end
+        assert(IS_LUNE, "Filesystem coverage paths require Lune.")
+        assert(value:find("%S") ~= nil, "Coverage paths must not be blank.")
+        -- ScriptReference child lookup accepts absolute paths without requiring the
+        -- source. The worker constructs its own reference; userdata never crosses VMs.
+        const path = Coverage.normalizePath(value)
+        return script[path]
+    end
     const results: { { Name: string, Script: any } } = {}
     const seen: { [string]: boolean } = {}
 
@@ -461,67 +601,97 @@ function Coverage.resolveRoots(roots: any): { { Name: string, Script: any } }
         table.sort(keys)
 
         for _, name in keys do
-            resolveScript(roots[name], name, results, seen)
+            resolveScript(resolveValue(roots[name]), name, results, seen)
         end
     else
-        -- Single script instance
-        resolveScript(roots, getDisplayName(roots), results, seen)
+        -- A path is resolved locally to the same reference a script root would supply.
+        const root = resolveValue(roots)
+        resolveScript(root, getDisplayName(root), results, seen)
     end
 
     return results
 end
 
 --[[
-    Collects coverage data for all resolved modules. Returns nil when
-    coverage is not enabled (LUNE_COVERAGE=0).
-
-    @param roots - Script instance or dictionary of script instances
-    @return report - The coverage report, or nil if coverage is disabled
+    Captures owned, acyclic raw coverage for transport to a coordinator. Returns nil when
+    coverage is disabled. Loaded files retain their actual ordered debug.getcoverage
+    entries, never a reconstruction from source or report totals.
 ]]
-function Coverage.collect(roots: any): CoverageReport?
+function Coverage.captureRaw(roots: any): RawSnapshot?
     const hasApi = type(debug.iscoverageenabled) == "function"
     if not hasApi or not debug.iscoverageenabled() then
         return nil
     end
 
     const fs = require("@lune/fs")
-    const cwd = require("@lune/process").cwd
-    const scripts = Coverage.resolveRoots(roots)
-    const files: { FileCoverage } = {}
-    local grandTotalHit = 0
-    local grandTotalExecutable = 0
-
-    for _, entry in scripts do
+    const files: { RawFile } = {}
+    const groups: { [string]: { Name: string, Scripts: { any } } } = {}
+    for _, entry in Coverage.resolveRoots(roots) do
         local path = tostring(entry.Script)
         if fs.isDir(path) then
             path = `{path}/init.luau`
         elseif not fs.isFile(path) then
             path = if fs.isFile(`{path}.luau`) then `{path}.luau` else `{path}.lua`
         end
+        path = Coverage.normalizePath(path)
+        local group = groups[path]
+        if group == nil then
+            group = { Name = entry.Name, Scripts = {} }
+            groups[path] = group
+        elseif entry.Name < group.Name then
+            group.Name = entry.Name
+        end
+        table.insert(group.Scripts, entry.Script)
+    end
+    -- Extension aliases and directory/file roots can resolve to one filename. Gather
+    -- every reference's runtime data, but compile and report that physical source once.
+    for path, group in pairs(groups) do
+        const entries, loaded = gatherEntries(group.Scripts, path)
+        table.insert(files, { Entries = entries, Loaded = loaded, Name = group.Name, Path = path })
+    end
+    return Coverage.mergeRaw({ { Files = files, Version = 1 } })
+end
 
-        const fileFunctions, fileHit, fileExecutable, loaded, lineHits = collectFileCoverage(entry.Script, path)
-
+--[[
+    Converts a raw snapshot into the existing report shape without reading or compiling
+    source files. Validation and copying also make standalone worker snapshots safe to
+    report without requiring a separate merge first.
+]]
+function Coverage.collectRaw(snapshot: RawSnapshot): CoverageReport
+    const owned = Coverage.mergeRaw({ snapshot })
+    const cwd = if IS_LUNE then Coverage.normalizePath(require("@lune/process").cwd) else ""
+    const prefix = if cwd:sub(-1) == "/" then cwd else `{cwd}/`
+    const files: { FileCoverage } = {}
+    local grandTotalHit = 0
+    local grandTotalExecutable = 0
+    for _, file in owned.Files do
+        const fileFunctions, fileHit, fileExecutable, lineHits = reportEntries(file.Entries, file.Loaded)
         grandTotalHit += fileHit
         grandTotalExecutable += fileExecutable
-
         table.insert(files, {
-            Name = entry.Name,
-            Path = if path:sub(1, #cwd) == cwd then path:sub(#cwd + 1) else path,
+            Name = file.Name,
+            Path = if cwd ~= "" and file.Path:sub(1, #prefix) == prefix then file.Path:sub(#prefix + 1) else file.Path,
             Functions = fileFunctions,
             ExecutableLines = fileExecutable,
             HitLines = fileHit,
             LineHits = lineHits,
-            Loaded = loaded,
+            Loaded = file.Loaded,
             Percentage = Coverage.percentage(fileHit, fileExecutable),
         })
     end
-
     return {
         Files = files,
         TotalExecutableLines = grandTotalExecutable,
         TotalHitLines = grandTotalHit,
         TotalPercentage = Coverage.percentage(grandTotalHit, grandTotalExecutable),
     }
+end
+
+-- Collects local coverage through the same raw gathering and reporting paths. Imported
+-- snapshots are only ever merged explicitly, so no run can inherit imported state.
+function Coverage.collect(roots: any): CoverageReport?
+    const snapshot = Coverage.captureRaw(roots)
+    return if snapshot ~= nil then Coverage.collectRaw(snapshot) else nil
 end
 
 --[[
