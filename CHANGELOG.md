@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.6.0
+
+- Added file-oriented test APIs and isolated Lune actor execution with `Workers`, `WorkerGroups`, and `WorkerSetup` configuration and CLI worker flags.
+- Preserved global suite order, focus and filter decisions, per-file Serial exclusivity, snapshot ownership, typed tool errors, and deterministic result reporting across workers.
+- Added versioned raw coverage capture and exact layout-validated merging, including filesystem coverage roots, overlapping roots, and zero-hit unrequired sources.
+- Included worker setup and actor entrypoint dependencies in changed-only and watch runs.
+- Fixed unstable ordering of case-equivalent suite names.
+
 ## 1.5.0
 
 - Added `SuiteOrder` to prioritize specs while leaving unlisted specs alphabetical.
