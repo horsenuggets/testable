@@ -36,7 +36,7 @@ function Subprocess.runScriptStreams(scriptContent: string): (boolean, string, s
     fs.writeFile(scriptPath, scriptContent)
 
     const result = process.exec("lune", { "run", scriptName }, {
-        cwd = projectRoot,
+        cwd = projectRoot
     })
 
     fs.removeFile(scriptPath)

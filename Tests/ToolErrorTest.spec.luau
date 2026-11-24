@@ -17,7 +17,7 @@ const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 
 const EXECUTION_MODES = {
     { Name = "parallel", Parallel = true },
-    { Name = "sequential", Parallel = false },
+    { Name = "sequential", Parallel = false }
 }
 const SCRIPT_TEMPLATE = [[
     const process = require("@lune/process")
@@ -61,7 +61,7 @@ const function report(totalExecutableLines: number, totalPercentage: number): Co
         Files = {},
         TotalExecutableLines = totalExecutableLines,
         TotalHitLines = 0,
-        TotalPercentage = totalPercentage,
+        TotalPercentage = totalPercentage
     }
 end
 
@@ -78,7 +78,7 @@ end
 const function runTestsScript(args: { string }): (number, string, string, string)
     const result = process.exec("lune", { "run", "Scripts/RunTests.exec.luau", table.unpack(args) }, {
         cwd = process.cwd,
-        env = { TESTABLE_CICD_ROBLOX_API_KEY = "" },
+        env = { TESTABLE_CICD_ROBLOX_API_KEY = "" }
     })
     const standardOutput = result.stdout or ""
     const standardError = result.stderr or ""
@@ -275,7 +275,7 @@ return function()
                 "--filter",
                 "FilterArgumentsTest should accept",
                 "--reporter",
-                "text",
+                "text"
             })
 
             expect(code).to.equal(0)

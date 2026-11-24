@@ -24,8 +24,8 @@ return function()
                                 expect(true).to.be.ok()
                             end)
                         end)
-                    end,
-                },
+                    end
+                }
             }
 
             const _, passed = Testable.run(miniTests)
@@ -43,7 +43,7 @@ return function()
                             expect(1 + 1).to.equal(2)
                         end)
                     end)
-                end,
+                end
             }
 
             const _, passed = Testable.run(dictTests)
@@ -67,7 +67,7 @@ return function()
                             table.insert(order, "A")
                         end)
                     end)
-                end,
+                end
             }
 
             Testable.run(dictTests)

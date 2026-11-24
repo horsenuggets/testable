@@ -63,9 +63,9 @@ const function _upload(apiKey: string, placeData: string): number
         method = "POST",
         headers = {
             ["Content-Type"] = "application/octet-stream",
-            ["x-api-key"] = apiKey,
+            ["x-api-key"] = apiKey
         },
-        body = placeData,
+        body = placeData
     })
 
     if not response.ok then
@@ -104,7 +104,7 @@ function E2EPlace.ensureCurrent(apiKey: string): number
             Hash = hash,
             PlaceId = PLACE_ID,
             UniverseId = UNIVERSE_ID,
-            VersionNumber = versionNumber,
+            VersionNumber = versionNumber
         })
     )
     print(`The E2E place was uploaded as version {versionNumber}.`)

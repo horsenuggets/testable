@@ -22,7 +22,7 @@ export type Action = "GiveUp" | "Retry" | "Return"
 
 export type Decision = {
     Action: Action,
-    Delay: number,
+    Delay: number
 }
 
 export type Policy = {
@@ -32,13 +32,13 @@ export type Policy = {
     -- How many times a request is sent in total, including the first attempt.
     MaxAttempts: number,
     -- The longest wait between two attempts in seconds, whatever the server asked for.
-    MaxDelay: number,
+    MaxDelay: number
 }
 
 const DEFAULT_POLICY: Policy = table.freeze({
     BaseDelay = 2,
     MaxAttempts = 5,
-    MaxDelay = 60,
+    MaxDelay = 60
 })
 
 const CloudRetry = {}

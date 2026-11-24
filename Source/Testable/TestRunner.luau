@@ -25,7 +25,7 @@ const RUNNING_COUNT_GLOBAL = "__TESTABLE_RUNNING_COUNT__"
 
 const TestRunner = {
     SnapshotPathGuard = nil :: ((path: string) -> ())?,
-    environment = {},
+    environment = {}
 }
 
 -- Helper to acquire a slot of the semaphore that limits concurrent test execution across
@@ -123,7 +123,7 @@ end
 -- Captured before planning by the public run APIs, or at runPlan entry for direct use.
 export type Logging = {
     Log: ((message: string) -> ())?,
-    Verbose: boolean,
+    Verbose: boolean
 }
 
 --[[
@@ -139,7 +139,7 @@ function TestRunner.runPlan(
         HasFocus: boolean?,
         ForbidFocus: boolean?,
         Logging: Logging?,
-        RootGate: { Acquire: (node: any) -> any, Release: (node: any, token: any) -> () }?,
+        RootGate: { Acquire: (node: any) -> any, Release: (node: any, token: any) -> () }?
     }?
 ): any
     assert(options == nil or type(options) == "table", "options must be a table or nil")
@@ -204,7 +204,7 @@ function TestRunner.runPlan(
     const snapshots = SnapshotManager.new({
         PathGuard = if Config.SnapshotStore == nil then TestRunner.SnapshotPathGuard else nil,
         Store = Config.SnapshotStore,
-        Update = Config.UpdateSnapshots,
+        Update = Config.UpdateSnapshots
     })
     session.results.snapshots = snapshots
 
@@ -280,7 +280,7 @@ const function runPlanNode(session: any, planNode: any, lifecycleHooks: any): ()
                 success = false
                 errorMessage = messagePrefix .. message
             end,
-            Finished = false,
+            Finished = false
         }
 
         if Config.InjectGlobals then
@@ -573,7 +573,7 @@ const function runPlanNode(session: any, planNode: any, lifecycleHooks: any): ()
                         nodeStack = testNodeStack,
                         contextStack = { testContexts[i] },
                         expectationContextStack = { testExpectationContexts[i] },
-                        hasFocusNodes = session.hasFocusNodes,
+                        hasFocusNodes = session.hasFocusNodes
                     }
                     setmetatable(testSession, { __index = TestSession })
 
@@ -731,7 +731,7 @@ const function runPlanNode(session: any, planNode: any, lifecycleHooks: any): ()
                         log = log,
                         parallel = session.parallel,
                         rootGate = session.rootGate,
-                        semaphore = session.semaphore,
+                        semaphore = session.semaphore
                     }
                     setmetatable(subSession, { __index = TestSession })
 

@@ -18,7 +18,7 @@ const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 
 const EXECUTION_MODES = {
     { Name = "parallel", Parallel = true },
-    { Name = "sequential", Parallel = false },
+    { Name = "sequential", Parallel = false }
 }
 const FOCUS = TestEnum.NodeModifier.Focus
 const NONE = TestEnum.NodeModifier.None
@@ -287,7 +287,7 @@ return function()
                 { Node = inner.children[2], Reason = "inner reason" },
                 { Node = inner.children[3], Reason = "inner reason" },
                 { Node = inner.children[4], Reason = "todo" },
-                { Node = silent.children[1], Reason = "outer reason" },
+                { Node = silent.children[1], Reason = "outer reason" }
             }
             for _, case in expected do
                 const skip, reason = resolveSkip(case.Node, false)
@@ -337,8 +337,8 @@ return function()
                     resultNode("runs", SUCCESS),
                     resultNode("flaky", SKIPPED, "waiting on the API"),
                     resultNode("unwritten", SKIPPED, "todo"),
-                    resultNode("bare", SKIPPED),
-                }),
+                    resultNode("bare", SKIPPED)
+                })
             })
 
             expect(table.concat(TextReporter.formatTree(root, reporterOptions(true)), "\n")).to.equal(table.concat({
@@ -346,7 +346,7 @@ return function()
                 "├── ✓ runs",
                 "├── ○ flaky (waiting on the API)",
                 "├── ○ unwritten (todo)",
-                "└── ○ bare",
+                "└── ○ bare"
             }, "\n"))
         end)
 
@@ -354,8 +354,8 @@ return function()
             const root = resultNode("Root", nil, nil, {
                 resultNode("Suite", nil, nil, {
                     resultNode("runs", SUCCESS),
-                    resultNode("flaky", SKIPPED, "waiting on the API"),
-                }),
+                    resultNode("flaky", SKIPPED, "waiting on the API")
+                })
             })
 
             expect(table.concat(TextReporter.formatTree(root, reporterOptions(false)), "\n")).to.equal(
@@ -367,8 +367,8 @@ return function()
             const root = resultNode("Root", nil, nil, {
                 resultNode("Suite", nil, nil, {
                     resultNode("runs", SUCCESS, "stale reason"),
-                    resultNode("empty", SKIPPED, ""),
-                }),
+                    resultNode("empty", SKIPPED, "")
+                })
             })
 
             expect(table.concat(TextReporter.formatTree(root, reporterOptions(true)), "\n")).to.equal(
@@ -378,7 +378,7 @@ return function()
 
         it("should keep the same text when color is enabled", function()
             const root = resultNode("Root", nil, nil, {
-                resultNode("Suite", nil, nil, { resultNode("flaky", SKIPPED, "waiting on the API") }),
+                resultNode("Suite", nil, nil, { resultNode("flaky", SKIPPED, "waiting on the API") })
             })
             const colored = table.concat(TextReporter.formatTree(root, reporterOptions(true, true)), "\n")
 
@@ -419,7 +419,7 @@ return function()
                     ["inherits deeply"] = "needs a server",
                     ["marked"] = "marked later",
                     ["overrides"] = "own reason",
-                    ["unwritten"] = "todo",
+                    ["unwritten"] = "todo"
                 }
                 for phrase, reason in expected do
                     expect(outcome.Nodes[phrase].Status).to.equal("Skipped")

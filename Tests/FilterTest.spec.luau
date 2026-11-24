@@ -23,7 +23,7 @@ const REPORTER_OPTIONS: TextReporter.Options = {
     AlphabeticalSort = false,
     Color = false,
     Indent = "   ",
-    PrintSkipped = false,
+    PrintSkipped = false
 }
 const SKIPPED = TestEnum.TestStatus.Skipped
 const SUCCESS = TestEnum.TestStatus.Success

@@ -95,7 +95,7 @@ return function()
             const withDefault = setmetatable({}, {
                 __index = function()
                     return 1
-                end,
+                end
             })
 
             expect(ValueInspector.deepEqual(withDefault, { A = 1 })).to.equal(false)
@@ -198,7 +198,7 @@ return function()
                     '    [<table>] = "bravo",',
                     '    [<table>] = "charlie",',
                     '    [<table>] = "delta",',
-                    "}",
+                    "}"
                 }, "\n"))
             end
         end)
@@ -206,14 +206,14 @@ return function()
         it("should break long tables across indented lines", function()
             const value = {
                 Description = "a fairly long string that pushes the table past the inline width",
-                Nested = { Count = 1 },
+                Nested = { Count = 1 }
             }
 
             expect(ValueInspector.format(value)).to.equal(table.concat({
                 "{",
                 '    Description = "a fairly long string that pushes the table past the inline width",',
                 "    Nested = { Count = 1 },",
-                "}",
+                "}"
             }, "\n"))
         end)
 
@@ -227,7 +227,7 @@ return function()
                 `        Inner = "{long}",`,
                 `        Other = "{long}",`,
                 "    },",
-                "}",
+                "}"
             }, "\n"))
         end)
 

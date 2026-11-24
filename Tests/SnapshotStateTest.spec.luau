@@ -72,7 +72,7 @@ const ABORT_CASES = {
             end
         ]],
         Name = "while the results are finalized",
-        Restore = "Testable.TestSession.finalize = finalize",
+        Restore = "Testable.TestSession.finalize = finalize"
     },
     {
         Break = [[
@@ -82,12 +82,12 @@ const ABORT_CASES = {
             end
         ]],
         Name = "while the snapshots are written",
-        Restore = "store.write = write",
-    },
+        Restore = "store.write = write"
+    }
 }
 const EXECUTION_MODES = {
     { Name = "parallel", Parallel = true },
-    { Name = "sequential", Parallel = false },
+    { Name = "sequential", Parallel = false }
 }
 const OTHER_PATH = SnapshotLogic.pathFromNames({ "Other" })
 const SPEC_PATH = SnapshotLogic.pathFromNames({ "Spec" })
@@ -121,8 +121,8 @@ return function()
                     end,
                     write = function()
                         accessed = true
-                    end,
-                },
+                    end
+                }
             })
             const ok, problem = pcall(function()
                 match(manager, "test", "value")
@@ -142,7 +142,7 @@ return function()
                 PathGuard = function()
                     error("Another worker owns this file.")
                 end,
-                Store = store,
+                Store = store
             })
             expect(pcall(match, visitor, "nested", "second")).to.equal(false)
             visitor:Abort()
@@ -195,7 +195,7 @@ return function()
 
         it("should leave a shared file to the other run and stop it from judging obsolete snapshots", function()
             const store = MemorySnapshotStore.new({
-                [SPEC_PATH] = "testable snapshot v1\n\nSpec > gone 1 1\n1\n",
+                [SPEC_PATH] = "testable snapshot v1\n\nSpec > gone 1 1\n1\n"
             })
             const outer = SnapshotManager.new({ Store = store })
             const nested = SnapshotManager.new({ Store = store })
@@ -228,7 +228,7 @@ return function()
                 end,
                 write = function(path: string, contents: string)
                     files[path] = contents
-                end,
+                end
             }
             const manager = SnapshotManager.new({ Store = store })
             manager:Abort()
@@ -254,7 +254,7 @@ return function()
                 end,
                 write = function(path: string, contents: string)
                     files[path] = contents
-                end,
+                end
             }
             const manager = SnapshotManager.new({ Store = store })
 
@@ -310,7 +310,7 @@ return function()
                         error("The disk is full.", 0)
                     end
                     files[path] = contents
-                end,
+                end
             }
             const manager = SnapshotManager.new({ Store = store })
             expect(match(manager, "test", "other, first run", "Other")).to.equal(true)
@@ -349,7 +349,7 @@ return function()
                 end,
                 write = function()
                     error(problem, 0)
-                end,
+                end
             }
             const manager = SnapshotManager.new({ Store = store })
             expect(match(manager, "test", 1)).to.equal(true)
@@ -374,7 +374,7 @@ return function()
                         task.wait(0.02)
                     end
                     files[path] = contents
-                end,
+                end
             }
             const first = SnapshotManager.new({ Store = store })
             expect(match(first, "test", "other, first run", "Other")).to.equal(true)

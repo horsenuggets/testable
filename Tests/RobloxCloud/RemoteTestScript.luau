@@ -77,7 +77,7 @@ test("Basic describe/it/expect", function()
                     expect(5 - 3).to.equal(2)
                 end)
             end)
-        end,
+        end
     })
     assert(passed, "Basic tests should pass")
 end)
@@ -93,7 +93,7 @@ test("Dictionary syntax", function()
                     expect(true).to.be.ok()
                 end)
             end)
-        end,
+        end
     })
     assert(passed, "Dict syntax tests should pass")
     assert(ran, "Test should have actually run")
@@ -111,8 +111,8 @@ test("Array syntax (backwards compat)", function()
                         expect("hello").to.be.a("string")
                     end)
                 end)
-            end,
-        },
+            end
+        }
     })
     assert(passed, "Array syntax tests should pass")
 end)
@@ -152,7 +152,7 @@ test("Expect matchers", function()
                     expect(3.14159).to.be.near(3.14159, 0.001)
                 end)
             end)
-        end,
+        end
     })
     assert(passed, "Matcher tests should pass")
 end)
@@ -201,7 +201,7 @@ test("Lifecycle hooks", function()
                     table.insert(hookOrder, "test2")
                 end)
             end)
-        end,
+        end
     })
     assert(passed, "Lifecycle tests should pass")
     assert(#hookOrder >= 5, "Should have at least 5 hook events, got " .. #hookOrder)
@@ -228,7 +228,7 @@ test("Required spec API without injected globals", function()
                     expect.extend({
                         beEven = function(value)
                             return { message = "Expected an even number", pass = value % 2 == 0 }
-                        end,
+                        end
                     })
                 end)
 
@@ -243,7 +243,7 @@ test("Required spec API without injected globals", function()
                     expect(2).to.beEven()
                 end)
             end)
-        end,
+        end
     })
 
     Testable.resetConfig()
@@ -276,7 +276,7 @@ test("Required spec API ties failures to the calling test", function()
                     it("never runs", function() end)
                 end)
             end)
-        end,
+        end
     })
 
     results:visitAllNodes(function(node)
@@ -317,7 +317,7 @@ test("Required expect binds to the calling test in parallel mode", function()
             expect.extend({
                 [ownMatcher] = function(value)
                     return { message = `Expected "{name}"`, pass = value == name }
-                end,
+                end
             })
             task.wait(delay)
             seesOther[name] = pcall(function()
@@ -338,7 +338,7 @@ test("Required expect binds to the calling test in parallel mode", function()
                     expect.extend({
                         beGamma = function(value)
                             return { message = "Expected gamma", pass = value == "gamma" }
-                        end,
+                        end
                     })
                     task.wait(0.1)
                     expect("delta").to.beGamma()
@@ -348,7 +348,7 @@ test("Required expect binds to the calling test in parallel mode", function()
                     expect.extend({
                         beBound = function()
                             return { message = "Expected bound", pass = true }
-                        end,
+                        end
                     })
                     const check = function()
                         expect("bound").to.beBound()
@@ -366,7 +366,7 @@ test("Required expect binds to the calling test in parallel mode", function()
                     end
                 end)
             end)
-        end,
+        end
     })
 
     const tests = collectTests(results)
@@ -412,7 +412,7 @@ test("Config.Timeout cancels a slow test and the run continues", function()
                     task.wait(0.6)
                 end, { Timeout = 10 })
             end)
-        end,
+        end
     })
     const elapsed = os.clock() - startTime
 
@@ -453,7 +453,7 @@ test("Config.Timeout leaves tests within budget alone", function()
                     expect(1).to.equal(2)
                 end)
             end)
-        end,
+        end
     })
 
     const tests = collectTests(results)
@@ -480,7 +480,7 @@ test("Snapshots round trip through MemorySnapshotStore", function()
                         expect("a label").to.matchSnapshot("labelled")
                     end)
                 end)
-            end,
+            end
         })
         Testable.resetConfig()
         return results, passed
@@ -552,11 +552,11 @@ test("Snapshots tell Roblox datatypes apart", function()
                             Frame = CFrame.new(4, 5, 6),
                             Key = Enum.KeyCode.A,
                             Position = position,
-                            Size = UDim2.fromScale(1, 0.5),
+                            Size = UDim2.fromScale(1, 0.5)
                         }).to.matchSnapshot()
                     end)
                 end)
-            end,
+            end
         })
         Testable.resetConfig()
         return results, passed
@@ -623,7 +623,7 @@ test("Matchers accept Roblox datatypes", function()
                     expect(Vector3.new(1, 2, 3)).never.to.equal(Vector3.new(3, 2, 1))
                     expect({ Position = Vector3.new(1, 2, 3), Tags = { "a" } }).to.deepEqual({
                         Position = Vector3.new(1, 2, 3),
-                        Tags = { "a" },
+                        Tags = { "a" }
                     })
                     expect({ Position = Vector3.zero }).never.to.deepEqual({ Position = Vector3.one })
                     expect({ Vector3.zero, Vector3.one }).to.contain(Vector3.one)
@@ -649,7 +649,7 @@ test("Matchers accept Roblox datatypes", function()
                     end).to.throw("specific")
                 end)
             end)
-        end,
+        end
     })
 
     assert(passed, "Datatype matcher tests should pass")
@@ -684,7 +684,7 @@ test("Matchers reject mismatched Roblox datatypes", function()
                     expect(Vector3.zero).to.have.length(3)
                 end)
             end)
-        end,
+        end
     })
 
     const tests = collectTests(results)
@@ -733,7 +733,7 @@ test("Skip reasons and itTODO", function()
                     itSKIP("keeps a reason of its own", mustNotRun, "its own reason")
                 end, "the whole block is off")
             end)
-        end,
+        end
     })
 
     const tests = collectTests(results)
@@ -772,7 +772,7 @@ test("Skip variants reject bad arguments", function()
             describe("Unaffected", function()
                 it("still runs", function() end)
             end)
-        end,
+        end
     })
 
     const planningErrors = table.concat(results.errors, "\n")
@@ -813,7 +813,7 @@ test("Name filter", function()
                     table.insert(ran, "third")
                 end)
             end)
-        end,
+        end
     })
 
     const tests = collectTests(results)
@@ -842,7 +842,7 @@ test("Name filter that matches nothing", function()
                     ran = true
                 end)
             end)
-        end,
+        end
     }
 
     const runOk, problem = pcall(Testable.run, tests)
@@ -873,7 +873,7 @@ test("JSON reporter produces a string", function()
 
                 itSKIP("is skipped", function() end, "not today")
             end)
-        end,
+        end
     })
     assert(not passed, "The run should fail because of the one failing test")
 
@@ -913,7 +913,7 @@ test("Reporter output paths error in Roblox", function()
             describe("Output", function()
                 it("passes", function() end)
             end)
-        end,
+        end
     })
 
     assert(not runOk, "Writing a report file should error in Roblox")

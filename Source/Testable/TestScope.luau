@@ -17,12 +17,12 @@ export type RunScope = {
     -- Marks the callback as failed with the given message.
     Fail: (message: string) -> (),
     -- True once the callback has returned, after which failures can't be recorded.
-    Finished: boolean,
+    Finished: boolean
 }
 
 type Frame = {
     Node: any?,
-    Scope: RunScope?,
+    Scope: RunScope?
 }
 
 -- Keyed weakly so that the stack of a thread that dies mid-callback is collected with it.

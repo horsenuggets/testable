@@ -15,7 +15,7 @@ export type Extra = {
     Duration: number?,
     Errors: { string }?,
     LoadError: string?,
-    SkipReason: string?,
+    SkipReason: string?
 }
 
 const ResultFixture = {}
@@ -28,7 +28,7 @@ const function node(nodeType: string, phrase: string, status: string?, children:
         errors = fields.Errors or {},
         planNode = { loadError = fields.LoadError, phrase = phrase, type = nodeType },
         skipReason = fields.SkipReason,
-        status = status,
+        status = status
     }
 end
 
@@ -71,19 +71,19 @@ function ResultFixture.mixed(): any
             ResultFixture.describe("division", failure, {
                 ResultFixture.it("divides", failure, {
                     Duration = 0.5,
-                    Errors = { "expected 2, got 3\nstack line", "second error" },
+                    Errors = { "expected 2, got 3\nstack line", "second error" }
                 }),
-                ResultFixture.it("rounds", skipped, { SkipReason = "not implemented" }),
-            }, { Duration = 0.75 }),
+                ResultFixture.it("rounds", skipped, { SkipReason = "not implemented" })
+            }, { Duration = 0.75 })
         }, { Duration = 1 }),
         ResultFixture.describe("BrokenTest", failure, {}, {
             Duration = 0.125,
             Errors = { "Error during planning: boom" },
-            LoadError = "boom",
+            LoadError = "boom"
         }),
         ResultFixture.describe("SkippedTest", skipped, {
-            ResultFixture.it("waits", skipped),
-        }, { Duration = 0 }),
+            ResultFixture.it("waits", skipped)
+        }, { Duration = 0 })
     }, 2)
 end
 

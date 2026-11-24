@@ -16,7 +16,7 @@ const expect, it = Testable.expect, Testable.it
 const CASES = {
     { MaxConcurrency = 1, Name = "one nesting test and one slot", Tests = 1 },
     { MaxConcurrency = 4, Name = "as many nesting tests as slots", Tests = 4 },
-    { MaxConcurrency = 2, Name = "more nesting tests than slots", Tests = 5 },
+    { MaxConcurrency = 2, Name = "more nesting tests than slots", Tests = 5 }
 }
 const SCRIPT_TEMPLATE = [[
     const process = require("@lune/process")

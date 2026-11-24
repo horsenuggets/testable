@@ -134,7 +134,7 @@ return function()
                     { "--workers", "1.5" },
                     { "--workers", "nan" },
                     { "--workers", "inf" },
-                    { "--workers", "1e999" },
+                    { "--workers", "1e999" }
                 }
             do
                 const parsed, message = RunTestsArguments.parse(arguments)
@@ -154,7 +154,7 @@ return function()
                     { "--worker-setup", "--watch" },
                     { "--worker-setup", "--filter", "text" },
                     { "--worker-setup", "--reporter", "json" },
-                    { "--worker-setup", "--update-snapshots" },
+                    { "--worker-setup", "--update-snapshots" }
                 }
             do
                 const parsed, message = RunTestsArguments.parse(arguments)
@@ -167,7 +167,7 @@ return function()
             for _, arguments in
                 {
                     { "--workers", "1", "--workers", "2" },
-                    { "--worker-setup", "A.luau", "--worker-setup", "B.luau" },
+                    { "--worker-setup", "A.luau", "--worker-setup", "B.luau" }
                 }
             do
                 const parsed, message = RunTestsArguments.parse(arguments)
@@ -180,7 +180,7 @@ return function()
             for _, mode in
                 {
                     { "--watch", "--changed", "HEAD" },
-                    { "--changed", "HEAD", "Tests/A.spec.luau" },
+                    { "--changed", "HEAD", "Tests/A.spec.luau" }
                 }
             do
                 const arguments = { "--workers", "2", "--worker-setup", "Setup.luau" }
@@ -210,7 +210,7 @@ return function()
                 "--filter=--worker-setup",
                 "--workers",
                 "3",
-                "Tests/A.spec.luau",
+                "Tests/A.spec.luau"
             }
             const workers, unparsed = RunTestsArguments.extractWorkers(raw)
             expect((workers :: RunTestsArguments.WorkerOptions).Workers).to.equal(3)
@@ -237,7 +237,7 @@ return function()
                 "--filter",
                 "example",
                 "-u",
-                "Tests/A.spec.luau",
+                "Tests/A.spec.luau"
             }
             const _, unparsed = RunTestsArguments.extractWorkers(raw)
             const _, afterReporters = ReporterArguments.parse(unparsed)
@@ -254,7 +254,7 @@ return function()
                 "Setup.luau",
                 "--filter",
                 "example",
-                "-u",
+                "-u"
             })
             const parsed = RunTestsArguments.parse(remaining) :: RunTestsArguments.Arguments
             expect(parsed.Watch).to.equal(true)
@@ -305,23 +305,23 @@ return function()
                             watch = function(options)
                                 watchOptions = options
                                 options.Run({ "Tests/A.spec.luau" })
-                            end,
+                            end
                         },
                         configure = function()
                             error("Watch must receive setup before configuring the run.")
-                        end,
+                        end
                     },
                     ["@lune/process"] = {
-                        args = { "--watch", "--workers", "2", "--worker-setup", setup, "Tests/A.spec.luau" },
-                    },
+                        args = { "--watch", "--workers", "2", "--worker-setup", setup, "Tests/A.spec.luau" }
+                    }
                 }
                 const chunk = luau.load(source, {
                     environment = {
                         require = function(path: string)
                             assert(dependencies[path] ~= nil, `Unexpected CLI dependency "{path}".`)
                             return dependencies[path]
-                        end,
-                    },
+                        end
+                    }
                 })
                 chunk()
                 expect(watchOptions.WorkerSetup).to.equal(setup)
@@ -345,7 +345,7 @@ return function()
                     { "--worker-setup", "--reporter", "json", "Tests/ExampleTest.spec.luau" },
                     { "--worker-setup", "--update-snapshots", "Tests/ExampleTest.spec.luau" },
                     { "--workers" },
-                    { "--worker-setup" },
+                    { "--worker-setup" }
                 }
             do
                 const result = runScript(arguments)
@@ -376,7 +376,7 @@ return function()
                         workers,
                         "--worker-setup",
                         "./Setup.luau",
-                        "Tests/Prepared.spec.luau",
+                        "Tests/Prepared.spec.luau"
                     }, root)
                     assert(result.ok, `The CLI failed with {workers} workers. {result.stdout}\n{result.stderr}`)
                     expect(result.code).to.equal(0)

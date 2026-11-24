@@ -18,7 +18,7 @@ export type Batch = {
     Take: (self: Batch, now: number) -> { string }?,
     _debounce: number,
     _lastChange: number?,
-    _paths: { [string]: boolean },
+    _paths: { [string]: boolean }
 }
 
 const CONFIG_FILE_NAME = ".luaurc"
@@ -170,7 +170,7 @@ function Batch.new(debounce: number): Batch
     return setmetatable({
         _debounce = debounce,
         _lastChange = nil,
-        _paths = {},
+        _paths = {}
     }, Batch :: any) :: any
 end
 

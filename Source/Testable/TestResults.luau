@@ -13,7 +13,7 @@ const TestEnum = require("./TestEnum")
 const STATUS_SYMBOLS = {
     [TestEnum.TestStatus.Success] = "✅",
     [TestEnum.TestStatus.Failure] = "❌",
-    [TestEnum.TestStatus.Skipped] = "🕐",
+    [TestEnum.TestStatus.Skipped] = "🕐"
 }
 
 const TestResults = {}
@@ -35,7 +35,7 @@ function TestResults.new(plan: any): any
         planNode = plan,
         children = {},
         errors = {},
-        duration = 0,
+        duration = 0
     }
 
     setmetatable(self, TestResults)
@@ -57,7 +57,7 @@ function TestResults.createNode(planNode: any): any
         children = {},
         errors = {},
         status = nil,
-        duration = nil :: number?,
+        duration = nil :: number?
     }
 
     return node

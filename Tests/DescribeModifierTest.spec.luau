@@ -15,7 +15,7 @@ const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 
 const EXECUTION_MODES = {
     { Name = "parallel", Parallel = true },
-    { Name = "sequential", Parallel = false },
+    { Name = "sequential", Parallel = false }
 }
 const SCRIPT_TEMPLATE = [[
     const Testable = require("./Source/Testable")

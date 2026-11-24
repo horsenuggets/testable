@@ -20,7 +20,7 @@ type Recorder = {
     Dependencies: CloudRequest.Dependencies,
     Logs: { string },
     Requests: { any },
-    Waits: { number },
+    Waits: { number }
 }
 
 const function _createResponse(statusCode: number, headers: { [string]: string }?, body: string?): any
@@ -29,7 +29,7 @@ const function _createResponse(statusCode: number, headers: { [string]: string }
         headers = headers or {},
         ok = statusCode >= 200 and statusCode < 300,
         statusCode = statusCode,
-        statusMessage = "",
+        statusMessage = ""
     }
 end
 
@@ -55,7 +55,7 @@ const function _createRecorder(responses: { any }): Recorder
         end,
         Wait = function(seconds: number)
             table.insert(recorder.Waits, seconds)
-        end,
+        end
     }
 
     return recorder
@@ -92,7 +92,7 @@ return function()
             const recorder = _createRecorder({
                 _createResponse(429),
                 _createResponse(503),
-                _createResponse(200, nil, "done"),
+                _createResponse(200, nil, "done")
             })
 
             const response = CloudRequest.send("The request", CONFIG, POLICY, recorder.Dependencies)
@@ -106,7 +106,7 @@ return function()
             const recorder = _createRecorder({
                 _createResponse(429, { ["retry-after"] = "11" }),
                 _createResponse(429, { ["Retry-After"] = "1" }),
-                _createResponse(200),
+                _createResponse(200)
             })
 
             CloudRequest.send("The request", CONFIG, POLICY, recorder.Dependencies)
@@ -139,7 +139,7 @@ return function()
                 _createResponse(429),
                 _createResponse(429),
                 _createResponse(500),
-                _createResponse(429, nil, "Too many requests"),
+                _createResponse(429, nil, "Too many requests")
             })
 
             const ok, message = pcall(CloudRequest.send, "The place upload", CONFIG, POLICY, recorder.Dependencies)
@@ -179,14 +179,14 @@ return function()
             const recorder = _createRecorder({
                 _createResponse(429, { ["retry-after"] = "1" }),
                 _createResponse(503),
-                _createResponse(200),
+                _createResponse(200)
             })
 
             CloudRequest.send("The place upload", CONFIG, POLICY, recorder.Dependencies)
 
             expect(recorder.Logs).to.deepEqual({
                 "The place upload was answered with status 429, so attempt 2 of 4 starts in 1 second.",
-                "The place upload was answered with status 503, so attempt 3 of 4 starts in 4 seconds.",
+                "The place upload was answered with status 503, so attempt 3 of 4 starts in 4 seconds."
             })
         end)
 

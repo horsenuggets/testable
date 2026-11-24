@@ -17,7 +17,7 @@ const TextReporter = require("../Source/Testable/Reporters/TextReporter")
 const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 const EXECUTION_MODES = {
     { Name = "parallel", Parallel = true },
-    { Name = "sequential", Parallel = false },
+    { Name = "sequential", Parallel = false }
 }
 const FAILURE = TestEnum.TestStatus.Failure
 const SKIPPED = TestEnum.TestStatus.Skipped
@@ -90,7 +90,7 @@ return function()
                 "Slowest Tests",
                 "",
                 "1.500s  Spec > test 2",
-                "0.500s  Spec > test 3",
+                "0.500s  Spec > test 3"
             }, "\n"))
         end)
 
@@ -103,7 +103,7 @@ return function()
             expect(#TextReporter.formatSlowest(timed({ 0.25, 0.5 }), 0, false)).to.equal(0)
             expect(#TextReporter.formatSlowest(ResultFixture.results({}), 5, false)).to.equal(0)
             const skipped = ResultFixture.results({
-                ResultFixture.describe("Spec", SKIPPED, { ResultFixture.it("waits", SKIPPED) }),
+                ResultFixture.describe("Spec", SKIPPED, { ResultFixture.it("waits", SKIPPED) })
             })
             expect(#TextReporter.formatSlowest(skipped, 5, false)).to.equal(0)
         end)
@@ -163,7 +163,7 @@ return function()
                 `MathTest > division > divides={FAILURE}`,
                 `MathTest > division > rounds={SKIPPED}`,
                 `BrokenTest={FAILURE}`,
-                `SkippedTest > waits={SKIPPED}`,
+                `SkippedTest > waits={SKIPPED}`
             }, "\n"))
             expect(table.concat(cases[2].Path, "/")).to.equal("MathTest/division")
         end)
@@ -171,7 +171,7 @@ return function()
         it("should not count a describe block as a case unless planning failed", function()
             const results = ResultFixture.results({
                 ResultFixture.describe("Spec", FAILURE, {}, { Errors = { "hook failed" } }),
-                ResultFixture.describe("Skipped", SKIPPED, {}, { LoadError = "boom" }),
+                ResultFixture.describe("Skipped", SKIPPED, {}, { LoadError = "boom" })
             })
             expect(#ResultTree.collectCases(results)).to.equal(0)
         end)
@@ -179,12 +179,12 @@ return function()
         it("should take a missing status from descendants", function()
             const failing = ResultFixture.describe("Spec", nil, {
                 ResultFixture.it("a", SUCCESS),
-                ResultFixture.describe("inner", nil, { ResultFixture.it("b", FAILURE) }),
+                ResultFixture.describe("inner", nil, { ResultFixture.it("b", FAILURE) })
             })
             expect(ResultTree.status(failing)).to.equal(FAILURE)
             const passing = ResultFixture.describe("Spec", nil, {
                 ResultFixture.it("a", SKIPPED),
-                ResultFixture.it("b", SUCCESS),
+                ResultFixture.it("b", SUCCESS)
             })
             expect(ResultTree.status(passing)).to.equal(SUCCESS)
             expect(ResultTree.status(ResultFixture.describe("Spec", nil, {}))).to.equal(nil)

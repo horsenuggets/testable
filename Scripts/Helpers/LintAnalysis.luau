@@ -30,7 +30,7 @@ const IGNORE_PATTERNS = table.freeze({
     "DevPackages/**",
     "Packages/**",
     "ServerPackages/**",
-    "Submodules/**",
+    "Submodules/**"
 })
 const PLATFORM = "lune"
 const TARGET = "."
@@ -54,7 +54,7 @@ function LintAnalysis.buildArguments(definitionsPath: string): { string }
         "analyze",
         `--platform={PLATFORM}`,
         "--no-flags-enabled",
-        `--definitions={definitionsPath}`,
+        `--definitions={definitionsPath}`
     }
     for _, pattern in IGNORE_PATTERNS do
         table.insert(arguments, `--ignore={pattern}`)

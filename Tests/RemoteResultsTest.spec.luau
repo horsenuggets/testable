@@ -19,20 +19,20 @@ return function()
                 "[PASS] First check",
                 "[FAIL] Second check - it broke",
                 "[PASS] Third check",
-                "[DONE] 3",
+                "[DONE] 3"
             })
 
             expect(parsed.Results).to.deepEqual({
                 { Name = "First check", Passed = true },
                 { Error = "it broke", Name = "Second check", Passed = false },
-                { Name = "Third check", Passed = true },
+                { Name = "Third check", Passed = true }
             })
             expect(parsed.ReportedCount).to.equal(3)
         end)
 
         it("should keep an error whole when it spans lines or contains the separator", function()
             const parsed = RemoteResults.parse({
-                "[FAIL] Check - TaskScript:10: expected 1 - 2 to be 3\nTaskScript:10\nTaskScript:4",
+                "[FAIL] Check - TaskScript:10: expected 1 - 2 to be 3\nTaskScript:10\nTaskScript:4"
             })
 
             expect(parsed.Results).to.have.length(1)
@@ -52,7 +52,7 @@ return function()
                 "[FAIL] No separator",
                 "[DONE] many",
                 "[DONE] 3 extra",
-                "[SKIP] Something else",
+                "[SKIP] Something else"
             })
 
             expect(parsed.Results).to.have.length(0)

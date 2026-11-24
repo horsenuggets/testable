@@ -24,7 +24,7 @@ end
 
 const function single(name: string, status: string?, extra: ResultFixture.Extra?): any
     return ResultFixture.results({
-        ResultFixture.describe("Spec", status, { ResultFixture.it(name, status, extra) }),
+        ResultFixture.describe("Spec", status, { ResultFixture.it(name, status, extra) })
     })
 end
 
@@ -198,11 +198,11 @@ return function()
                 Matched = 0,
                 Obsolete = {
                     { Key = "Spec > old 1", Path = "__snapshots__/Spec.snap" },
-                    { Key = HOSTILE_NAME, Path = HOSTILE_NAME },
+                    { Key = HOSTILE_NAME, Path = HOSTILE_NAME }
                 },
                 Removed = 0,
                 Updated = 0,
-                Written = 0,
+                Written = 0
             }
 
             const root = parse(results)
@@ -240,9 +240,9 @@ return function()
             const results = ResultFixture.results({
                 ResultFixture.describe(HOSTILE_NAME, SKIPPED, {
                     ResultFixture.describe(HOSTILE_NAME, SKIPPED, {
-                        ResultFixture.it(HOSTILE_NAME, SKIPPED, { SkipReason = HOSTILE_NAME }),
-                    }),
-                }),
+                        ResultFixture.it(HOSTILE_NAME, SKIPPED, { SkipReason = HOSTILE_NAME })
+                    })
+                })
             })
             const suite = parse(results).Children[1]
             const case = suite.Children[1]

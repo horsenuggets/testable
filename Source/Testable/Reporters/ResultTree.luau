@@ -21,7 +21,7 @@ export type TestCase = {
     Name: string,
     Path: { string },
     SkipReason: string?,
-    Status: string,
+    Status: string
 }
 
 const ResultTree = {}
@@ -181,7 +181,7 @@ const function collect(node: any, path: { string }, cases: { TestCase })
             SkipReason = ResultTree.skipReason(node),
             -- A test that never got to run, like one behind a failed beforeAll hook,
             -- has no status and counts as skipped.
-            Status = ResultTree.status(node) or TestEnum.TestStatus.Skipped,
+            Status = ResultTree.status(node) or TestEnum.TestStatus.Skipped
         })
     end
     const childPath = table.clone(path)

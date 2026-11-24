@@ -15,7 +15,7 @@ const function newScope(): TestScope.RunScope
     return {
         ExpectationContext = {},
         Fail = function() end,
-        Finished = false,
+        Finished = false
     }
 end
 

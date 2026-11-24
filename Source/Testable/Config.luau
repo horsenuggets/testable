@@ -45,13 +45,13 @@ export type ConfigOptions = {
     Verbose: boolean?,
     WorkerGroups: { { string } }?,
     WorkerSetup: string?,
-    Workers: number?,
+    Workers: number?
 }
 
 -- Where snapshot files are kept. Lune uses the filesystem when no store is set.
 export type SnapshotStore = {
     read: (path: string) -> string?,
-    write: (path: string, contents: string) -> (),
+    write: (path: string, contents: string) -> ()
 }
 
 const Config = {
@@ -79,7 +79,7 @@ const Config = {
     Verbose = false,
     WorkerGroups = {} :: { { string } },
     WorkerSetup = nil :: string?,
-    Workers = 1,
+    Workers = 1
 }
 
 --[[

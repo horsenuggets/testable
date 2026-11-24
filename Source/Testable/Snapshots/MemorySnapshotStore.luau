@@ -13,7 +13,7 @@ const MemorySnapshotStore = {}
 export type MemorySnapshotStore = {
     Files: { [string]: string },
     read: (path: string) -> string?,
-    write: (path: string, contents: string) -> (),
+    write: (path: string, contents: string) -> ()
 }
 
 --[[
@@ -34,7 +34,7 @@ function MemorySnapshotStore.new(files: { [string]: string }?): MemorySnapshotSt
         end,
         write = function(path: string, contents: string)
             storedFiles[path] = contents
-        end,
+        end
     }
 end
 

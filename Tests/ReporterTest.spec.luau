@@ -35,11 +35,11 @@ end
 const function coverage(path: string, value: number): any
     return {
         Files = {
-            { ExecutableLines = 11, Functions = {}, HitLines = 10, Name = "Session", Path = path, Percentage = value },
+            { ExecutableLines = 11, Functions = {}, HitLines = 10, Name = "Session", Path = path, Percentage = value }
         },
         TotalExecutableLines = 11,
         TotalHitLines = 10,
-        TotalPercentage = value,
+        TotalPercentage = value
     }
 end
 
@@ -63,7 +63,7 @@ return function()
                     HitLines = 100,
                     Name = "Wide",
                     Path = "Source/Wide.luau",
-                    Percentage = 10,
+                    Percentage = 10
                 },
                 {
                     ExecutableLines = 10,
@@ -71,7 +71,7 @@ return function()
                     HitLines = 9,
                     Name = "High",
                     Path = "Source/High.luau",
-                    Percentage = 90,
+                    Percentage = 90
                 },
                 {
                     ExecutableLines = 10,
@@ -79,12 +79,12 @@ return function()
                     HitLines = 5,
                     Name = "Middle",
                     Path = "Source/Middle.luau",
-                    Percentage = 50,
-                },
+                    Percentage = 50
+                }
             },
             TotalExecutableLines = 1020,
             TotalHitLines = 114,
-            TotalPercentage = 11.17,
+            TotalPercentage = 11.17
         }
         const before = table.concat(CoverageReporter.format(report, 70, false, "   "), "\n")
         const high, middle, wide =
@@ -109,9 +109,9 @@ return function()
         const root = node("Root", nil, {
             node("Guild", nil, {
                 node("Joining", nil, { node("joins", SUCCESS), node("rejects full", SUCCESS) }),
-                node("Leaving", nil, { node("removes", SUCCESS), node("transfers", FAILURE) }),
+                node("Leaving", nil, { node("removes", SUCCESS), node("transfers", FAILURE) })
             }),
-            node("Party", nil, { node("queues", SUCCESS) }),
+            node("Party", nil, { node("queues", SUCCESS) })
         })
         const expected = {
             "✗ Guild",
@@ -123,7 +123,7 @@ return function()
             "    └── ✗ transfers",
             "",
             "✓ Party",
-            "└── ✓ queues",
+            "└── ✓ queues"
         }
         expect(table.concat(TextReporter.formatTree(root, options()), "\n")).to.equal(table.concat(expected, "\n"))
     end)
@@ -132,8 +132,8 @@ return function()
         const root = node("Root", nil, {
             node("Suite", nil, {
                 node("First", nil, { node("nested", SUCCESS) }),
-                node("Last", nil, { node("nested", SUCCESS) }),
-            }),
+                node("Last", nil, { node("nested", SUCCESS) })
+            })
         })
         const previous = Config.Indent
         const ok, message = pcall(function()
@@ -145,7 +145,7 @@ return function()
                     `├{branch}✓ First`,
                     `│{indent}└{branch}✓ nested`,
                     `└{branch}✓ Last`,
-                    ` {indent}└{branch}✓ nested`,
+                    ` {indent}└{branch}✓ nested`
                 }, "\n")
                 expect(strip(table.concat(TextReporter.formatTree(root), "\n"))).to.equal(expected)
                 const explicit = options()
@@ -244,7 +244,7 @@ return function()
         const rows: { Testable.TableRow } = {
             { Colored = { Ansi.brightGreen("界.luau"), "1,024" }, Raw = { "界.luau", "1,024" } },
             { Colored = { Ansi.bold("e\u{0301}.luau"), "2" }, Raw = { "e\u{0301}.luau", "2" } },
-            { Colored = { Ansi.bold("Total"), "1,026" }, Raw = { "Total", "1,026" }, Separator = true },
+            { Colored = { Ansi.bold("Total"), "1,026" }, Raw = { "Total", "1,026" }, Separator = true }
         }
         const expected = table.concat({
             "┌─────────┬───────┐",
@@ -254,7 +254,7 @@ return function()
             "│ e\u{0301}.luau  │     2 │",
             "├─────────┼───────┤",
             "│ Total   │ 1,026 │",
-            "└─────────┴───────┘",
+            "└─────────┴───────┘"
         }, "\n")
         const alignments: { Testable.Alignment } = { "Left", "Right" }
         for _, color in { false, true } do
@@ -293,7 +293,7 @@ return function()
     it("aligns table columns independently of ANSI byte lengths", function()
         const rows = {
             { Colored = { Ansi.brightGreen("é"), "10" }, Raw = { "é", "10" } },
-            { Colored = { Ansi.bold("Total"), "11" }, Raw = { "Total", "11" }, Separator = true },
+            { Colored = { Ansi.bold("Total"), "11" }, Raw = { "Total", "11" }, Separator = true }
         }
         const plain = TableRenderer.format({ "Name", "Hit" }, rows, false)
         const styled = TableRenderer.format({ "Name", "Hit" }, rows, true)
@@ -369,7 +369,7 @@ return function()
         for _, path in
             {
                 "Source/VeryLongDirectoryName/LobbySystems/ShopSystem/init.luau",
-                "C:\\Source\\VeryLongDirectoryName\\LobbySystems\\ShopSystem\\init.luau",
+                "C:\\Source\\VeryLongDirectoryName\\LobbySystems\\ShopSystem\\init.luau"
             }
         do
             const text =
@@ -402,7 +402,7 @@ return function()
             { 25, Ansi.brightYellow },
             { 74.9, Ansi.brightYellow },
             { 75, Ansi.brightGreen },
-            { 100, Ansi.brightGreen },
+            { 100, Ansi.brightGreen }
         }
         for _, case in cases do
             const value, paint = case[1], case[2]
@@ -452,7 +452,7 @@ return function()
             { 999, "999" },
             { 1000, "1,000" },
             { 543126, "543,126" },
-            { 1234567, "1,234,567" },
+            { 1234567, "1,234,567" }
         }
         for _, case in cases do
             expect(CoverageReporter.formatCount(case[1])).to.equal(case[2])
@@ -468,7 +468,7 @@ return function()
             { 0.999, "0.99%" },
             { 1, "1.0%" },
             { 88.36, "88.3%" },
-            { 100, "100.0%" },
+            { 100, "100.0%" }
         }
         for _, case in cases do
             expect(CoverageReporter.formatPercentage(case[1])).to.equal(case[2])
@@ -492,7 +492,7 @@ return function()
                 Loaded = hit > 0,
                 Name = path,
                 Path = path,
-                Percentage = if executable > 0 then math.floor(hit / executable * 10000) / 100 else 0,
+                Percentage = if executable > 0 then math.floor(hit / executable * 10000) / 100 else 0
             }
         end
         const files = {
@@ -501,7 +501,7 @@ return function()
             file("Full.luau", 10, 10),
             file("A.luau", 100, 0),
             file("Big.luau", 3000, 0),
-            file("Half.luau", 10, 5),
+            file("Half.luau", 10, 5)
         }
         const order = {}
         for _, entry in CoverageReporter.sortFiles(files, "Percentage") do
@@ -533,7 +533,7 @@ return function()
                     Loaded = false,
                     Name = `M{index}`,
                     Path = `Source/M{index}.luau`,
-                    Percentage = 0,
+                    Percentage = 0
                 })
             end
             const report = { Files = files, TotalExecutableLines = 0, TotalHitLines = 0, TotalPercentage = 0 }
@@ -567,7 +567,7 @@ return function()
                 Loaded = hit > 0,
                 Name = path,
                 Path = path,
-                Percentage = if executable > 0 then math.floor(hit / executable * 10000) / 100 else 0,
+                Percentage = if executable > 0 then math.floor(hit / executable * 10000) / 100 else 0
             }
         end
         const files = {
@@ -576,7 +576,7 @@ return function()
             file("Wide.luau", 1000, 40),
             file("B.luau", 100, 40),
             file("A.luau", 100, 40),
-            file("None.luau", 5000, 0),
+            file("None.luau", 5000, 0)
         }
         const order = {}
         for _, entry in CoverageReporter.sortFiles(files, "HitLines") do
@@ -599,7 +599,7 @@ return function()
                 Loaded = true,
                 Name = `M{index}`,
                 Path = `Source/M{index}.luau`,
-                Percentage = 100 - index,
+                Percentage = 100 - index
             })
         end
         const report = { Files = files, TotalExecutableLines = 3000, TotalHitLines = 465, TotalPercentage = 15.5 }

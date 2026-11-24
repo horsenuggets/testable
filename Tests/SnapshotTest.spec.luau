@@ -43,7 +43,7 @@ const function resultsOf(nodes: { any }): any
             for _, node in nodes do
                 callback(node)
             end
-        end,
+        end
     }
 end
 
@@ -107,7 +107,7 @@ return function()
                 "    Zeta = 1,",
                 '    ["two words"] = 3,',
                 '    [true] = "yes",',
-                "}",
+                "}"
             }, "\n"))
         end)
 
@@ -132,7 +132,7 @@ return function()
                 "            1,",
                 "        },",
                 "    },",
-                "}",
+                "}"
             }, "\n"))
         end)
 
@@ -154,7 +154,7 @@ return function()
                 Buffer = buffer.create(1),
                 Function = function() end,
                 Thread = coroutine.create(function() end),
-                Userdata = newproxy(false),
+                Userdata = newproxy(false)
             }
             expect(serialize(value)).to.equal(table.concat({
                 "{",
@@ -162,7 +162,7 @@ return function()
                 "    Function = <function>,",
                 "    Thread = <thread>,",
                 "    Userdata = <userdata>,",
-                "}",
+                "}"
             }, "\n"))
             expect(serialize(print)).to.equal("<function>")
         end)
@@ -172,7 +172,7 @@ return function()
             expect(serialize({ Position = vector.create(1, 2, 3) })).to.equal(table.concat({
                 "{",
                 "    Position = vector(1, 2, 3),",
-                "}",
+                "}"
             }, "\n"))
             expect(serialize(vector.create(1, 2, 3))).to.equal(serialize(vector.create(1, 2, 3)))
             expect(serialize(vector.create(1, 2, 3))).never.to.equal(serialize(vector.create(3, 2, 1)))
@@ -184,12 +184,12 @@ return function()
             expect(serialize(roblox.Vector3.new(1, 2, 3))).never.to.equal(serialize(roblox.Vector3.new(3, 2, 1)))
             expect(serialize({
                 Color = roblox.Color3.new(1, 0, 0),
-                Key = roblox.Enum.KeyCode.A,
+                Key = roblox.Enum.KeyCode.A
             })).to.equal(table.concat({
                 "{",
                 "    Color = Color3(1, 0, 0),",
                 "    Key = EnumItem(Enum.KeyCode.A),",
-                "}",
+                "}"
             }, "\n"))
         end)
 
@@ -210,7 +210,7 @@ return function()
             expect(serialize({ part })).to.equal(table.concat({
                 "{",
                 '    Instance(a \\"quoted\\"\\nname),',
-                "}",
+                "}"
             }, "\n"))
         end)
 
@@ -278,7 +278,7 @@ return function()
         it("should render entries sorted by key with their values written literally", function()
             const text = SnapshotFormat.render({
                 ["b test 1"] = '"two\nlines"',
-                ["a test 1"] = "5",
+                ["a test 1"] = "5"
             })
             expect(text).to.equal('testable snapshot v1\n\na test 1 1\n5\n\nb test 1 2\n"two\nlines"\n')
         end)
@@ -288,7 +288,7 @@ return function()
                 ["back\\slash and\nline break 1"] = "{}",
                 ["looks like a header 3"] = "value 2\n\ntestable snapshot v1\n\nfake key 1",
                 ["plain 1"] = '""',
-                ["trailing blank lines 1"] = '"a\n\n"',
+                ["trailing blank lines 1"] = '"a\n\n"'
             }
             const text = SnapshotFormat.render(entries)
             const parsed = SnapshotFormat.parse(text) :: { [string]: string }
@@ -320,11 +320,11 @@ return function()
                 { Contents = "something else\n\na 1 1\n5\n", Message = "The first line must be" },
                 {
                     Contents = "testable snapshot v1\n\nno count here\n5\n",
-                    Message = "Line 3 is not a valid entry header.",
+                    Message = "Line 3 is not a valid entry header."
                 },
                 { Contents = "testable snapshot v1\n\na 1 0\n", Message = "Line 3 is not a valid entry header." },
                 { Contents = "testable snapshot v1\n\na 1 5\n5\n", Message = "fewer lines than its header says" },
-                { Contents = "testable snapshot v1\n\na 1 1\n5\n\na 1 1\n6\n", Message = "repeats an earlier key" },
+                { Contents = "testable snapshot v1\n\na 1 1\n5\n\na 1 1\n6\n", Message = "repeats an earlier key" }
             }
             for _, case in cases do
                 const parsed, message = SnapshotFormat.parse(case.Contents)
@@ -372,7 +372,7 @@ return function()
                 "  line 11",
                 "  line 12",
                 "  line 13",
-                "  ...",
+                "  ..."
             }, "\n"))
         end)
     end)
@@ -382,7 +382,7 @@ return function()
             const storedCases: { { Stored: string?, Name: string } } = {
                 { Name = "missing", Stored = nil },
                 { Name = "equal", Stored = "5" },
-                { Name = "different", Stored = "6" },
+                { Name = "different", Stored = "6" }
             }
             const expected = {
                 ["missing false"] = "Write",
@@ -390,7 +390,7 @@ return function()
                 ["equal false"] = "Match",
                 ["equal true"] = "Match",
                 ["different false"] = "Mismatch",
-                ["different true"] = "Update",
+                ["different true"] = "Update"
             }
             for _, case in storedCases do
                 for _, isUpdating in { false, true } do
@@ -443,14 +443,14 @@ return function()
                 Obsolete = { { Key = "Spec > old 1", Path = "Spec.snap" } },
                 Removed = 1,
                 Updated = 1,
-                Written = 1,
+                Written = 1
             }
             expect(table.concat(SnapshotSummary.format(one, "   "), "\n")).to.equal(table.concat({
                 "1 snapshot written.",
                 "1 snapshot updated.",
                 "1 obsolete snapshot removed.",
                 "1 obsolete snapshot found. Run again with snapshot updates enabled to remove it.",
-                '   "Spec > old 1" in "Spec.snap"',
+                '   "Spec > old 1" in "Spec.snap"'
             }, "\n"))
 
             const many = {
@@ -459,7 +459,7 @@ return function()
                 Obsolete = { { Key = "a 1", Path = "A.snap" }, { Key = "b 1", Path = "B.snap" } },
                 Removed = 2,
                 Updated = 3,
-                Written = 4,
+                Written = 4
             }
             expect(table.concat(SnapshotSummary.format(many, ""), "\n")).to.equal(table.concat({
                 "4 snapshots written.",
@@ -467,7 +467,7 @@ return function()
                 "2 obsolete snapshots removed.",
                 "2 obsolete snapshots found. Run again with snapshot updates enabled to remove them.",
                 '"a 1" in "A.snap"',
-                '"b 1" in "B.snap"',
+                '"b 1" in "B.snap"'
             }, "\n"))
         end)
     end)
@@ -504,7 +504,7 @@ return function()
                 '+     Status = "down",',
                 "  }",
                 "",
-                "If the change is intended, run again with snapshot updates enabled.",
+                "If the change is intended, run again with snapshot updates enabled."
             }, "\n"))
             expect(third:Finish(nil, false).Failed).to.equal(1)
             expect(store.Files[SPEC_PATH]:find('"ok"', 1, true)).to.be.ok()
@@ -529,7 +529,7 @@ return function()
                 write = function(path: string, contents: string)
                     writes += 1
                     store.write(path, contents)
-                end,
+                end
             }
             for _, isUpdating in { false, true } do
                 const manager = SnapshotManager.new({ Store = countingStore, Update = isUpdating })
@@ -620,8 +620,8 @@ return function()
                     read = function(): string?
                         error("disk on fire", 0)
                     end,
-                    write = function() end,
-                },
+                    write = function() end
+                }
             })
             const passed, message = manager:Match(manager:CreateScope(testNode()), 1)
             expect(passed).to.equal(false)
@@ -643,7 +643,7 @@ return function()
 
         it("should remove obsolete snapshots in update mode", function()
             const store = MemorySnapshotStore.new({
-                [SPEC_PATH] = "testable snapshot v1\n\nSpec > gone 1 1\n1\n\nSpec > test 1 1\n1\n",
+                [SPEC_PATH] = "testable snapshot v1\n\nSpec > gone 1 1\n1\n\nSpec > test 1 1\n1\n"
             })
             const manager = SnapshotManager.new({ Store = store, Update = true })
             manager:Match(manager:CreateScope(testNode()), 1)
@@ -664,7 +664,7 @@ return function()
                         manager:Match(manager:CreateScope(testNode()), 1)
                         const results = resultsOf({
                             { planNode = testNode(), status = TestEnum.TestStatus.Success },
-                            { planNode = testNode("gone"), status = status },
+                            { planNode = testNode("gone"), status = status }
                         })
                         const summary = manager:Finish(results, isPartialRun)
                         const isDetecting = not isPartialRun and status == TestEnum.TestStatus.Success
@@ -697,7 +697,7 @@ return function()
                 { Detects = false, Node = { planNode = describeNode, status = nil } },
                 -- A hook error sits on a placeholder that belongs to no spec, so it is
                 -- the failed describe block that protects the file, not the placeholder.
-                { Detects = true, Node = { planNode = placeholder, status = TestEnum.TestStatus.Failure } },
+                { Detects = true, Node = { planNode = placeholder, status = TestEnum.TestStatus.Failure } }
             }
             for _, case in cases do
                 const store = MemorySnapshotStore.new({ [SPEC_PATH] = contents })
@@ -712,7 +712,7 @@ return function()
         it("should share a file between runs that overlap, such as nested runs", function()
             for _, isUpdating in { false, true } do
                 const store = MemorySnapshotStore.new({
-                    [SPEC_PATH] = "testable snapshot v1\n\nSpec > gone 1 1\n1\n\nSpec > outer 1 1\n1\n",
+                    [SPEC_PATH] = "testable snapshot v1\n\nSpec > gone 1 1\n1\n\nSpec > outer 1 1\n1\n"
                 })
                 const outer = SnapshotManager.new({ Store = store, Update = isUpdating })
                 const nested = SnapshotManager.new({ Store = store, Update = isUpdating })
@@ -772,8 +772,8 @@ return function()
                         task.wait()
                         return store.read(path)
                     end,
-                    write = store.write,
-                },
+                    write = store.write
+                }
             })
 
             local finished = 0
@@ -811,7 +811,7 @@ return function()
             const explicitSpec = {
                 callback = specFunction,
                 phrase = "Explicit",
-                specModule = { snapshotPath = "custom/Explicit.snap" },
+                specModule = { snapshotPath = "custom/Explicit.snap" }
             }
             const explicitGroup = { callback = function() end, parent = explicitSpec, phrase = "group" }
             manager:Match(manager:CreateScope({ parent = explicitGroup, phrase = "test" }), 1)
@@ -889,7 +889,7 @@ return function()
             expect({
                 Framework = "testable",
                 Lifecycle = { "write", "match", "mismatch", "update" },
-                Rendered = SnapshotFormat.render({ ["Spec > test 1"] = serialize({ Status = "ok" }) }),
+                Rendered = SnapshotFormat.render({ ["Spec > test 1"] = serialize({ Status = "ok" }) })
             }).to.matchSnapshot()
             expect("Summary\n\n  passed 2  failed 0").to.matchSnapshot("multi-line text")
             expect(1).to.matchSnapshot().to.equal(1)
@@ -1096,7 +1096,7 @@ return function()
                     `Testable.configure(\{ UpdateSnapshots = {flag} })`,
                     `const spec = require("./{directory}/Sample.spec")`,
                     'const _, passed = Testable.run({ { Name = "Sample", Func = spec } })',
-                    'require("@lune/process").exit(if passed then 0 else 1)',
+                    'require("@lune/process").exit(if passed then 0 else 1)'
                 }, "\n"))
             end
 

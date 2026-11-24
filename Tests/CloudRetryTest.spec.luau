@@ -78,7 +78,7 @@ return function()
                 math.huge,
                 0 / 0,
                 true,
-                {},
+                {}
             }
             for _, value in values do
                 expect(CloudRetry.parseRetryAfter({ ["retry-after"] = value })).to.equal(nil)
@@ -199,7 +199,7 @@ return function()
                 end,
                 function()
                     return CloudRetry.decide(429, {}, 1, POLICY, 2)
-                end,
+                end
             }
             for _, call in calls do
                 expect(call).to.throw()

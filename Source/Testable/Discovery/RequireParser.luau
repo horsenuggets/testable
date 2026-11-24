@@ -12,7 +12,7 @@ and are ignored.
 
 type State = {
     Paths: { string },
-    Seen: { [string]: boolean },
+    Seen: { [string]: boolean }
 }
 
 const RequireParser = {}

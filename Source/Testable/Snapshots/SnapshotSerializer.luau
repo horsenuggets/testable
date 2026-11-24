@@ -19,18 +19,18 @@ const ADDRESS_PATTERN = ": 0x%x+$"
 const DATATYPE_READERS: { [string]: (value: any) -> string } = {
     BrickColor = function(value: any): string
         return tostring(value.Number)
-    end,
+    end
 }
 const INDENT = "    "
 const KEY_TYPE_RANKS = {
     ["boolean"] = 3,
     ["number"] = 1,
-    ["string"] = 2,
+    ["string"] = 2
 }
 const SIMPLE_ESCAPES = {
     ["\t"] = "\\t",
     ["\r"] = "\\r",
-    ["\\"] = "\\\\",
+    ["\\"] = "\\\\"
 }
 
 const SnapshotSerializer = {}

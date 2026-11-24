@@ -13,7 +13,7 @@ const TestEnum = require("../../Source/Testable/TestEnum")
 export type Options = {
     ReporterOutputs: { [string]: string },
     Reporters: { string }?,
-    SlowestTests: number?,
+    SlowestTests: number?
 }
 
 const ReporterArguments = {}

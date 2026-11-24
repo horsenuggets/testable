@@ -23,7 +23,7 @@ const FILES = {
     ["/root/Tests/Nested/.git/E.spec.luau"] = "",
     ["/root/Tests/Nested/C.spec.luau"] = "",
     ["/root/Tests/Nested/Deep/D.spec.luau"] = "",
-    ["/root/Top.spec.luau"] = "",
+    ["/root/Top.spec.luau"] = ""
 }
 
 const function find(include: { string }, exclude: { string }?): string

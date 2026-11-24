@@ -85,7 +85,7 @@ const function validatePlanned(value: any, runId: string, job: any, names: { [st
         Completed = value.Assigned,
         JobId = value.JobId,
         RunId = value.RunId,
-        Version = value.Version,
+        Version = value.Version
     }, runId, job.Id, job.Files)
     check(type(value.HasFocus) == "boolean", "Invalid worker focus flag.")
     check(type(value.ExclusiveRoots) == "table", "Missing worker file scheduling flags.")
@@ -156,7 +156,7 @@ function Coordinator.prepare(files: { string }, root: string?, options: any): an
         Names = names,
         OrderedNames = orderedNames,
         Root = absoluteRoot,
-        Setup = setup,
+        Setup = setup
     }
 end
 
@@ -189,9 +189,9 @@ function Coordinator.run(files: { string }, root: string?, options: any, redirec
                         RedirectOutput = redirectOutput,
                         Root = absoluteRoot,
                         RunId = runId,
-                        Setup = setup,
-                    },
-                },
+                        Setup = setup
+                    }
+                }
             })
             records[job.Id] = { Handle = handle, Joined = false }
         end
@@ -302,7 +302,7 @@ function Coordinator.run(files: { string }, root: string?, options: any, redirec
                                 Id = grant.RequestId,
                                 JobId = grant.JobId,
                                 Name = grant.Name,
-                                RunId = runId,
+                                RunId = runId
                             })
                         end
                     end
@@ -390,7 +390,7 @@ function Coordinator.run(files: { string }, root: string?, options: any, redirec
                 options.Config.Filter,
                 options.Config.ForbidFocus,
                 os.clock() - startTime
-            ),
+            )
         }
     end)
 

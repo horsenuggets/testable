@@ -82,7 +82,7 @@ return function()
                 ]],
                 ["Setup.luau"] = [[
                     return function(testable) testable.resetConfig() end
-                ]],
+                ]]
             },
             [[
                 const messages = {}
@@ -137,7 +137,7 @@ return function()
                             end
                         end, Verbose = true })
                     end
-                ]],
+                ]]
             },
             [[
                 Testable.configure({ WorkerSetup = "Setup.luau" })
@@ -163,7 +163,7 @@ return function()
                     it("first", function() task.wait(0.03) end)
                 end
             ]],
-                ["B/Same.spec.luau"] = 'return function() it("second", function() end) end',
+                ["B/Same.spec.luau"] = 'return function() it("second", function() end) end'
             },
             [[
             Testable.configure({ SuiteOrder = { "B/Same", "A/Same" } })
@@ -183,7 +183,7 @@ return function()
                 ["A/Foo.spec.luau"] = 'return function() it("passes", function() end) end',
                 ["B/FOO.spec.luau"] = 'return function() it("passes", function() end) end',
                 ["C/FoO.spec.luau"] = 'return function() it("passes", function() end) end',
-                ["D/fOO.spec.luau"] = 'return function() it("passes", function() end) end',
+                ["D/fOO.spec.luau"] = 'return function() it("passes", function() end) end'
             },
             [[
             const files = { "A/Foo.spec.luau", "B/FOO.spec.luau", "C/FoO.spec.luau", "D/fOO.spec.luau" }
@@ -203,7 +203,7 @@ return function()
         run(
             {
                 ["Focused.spec.luau"] = 'return function() itFOCUS("chosen", function() end) end',
-                ["Ordinary.spec.luau"] = 'return function() it("excluded", function() error("must not execute") end) end',
+                ["Ordinary.spec.luau"] = 'return function() it("excluded", function() error("must not execute") end) end'
             },
             [[
             Testable.configure({ ForbidFocus = true })
@@ -221,7 +221,7 @@ return function()
         run(
             {
                 ["A.spec.luau"] = 'return function() it("selected", function() end) end',
-                ["B.spec.luau"] = 'return function() itFOCUS("other", function() error("filtered") end) end',
+                ["B.spec.luau"] = 'return function() itFOCUS("other", function() error("filtered") end) end'
             },
             [[
             const files = { "A.spec.luau", "B.spec.luau" }
@@ -264,7 +264,7 @@ return function()
                     end)
                 end
             ]],
-                ["Setup.luau"] = SETUP,
+                ["Setup.luau"] = SETUP
             },
             [[
             Testable.configure({ WorkerSetup = "Setup.luau" })
@@ -316,7 +316,7 @@ return function()
                     it("runs afterward", function() end)
                 end
             ]],
-                ["Setup.luau"] = SETUP,
+                ["Setup.luau"] = SETUP
             },
             [[
             Testable.configure({ Workers = 3, WorkerSetup = "Setup.luau" })
@@ -385,7 +385,7 @@ return function()
                     end)
                 end
             ]],
-                ["Setup.luau"] = SETUP,
+                ["Setup.luau"] = SETUP
             },
             [[
             Testable.configure({ Parallel = false, WorkerSetup = "Setup.luau" })
@@ -414,7 +414,7 @@ return function()
                         assert(#context.Files > 0)
                         _G.SetupReady = true
                     end
-                ]],
+                ]]
                 },
                 string.format(
                     [[
@@ -442,7 +442,7 @@ return function()
                 return function()
                     it("sees the shared fixture", function() assert(state.Value == 42) end)
                 end
-            ]],
+            ]]
             },
             [[
             Testable.configure({ Parallel = false, Workers = 4, WorkerGroups = { { "A.spec.luau", "B.spec.luau" } } })
@@ -473,7 +473,7 @@ return function()
                 end
             ]],
                 ["C.spec.luau"] = 'return function() it("still usable", function() end) end',
-                ["Setup.luau"] = SETUP,
+                ["Setup.luau"] = SETUP
             },
             [[
             Testable.configure({ WorkerSetup = "Setup.luau" })
@@ -506,7 +506,7 @@ return function()
                     end)
                 end
             ]],
-                ["Setup.luau"] = SETUP,
+                ["Setup.luau"] = SETUP
             },
             [[
             Testable.configure({ WorkerSetup = "Setup.luau" })
@@ -528,7 +528,7 @@ return function()
                 waitFor("planning-started")
                 process.exit(0)
             ]],
-                ["Setup.luau"] = SETUP,
+                ["Setup.luau"] = SETUP
             },
             [[
             Testable.configure({ WorkerSetup = "Setup.luau" })
@@ -547,7 +547,7 @@ return function()
                 return function()
                     it("snapshots", function() expect({ Value = 1 }).to.matchSnapshot() end)
                 end
-            ]],
+            ]]
             },
             [[
             const files = { "A.spec.luau", "B.spec.luau" }
@@ -593,7 +593,7 @@ return function()
                 return function(framework)
                     _G.Framework = framework
                 end
-            ]],
+            ]]
             },
             [[
             Testable.configure({ WorkerSetup = "Setup.luau" })
@@ -608,7 +608,7 @@ return function()
     it("should retain parent-owned snapshot stores locally and reject transferring their closures", function()
         run(
             {
-                ["A.spec.luau"] = 'return function() it("snapshots", function() expect(1).to.matchSnapshot() end) end',
+                ["A.spec.luau"] = 'return function() it("snapshots", function() expect(1).to.matchSnapshot() end) end'
             },
             [[
             const store = Testable.Snapshots.MemorySnapshotStore.new()
@@ -647,7 +647,7 @@ return function()
                 ["Source/Unrequired.luau"] = [[
                 error("This eligible source must never be required by coverage collection.")
                 return 3
-            ]],
+            ]]
             },
             [[
             if not debug.iscoverageenabled() then return end
@@ -699,7 +699,7 @@ return function()
                 const value = require("./Source/Value")
                 return function() it("also calls value", function() assert(value() == 1) end) end
             ]],
-                ["Source/Value.luau"] = "return function() return 1 end",
+                ["Source/Value.luau"] = "return function() return 1 end"
             },
             [[
             if not debug.iscoverageenabled() then return end
@@ -739,7 +739,7 @@ return function()
                 return function(framework)
                     framework.configure({ CoverageRoots = roots })
                 end
-            ]],
+            ]]
             },
             [[
             if not debug.iscoverageenabled() then return end
@@ -771,7 +771,7 @@ return function()
                     end
                     framework.configure({ SnapshotStore = store })
                 end
-            ]],
+            ]]
             },
             [[
             Testable.configure({ WorkerSetup = "Setup.luau" })
@@ -796,7 +796,7 @@ return function()
                 return function(framework)
                     framework.configure({ Workers = 0 })
                 end
-            ]],
+            ]]
             },
             [[
             for _, workers in { 1, 2 } do
@@ -820,7 +820,7 @@ return function()
                         error(framework.ToolError.new(framework.ToolError.Kind.EmptyCoverage, "No source was measured."), 0)
                     end
                 end
-            ]],
+            ]]
             },
             [[
             Testable.configure({ WorkerSetup = "Setup.luau" })
@@ -843,7 +843,7 @@ return function()
                         return { Version = 1, RunId = "wrong run", JobId = 1, Assigned = {}, Completed = {} }
                     end
                 end
-            ]],
+            ]]
             },
             [[
             Testable.configure({ WorkerSetup = "Setup.luau" })
@@ -861,7 +861,7 @@ return function()
                 const fs = require("@lune/fs")
                 fs.writeFile(script.Parent .. "/required", "")
                 return function() it("passes", function() end) end
-            ]],
+            ]]
             },
             [[
             for _, workers in { 1, 2 } do
@@ -890,7 +890,7 @@ return function()
                     it("prints", function() print("worker test output") end)
                 end
             ]],
-                ["B.spec.luau"] = 'return function() it("passes", function() end) end',
+                ["B.spec.luau"] = 'return function() it("passes", function() end) end'
             },
             [[
             Testable.configure({ Reporters = { "Json" } })

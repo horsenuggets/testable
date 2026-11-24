@@ -23,7 +23,7 @@ export type Semaphore = {
     activeCount: number,
     exclusive: boolean,
     exclusiveWaiting: number,
-    lock: boolean,
+    lock: boolean
 }
 
 const TestSession = {}
@@ -56,7 +56,7 @@ function TestSession.new(plan: any): any
         holdsExclusive = false,
         -- Whether the run schedules tests in parallel, read from Config once when the
         -- run starts.
-        parallel = true,
+        parallel = true
     }
 
     setmetatable(self, TestSession)

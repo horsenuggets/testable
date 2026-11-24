@@ -11,7 +11,7 @@ real repository.
 export type ExecResult = {
     Ok: boolean,
     Stderr: string,
-    Stdout: string,
+    Stdout: string
 }
 export type Exec = (arguments: { string }, workingDirectory: string) -> ExecResult
 

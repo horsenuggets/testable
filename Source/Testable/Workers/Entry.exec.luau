@@ -61,7 +61,7 @@ function Entry.exec(): any
                 setup(require("../../Testable"), {
                     Files = table.clone(job.Files),
                     JobId = job.JobId,
-                    Root = job.Root,
+                    Root = job.Root
                 })
             end
 
@@ -101,7 +101,7 @@ function Entry.exec(): any
                 RunId = job.RunId,
                 Selection = selection,
                 SnapshotPaths = snapshotPaths,
-                Version = 1,
+                Version = 1
             })
             const command = parent:receive("Execute")
             assert(
@@ -138,15 +138,15 @@ function Entry.exec(): any
                     end,
                     Release = function(node, id)
                         sendGate("Release", node, id)
-                    end,
-                },
+                    end
+                }
             })
             const completed = {
                 Coverage = if job.Config.Coverage and coverageRoots ~= nil
                     then Coverage.captureRaw(coverageRoots)
                     else nil,
                 Manifest = Protocol.makeManifest(job.RunId, job.JobId, job.Files, table.clone(job.Files)),
-                Results = Protocol.encodeResults(results),
+                Results = Protocol.encodeResults(results)
             }
             -- join closes the parent's sending endpoint. The coordinator waits for this
             -- signal before joining, so file grants remain deliverable until execution ends.

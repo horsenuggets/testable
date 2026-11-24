@@ -89,8 +89,8 @@ return function()
         it("should not report a skip reason on a test that wasn't skipped", function()
             const results = ResultFixture.results({
                 ResultFixture.describe("Spec", SUCCESS, {
-                    ResultFixture.it("runs", SUCCESS, { SkipReason = "stale reason" }),
-                }),
+                    ResultFixture.it("runs", SUCCESS, { SkipReason = "stale reason" })
+                })
             })
             expect(decode(results).Suites[1].Children[1].SkipReason).to.equal(nil)
         end)
@@ -114,8 +114,8 @@ return function()
             const results = ResultFixture.results({
                 ResultFixture.describe("Spec", SUCCESS, {
                     ResultFixture.it("one", SUCCESS, { Duration = 0.5 }),
-                    ResultFixture.it("two", SUCCESS, { Duration = 0.25 }),
-                }),
+                    ResultFixture.it("two", SUCCESS, { Duration = 0.25 })
+                })
             })
             const document = decode(results)
             expect(document.Suites[1].Duration).to.equal(0.75)
@@ -124,7 +124,7 @@ return function()
 
         it("should count a test that never ran as skipped", function()
             const results = ResultFixture.results({
-                ResultFixture.describe("Spec", FAILURE, { ResultFixture.it("never ran", nil) }),
+                ResultFixture.describe("Spec", FAILURE, { ResultFixture.it("never ran", nil) })
             })
             const document = decode(results)
             expect(document.Totals.Skipped).to.equal(1)
@@ -154,11 +154,11 @@ return function()
                 Matched = 0,
                 Obsolete = {
                     { Key = "Spec > old 1", Path = "__snapshots__/Spec.snap" },
-                    { Key = hostile, Path = hostile },
+                    { Key = hostile, Path = hostile }
                 },
                 Removed = 0,
                 Updated = 0,
-                Written = 0,
+                Written = 0
             }
 
             const obsolete = decode(results).Snapshots.Obsolete
@@ -193,7 +193,7 @@ return function()
                 Obsolete = { { Key = "Spec > old 1", Path = "Spec.snap" } },
                 Removed = 0,
                 Updated = 0,
-                Written = 1,
+                Written = 1
             }
 
             const text = JsonReporter.format(results)
@@ -213,8 +213,8 @@ return function()
             const name = 'quote " backslash \\ newline \n tab \t return \r bell \7 <tag> & unicode ✓'
             const results = ResultFixture.results({
                 ResultFixture.describe(name, FAILURE, {
-                    ResultFixture.it(name, FAILURE, { Errors = { name } }),
-                }),
+                    ResultFixture.it(name, FAILURE, { Errors = { name } })
+                })
             })
             const test = decode(results).Suites[1].Children[1]
             expect(test.Name).to.equal(name)
@@ -225,8 +225,8 @@ return function()
         it("should strip terminal colors from error messages", function()
             const results = ResultFixture.results({
                 ResultFixture.describe("Spec", FAILURE, {
-                    ResultFixture.it("fails", FAILURE, { Errors = { "\27[91mred\27[0m plain" } }),
-                }),
+                    ResultFixture.it("fails", FAILURE, { Errors = { "\27[91mred\27[0m plain" } })
+                })
             })
             expect(decode(results).Suites[1].Children[1].ErrorMessage).to.equal("red plain")
         end)
@@ -234,8 +234,8 @@ return function()
         it("should replace bytes that aren't valid UTF-8", function()
             const results = ResultFixture.results({
                 ResultFixture.describe("Spec", FAILURE, {
-                    ResultFixture.it("fails", FAILURE, { Errors = { "bad \255 byte \254" } }),
-                }),
+                    ResultFixture.it("fails", FAILURE, { Errors = { "bad \255 byte \254" } })
+                })
             })
             expect(decode(results).Suites[1].Children[1].ErrorMessage).to.equal("bad \u{FFFD} byte \u{FFFD}")
         end)
@@ -245,8 +245,8 @@ return function()
                 ResultFixture.describe("Spec", SUCCESS, {
                     ResultFixture.it("huge", SUCCESS, { Duration = math.huge }),
                     ResultFixture.it("nan", SUCCESS, { Duration = 0 / 0 }),
-                    ResultFixture.it("negative", SUCCESS, { Duration = -1 }),
-                }, { Duration = 0 }),
+                    ResultFixture.it("negative", SUCCESS, { Duration = -1 })
+                }, { Duration = 0 })
             }, 0)
             for _, test in decode(results).Suites[1].Children do
                 expect(test.Duration).to.equal(0)

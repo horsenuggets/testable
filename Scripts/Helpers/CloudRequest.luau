@@ -22,7 +22,7 @@ export type Dependencies = {
     -- Returns a random number from 0 up to 1 for the retry jitter.
     Random: () -> number,
     Request: (config: net.FetchParams) -> net.FetchResponse,
-    Wait: (seconds: number) -> (),
+    Wait: (seconds: number) -> ()
 }
 
 const DEFAULT_DEPENDENCIES: Dependencies = table.freeze({
@@ -37,7 +37,7 @@ const DEFAULT_DEPENDENCIES: Dependencies = table.freeze({
     end,
     Wait = function(seconds: number)
         task.wait(seconds)
-    end,
+    end
 })
 
 const CloudRequest = {}

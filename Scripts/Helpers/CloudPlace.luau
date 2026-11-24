@@ -19,7 +19,7 @@ export type UploadRecord = {
     Hash: string,
     PlaceId: string,
     UniverseId: string,
-    VersionNumber: number,
+    VersionNumber: number
 }
 
 const CloudPlace = {}
@@ -62,7 +62,7 @@ function CloudPlace.decodeRecord(text: string?): UploadRecord?
         Hash = decoded.Hash,
         PlaceId = decoded.PlaceId,
         UniverseId = decoded.UniverseId,
-        VersionNumber = decoded.VersionNumber,
+        VersionNumber = decoded.VersionNumber
     }
 end
 

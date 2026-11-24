@@ -60,7 +60,7 @@ function FakeFileSystem.new(files: { [string]: string })
                 error(`"{path}" does not exist in the fake filesystem.`)
             end
             return content
-        end,
+        end
     }
 end
 

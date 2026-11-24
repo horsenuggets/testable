@@ -20,7 +20,7 @@ const describe, expect, it = Testable.describe, Testable.expect, Testable.it
 const CONFIG_SOURCE = "the Timeout configuration option"
 const EXECUTION_MODES = {
     { Name = "parallel", Parallel = true },
-    { Name = "sequential", Parallel = false },
+    { Name = "sequential", Parallel = false }
 }
 const HOOK_SOURCE = "the Timeout option of the hook"
 const INVALID_BUDGETS: { any } = { 0, -1, 0 / 0, "1", true, {} }
@@ -303,8 +303,8 @@ return function()
             hooks:pushHooksFrom({
                 children = {
                     hookNode(TestEnum.NodeType.BeforeAll, function() end, 3),
-                    hookNode(TestEnum.NodeType.BeforeAll, function() end, nil),
-                },
+                    hookNode(TestEnum.NodeType.BeforeAll, function() end, nil)
+                }
             })
 
             expect(budgets(hooks:getBeforeAllHooks())).to.deepEqual({ 3, false })
@@ -318,8 +318,8 @@ return function()
                     hookNode(TestEnum.NodeType.BeforeAll, shared, 1),
                     hookNode(TestEnum.NodeType.BeforeAll, shared, 7),
                     hookNode(TestEnum.NodeType.AfterEach, shared, 2),
-                    hookNode(TestEnum.NodeType.BeforeEach, shared, nil),
-                },
+                    hookNode(TestEnum.NodeType.BeforeEach, shared, nil)
+                }
             })
 
             expect(budgets(hooks:getBeforeAllHooks())).to.deepEqual({ 1, 7 })

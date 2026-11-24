@@ -27,7 +27,7 @@ ExpectationContext.__index = ExpectationContext
 
 function ExpectationContext.new(parent)
     const self = {
-        _extensions = parent and copy(parent._extensions) or {},
+        _extensions = parent and copy(parent._extensions) or {}
     }
 
     return setmetatable(self, ExpectationContext)

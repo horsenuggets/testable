@@ -14,7 +14,7 @@ const COUNT_NAMES = { "Written", "Updated", "Removed", "Obsolete", "Matched", "F
 -- and left in place.
 export type Count = {
     Name: string,
-    Value: number,
+    Value: number
 }
 
 const SnapshotSummary = {}

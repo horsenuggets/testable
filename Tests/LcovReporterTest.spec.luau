@@ -44,7 +44,7 @@ return function()
     describe("LcovReporter.format", function()
         it("should write one record per file with its lines in order", function()
             const tracefile = LcovReporter.format(report({
-                file("Source/Module.luau", { [12] = 3, [3] = 0, [7] = 1 }),
+                file("Source/Module.luau", { [12] = 3, [3] = 0, [7] = 1 })
             }))
             expect(tracefile).to.equal(table.concat({
                 "TN:",
@@ -55,14 +55,14 @@ return function()
                 "LF:3",
                 "LH:2",
                 "end_of_record",
-                "",
+                ""
             }, "\n"))
         end)
 
         it("should order records by path", function()
             const parsed = records(LcovReporter.format(report({
                 file("Source/Zebra.luau", { [1] = 1 }),
-                file("Source/Apple.luau", { [1] = 0 }),
+                file("Source/Apple.luau", { [1] = 0 })
             })))
             expect(#parsed).to.equal(2)
             expect(parsed[1][2]).to.equal("SF:Source/Apple.luau")
@@ -71,7 +71,7 @@ return function()
 
         it("should count only lines with hits as hit", function()
             const parsed = records(LcovReporter.format(report({
-                file("Source/Unloaded.luau", { [1] = 0, [2] = 0 }),
+                file("Source/Unloaded.luau", { [1] = 0, [2] = 0 })
             })))
             expect(parsed[1][5]).to.equal("LF:2")
             expect(parsed[1][6]).to.equal("LH:0")

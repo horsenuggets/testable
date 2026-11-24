@@ -26,36 +26,36 @@ export type Options = {
     Exclude: { string }?,
     Include: { string },
     Root: string?,
-    WorkerSetup: string?,
+    WorkerSetup: string?
 }
 export type DiscoverOptions = Options & {
-    Files: { string }?,
+    Files: { string }?
 }
 export type AffectedOptions = Options & {
-    Changed: { string },
+    Changed: { string }
 }
 export type ChangedOptions = Options & {
-    Ref: string,
+    Ref: string
 }
 export type WatchOptions = Options & {
     Debounce: number?,
     Interval: number?,
     Log: ((message: string) -> ())?,
     Run: (specFiles: { string }, changedFiles: { string }) -> (),
-    RunOnStart: boolean?,
+    RunOnStart: boolean?
 }
 export type ChildOptions = {
     Arguments: { string }?,
     Files: { string },
     Root: string?,
-    Script: string,
+    Script: string
 }
 export type TestRoot = {
     Func: any,
-    Name: string,
+    Name: string
 }
 export type WatchHandle = {
-    Stop: () -> (),
+    Stop: () -> ()
 }
 
 const DEFAULT_DEBOUNCE = 0.2
@@ -64,7 +64,7 @@ const FILE_SYSTEM: Glob.FileSystem = {
     IsDir = fs.isDir,
     IsFile = fs.isFile,
     ReadDir = fs.readDir,
-    ReadFile = fs.readFile,
+    ReadFile = fs.readFile
 }
 
 const Discovery = {}
@@ -363,7 +363,7 @@ function Discovery.findAffected(options: AffectedOptions): { string }
         Discovery.findSpecs({
             Exclude = options.Exclude,
             Include = options.Include,
-            Root = root,
+            Root = root
         })
     )
     const changed = toAbsolute(root, options.Changed)
@@ -402,7 +402,7 @@ function Discovery.findChanged(options: ChangedOptions): { string }
         Exclude = options.Exclude,
         Include = options.Include,
         Root = root,
-        WorkerSetup = options.WorkerSetup,
+        WorkerSetup = options.WorkerSetup
     })
 end
 
@@ -433,7 +433,7 @@ function Discovery.runInChild(options: ChildOptions): boolean
 
     const result = process.exec("lune", arguments, {
         cwd = resolveRoot(options.Root),
-        stdio = "forward",
+        stdio = "forward"
     })
 
     return result.ok
@@ -576,7 +576,7 @@ function Discovery.watch(options: WatchOptions): WatchHandle
     return {
         Stop = function()
             running = false
-        end,
+        end
     }
 end
 

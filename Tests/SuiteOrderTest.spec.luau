@@ -74,7 +74,7 @@ const function descriptor(name: string): any
         end,
         path = { name },
         pathStringForSorting = name:lower(),
-        snapshotPath = `fixtures/{name}.snap`,
+        snapshotPath = `fixtures/{name}.snap`
     }
 end
 

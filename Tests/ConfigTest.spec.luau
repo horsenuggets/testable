@@ -113,12 +113,12 @@ return function()
             Config.reset()
             const groups = {
                 { "./Tests/A.spec.luau", "Tests/Nested/../Bridge.spec.luau" },
-                { "Tests\\Bridge.spec.luau", "Tests/B.spec.luau", "Tests/B.spec.luau" },
+                { "Tests\\Bridge.spec.luau", "Tests/B.spec.luau", "Tests/B.spec.luau" }
             }
             Testable.configure({ WorkerGroups = groups })
             expect(Config.WorkerGroups).to.deepEqual({
                 { "Tests/A.spec.luau", "Tests/Bridge.spec.luau" },
-                { "Tests/Bridge.spec.luau", "Tests/B.spec.luau", "Tests/B.spec.luau" },
+                { "Tests/Bridge.spec.luau", "Tests/B.spec.luau", "Tests/B.spec.luau" }
             })
             expect(groups[1][1]).to.equal("./Tests/A.spec.luau")
             groups[1][1] = "Changed"
@@ -165,7 +165,7 @@ return function()
                 MaxConcurrency = 2,
                 Parallel = false,
                 PrintSkipped = true,
-                Verbose = true,
+                Verbose = true
             })
 
             expect(Config.AlphabeticalSort).to.equal(true)
@@ -196,7 +196,7 @@ return function()
                 MaxConcurrency = 16,
                 Parallel = false,
                 PrintSkipped = true,
-                Verbose = true,
+                Verbose = true
             })
 
             Testable.resetConfig()
@@ -304,7 +304,7 @@ return function()
                     { "Repeated", "Repeated" },
                     { [1] = "First", [3] = "Third" },
                     { Named = "Suite" },
-                    { [1.5] = "Suite" },
+                    { [1.5] = "Suite" }
                 } :: { any }
             do
                 Testable.configure({ SuiteOrder = { "Original" } })
@@ -348,8 +348,8 @@ return function()
                 setmetatable({}, {
                     __index = function()
                         return {}
-                    end,
-                }),
+                    end
+                })
             }
             for _, invalid in invalidArrays do
                 expect(function()
@@ -374,7 +374,7 @@ return function()
                 Indent = ">",
                 WorkerGroups = { { "Replacement.spec.luau" } },
                 WorkerSetup = "ReplacementSetup.luau",
-                Workers = 0,
+                Workers = 0
             })
             expect(rejected).to.equal(false)
             expect(Config.Indent).to.equal("   ")
@@ -413,20 +413,20 @@ return function()
             { Options = { PrintSkipped = "true" }, Problem = "PrintSkipped must be a boolean" },
             {
                 Options = { ReporterOutputs = { Text = "report.txt" } },
-                Problem = 'ReporterOutputs keys must be "JUnit", "Json", or "Lcov"',
+                Problem = 'ReporterOutputs keys must be "JUnit", "Json", or "Lcov"'
             },
             {
                 Options = { Reporters = { "Xml" } },
-                Problem = 'Reporters must only contain "JUnit", "Json", "Lcov", or "Text"',
+                Problem = 'Reporters must only contain "JUnit", "Json", "Lcov", or "Text"'
             },
             { Options = { SlowestTests = -1 }, Problem = "SlowestTests must be a non-negative integer" },
             {
                 Options = { SnapshotStore = {} },
-                Problem = "SnapshotStore must be a table with read and write functions",
+                Problem = "SnapshotStore must be a table with read and write functions"
             },
             { Options = { Timeout = 0 }, Problem = "Timeout must be a positive number of seconds" },
             { Options = { UpdateSnapshots = "yes" }, Problem = "UpdateSnapshots must be a boolean" },
-            { Options = { Verbose = {} }, Problem = "Verbose must be a boolean" },
+            { Options = { Verbose = {} }, Problem = "Verbose must be a boolean" }
         }
 
         it("should throw an identifiable tool error for every invalid option", function()
@@ -478,7 +478,7 @@ return function()
                 CoverageRoots = {},
                 Filter = if before.Filter == nil then "anything" else "",
                 Indent = `{before.Indent}>`,
-                Verbose = "yes",
+                Verbose = "yes"
             })
 
             expect(rejected).to.equal(false)

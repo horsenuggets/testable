@@ -14,7 +14,7 @@ const TableRenderer = {}
 export type TableRow = {
     Colored: { string },
     Raw: { string },
-    Separator: boolean?,
+    Separator: boolean?
 }
 
 export type Alignment = "Left" | "Right"
@@ -67,7 +67,7 @@ function TableRenderer.format(
     const lines = {
         border("┌", "┬", "┐"),
         cells(styledHeaders, headers),
-        border("├", "┼", "┤"),
+        border("├", "┼", "┤")
     }
     for _, row in rows do
         if row.Separator then

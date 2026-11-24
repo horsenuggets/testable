@@ -30,33 +30,33 @@ const EXCLUDED_SUFFIXES = {
     "%.plugin$",
     "%.spec$",
     "%.story$",
-    "%.storybook$",
+    "%.storybook$"
 }
 
 export type RawEntry = {
     Depth: number,
     Function: string,
     Hits: { [number]: number },
-    LineDefined: number,
+    LineDefined: number
 }
 
 export type RawFile = {
     Entries: { RawEntry },
     Loaded: boolean,
     Name: string,
-    Path: string,
+    Path: string
 }
 
 export type RawSnapshot = {
     Files: { RawFile },
-    Version: number,
+    Version: number
 }
 
 export type FunctionCoverage = {
     Name: string,
     ExecutableLines: number,
     HitLines: number,
-    Percentage: number,
+    Percentage: number
 }
 
 export type FileCoverage = {
@@ -69,14 +69,14 @@ export type FileCoverage = {
     -- sets it, and it's optional so that reports built by hand stay valid without it.
     LineHits: { [number]: number }?,
     Loaded: boolean,
-    Percentage: number,
+    Percentage: number
 }
 
 export type CoverageReport = {
     Files: { FileCoverage },
     TotalExecutableLines: number,
     TotalHitLines: number,
-    TotalPercentage: number,
+    TotalPercentage: number
 }
 
 -- The verdict of comparing a coverage report against a threshold. "Unmeasured" means a
@@ -273,7 +273,7 @@ const function mergeEntries(sources: { { RawEntry } }, path: string): { RawEntry
             Depth = entry.Depth,
             Function = entry.Function,
             Hits = table.clone(entry.Hits),
-            LineDefined = entry.LineDefined,
+            LineDefined = entry.LineDefined
         }
     end
     for sourceIndex = 2, #sources do
@@ -394,7 +394,7 @@ const function discoverModules(dirScript: any, results: { { Name: string, Script
                     seen[scriptPath] = true
                     table.insert(results, {
                         Name = entry,
-                        Script = childScript,
+                        Script = childScript
                     })
                 end
             end
@@ -414,7 +414,7 @@ const function discoverModules(dirScript: any, results: { { Name: string, Script
                     seen[scriptPath] = true
                     table.insert(results, {
                         Name = baseName,
-                        Script = childScript,
+                        Script = childScript
                     })
                 end
             end
@@ -511,7 +511,7 @@ const function reportEntries(
             Name = funcName,
             ExecutableLines = funcExecutable,
             HitLines = funcHit,
-            Percentage = pct,
+            Percentage = pct
         })
     end
 
@@ -548,7 +548,7 @@ const function resolveScript(
                 seen[scriptPath] = true
                 table.insert(results, {
                     Name = name,
-                    Script = scriptInstance,
+                    Script = scriptInstance
                 })
             end
         end
@@ -561,7 +561,7 @@ const function resolveScript(
             seen[scriptPath] = true
             table.insert(results, {
                 Name = name,
-                Script = scriptInstance,
+                Script = scriptInstance
             })
         end
     end
@@ -669,7 +669,7 @@ const function reportFile(file: RawFile): FileCoverage
         HitLines = fileHit,
         LineHits = lineHits,
         Loaded = file.Loaded,
-        Percentage = Coverage.percentage(fileHit, fileExecutable),
+        Percentage = Coverage.percentage(fileHit, fileExecutable)
     }
 end
 
@@ -691,7 +691,7 @@ const function reportFiles(files: { FileCoverage }): CoverageReport
         Files = files,
         TotalExecutableLines = grandTotalExecutable,
         TotalHitLines = grandTotalHit,
-        TotalPercentage = Coverage.percentage(grandTotalHit, grandTotalExecutable),
+        TotalPercentage = Coverage.percentage(grandTotalHit, grandTotalExecutable)
     }
 end
 
