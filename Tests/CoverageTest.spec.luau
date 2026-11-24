@@ -504,6 +504,68 @@ return function()
             end
         end)
 
+        it("should preserve exact hit-key and executable-mask mismatch messages in either order", function()
+            const cases = {
+                { Count = false, Line = 9, Message = "Hits key set" },
+                { Count = -1, Line = 10, Message = "Hits key set" },
+                { Count = 0, Line = 0, Message = "Executable mask" },
+                { Count = -1, Line = 9, Message = "Executable mask" },
+            }
+            for _, case in cases do
+                const first, second = snapshot(), snapshot()
+                second.Files[1].Entries[1].Hits[case.Line] = if case.Count == false then nil else case.Count
+                const expected =
+                    `Raw coverage layout mismatch for "/coverage/Module.luau". {case.Message} differs at entry 1, line {case.Line}.`
+                for _, inputs in { { first, second }, { second, first } } do
+                    const ok, problem = pcall(Coverage.mergeRaw, inputs)
+                    expect(ok).to.equal(false)
+                    expect(tostring(problem):sub(-#expected)).to.equal(expected)
+                end
+            end
+        end)
+
+        it("should merge large matching layouts without changing masks, identities, or input ownership", function()
+            const first, second = snapshot(), snapshot()
+            table.clear(first.Files[1].Entries)
+            table.clear(second.Files[1].Entries)
+            for index = 1, 8 do
+                const firstHits, secondHits = {}, {}
+                for line = 0, 2047 do
+                    const kind = line % 4
+                    firstHits[line] = if kind == 0 then -2 elseif kind == 1 then 0 else index
+                    secondHits[line] = if kind == 0 then -1 elseif kind == 1 then 0 else 9 - index
+                end
+                for _, pair in { { Hits = firstHits, Snapshot = first }, { Hits = secondHits, Snapshot = second } } do
+                    table.insert(pair.Snapshot.Files[1].Entries, {
+                        Depth = index - 1,
+                        Function = "same",
+                        Hits = pair.Hits,
+                        LineDefined = index * 10,
+                    })
+                end
+            end
+            const firstBefore = Coverage.mergeRaw({ first })
+            const secondBefore = Coverage.mergeRaw({ second })
+            const merged = Coverage.mergeRaw({ first, second })
+            expect(Coverage.mergeRaw({ second, first })).to.deepEqual(merged)
+            expect(Coverage.mergeRaw({ merged, merged })).to.deepEqual(merged)
+            expect(first).to.deepEqual(firstBefore)
+            expect(second).to.deepEqual(secondBefore)
+            for index, entry in merged.Files[1].Entries do
+                expect(entry.Depth).to.equal(index - 1)
+                expect(entry.Function).to.equal("same")
+                expect(entry.LineDefined).to.equal(index * 10)
+                for line = 0, 2047 do
+                    const kind = line % 4
+                    const expected = if kind == 0 then -1 elseif kind == 1 then 0 else math.max(index, 9 - index)
+                    expect(entry.Hits[line]).to.equal(expected)
+                end
+                entry.Hits[0] = -3
+                expect(first.Files[1].Entries[index].Hits[0]).to.equal(-2)
+                expect(second.Files[1].Entries[index].Hits[0]).to.equal(-1)
+            end
+        end)
+
         it("should preserve negative markers with a maximum without treating them as hits", function()
             const first, second = snapshot(), snapshot()
             second.Files[1].Entries[3].Hits[31] = -1
