@@ -107,6 +107,56 @@ const function match(manager: any, name: string, value: any, spec: string?): (bo
 end
 
 return function()
+    describe("snapshot path ownership", function()
+        it("should reject an unassigned path before reading or changing the store", function()
+            local accessed = false
+            const manager = SnapshotManager.new({
+                PathGuard = function(path)
+                    error(`The path "{path}" is not assigned.`)
+                end,
+                Store = {
+                    read = function()
+                        accessed = true
+                        return nil
+                    end,
+                    write = function()
+                        accessed = true
+                    end,
+                },
+            })
+            const ok, problem = pcall(function()
+                match(manager, "test", "value")
+            end)
+            expect(ok).to.equal(false)
+            expect(contains(tostring(problem), "not assigned")).to.equal(true)
+            expect(accessed).to.equal(false)
+            manager:Abort()
+            expect(accessed).to.equal(false)
+        end)
+
+        it("should check ownership when joining a file already held by another manager", function()
+            const store = MemorySnapshotStore.new()
+            const owner = SnapshotManager.new({ Store = store })
+            expect(match(owner, "outer", "first")).to.equal(true)
+            const visitor = SnapshotManager.new({
+                PathGuard = function()
+                    error("Another worker owns this file.")
+                end,
+                Store = store,
+            })
+            expect(pcall(match, visitor, "nested", "second")).to.equal(false)
+            visitor:Abort()
+            const summary = owner:Finish(nil, false)
+            expect(summary.Written).to.equal(1)
+            expect(contains(store.Files[SPEC_PATH], "first")).to.equal(true)
+            expect(contains(store.Files[SPEC_PATH], "second")).to.equal(false)
+        end)
+
+        it("should reject malformed ownership guards", function()
+            expect(pcall(SnapshotManager.new, { PathGuard = false } :: any)).to.equal(false)
+        end)
+    end)
+
     describe("SnapshotManager.Abort", function()
         it("should drop what the run buffered so a later run starts from the store", function()
             const store = MemorySnapshotStore.new()

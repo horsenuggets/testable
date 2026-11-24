@@ -63,6 +63,72 @@ const function overlaps(events: { string }, left: string, right: string): boolea
 end
 
 return function()
+    describe("coordinated file gates", function()
+        it("should hold one file grant around every outer hook and descendant", function()
+            const events = {}
+            const plan = planSuite(function()
+                beforeAll(function()
+                    table.insert(events, "beforeAll")
+                end)
+                describe("nested", function()
+                    it("runs", function()
+                        table.insert(events, "test")
+                    end)
+                end)
+                afterAll(function()
+                    table.insert(events, "afterAll")
+                end)
+            end)
+            const root = plan.children[1]
+            const token = {}
+            const results = TestRunner.runPlan(plan, {
+                RootGate = {
+                    Acquire = function(node)
+                        expect(node).to.equal(root)
+                        table.insert(events, "acquire")
+                        return token
+                    end,
+                    Release = function(node, granted)
+                        expect(node).to.equal(root)
+                        expect(granted).to.equal(token)
+                        table.insert(events, "release")
+                    end,
+                },
+            })
+            expect(results.failureCount).to.equal(0)
+            expect(events).to.deepEqual({ "acquire", "beforeAll", "test", "afterAll", "release" })
+        end)
+
+        it("should release file ownership after a failed hook", function()
+            const events = {}
+            const plan = planSuite(function()
+                beforeAll(function()
+                    error("hook failure")
+                end)
+                it("must not execute", function()
+                    error("unreachable")
+                end)
+                afterAll(function()
+                    table.insert(events, "afterAll")
+                end)
+            end)
+            const results = TestRunner.runPlan(plan, {
+                RootGate = {
+                    Acquire = function()
+                        table.insert(events, "acquire")
+                        return 7
+                    end,
+                    Release = function(_node, token)
+                        expect(token).to.equal(7)
+                        table.insert(events, "release")
+                    end,
+                },
+            })
+            expect(results.failureCount).to.equal(1)
+            expect(events).to.deepEqual({ "acquire", "afterAll", "release" })
+        end)
+    end)
+
     describe("Serial tests", function()
         it("run with no other test of the run executing at the same time", function()
             const events: { string } = {}

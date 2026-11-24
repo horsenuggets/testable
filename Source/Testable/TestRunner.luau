@@ -24,6 +24,7 @@ const RUNNING_GLOBAL = "__TESTABLE_RUNNING_TEST__"
 const RUNNING_COUNT_GLOBAL = "__TESTABLE_RUNNING_COUNT__"
 
 const TestRunner = {
+    SnapshotPathGuard = nil :: ((path: string) -> ())?,
     environment = {},
 }
 
@@ -137,13 +138,41 @@ end
     @param plan - The TestPlan to execute
     @return TestResults object containing the test execution results
 ]]
-function TestRunner.runPlan(plan: any): any
+function TestRunner.runPlan(
+    plan: any,
+    options: {
+        HasFocus: boolean?,
+        ForbidFocus: boolean?,
+        RootGate: { Acquire: (node: any) -> any, Release: (node: any, token: any) -> () }?,
+    }?
+): any
+    assert(options == nil or type(options) == "table", "options must be a table or nil")
+    if options ~= nil then
+        assert(options.HasFocus == nil or type(options.HasFocus) == "boolean", "HasFocus must be a boolean or nil")
+        assert(
+            options.ForbidFocus == nil or type(options.ForbidFocus) == "boolean",
+            "ForbidFocus must be a boolean or nil"
+        )
+        assert(
+            options.RootGate == nil
+                or (
+                    type(options.RootGate) == "table"
+                    and type(options.RootGate.Acquire) == "function"
+                    and type(options.RootGate.Release) == "function"
+                ),
+            "RootGate must provide Acquire and Release functions"
+        )
+    end
     log("Starting test plan execution...")
     const session = TestSession.new(plan)
+    session.rootGate = if options then options.RootGate else nil
     const planStartTime = os.clock()
     const lifecycleHooks = LifecycleHooks.new()
 
-    session.hasFocusNodes = TestFilter.hasFocus(plan)
+    -- Workers use the coordinator's decision after every shard has finished planning.
+    session.hasFocusNodes = if options ~= nil and options.HasFocus ~= nil
+        then options.HasFocus
+        else TestFilter.hasFocus(plan)
 
     -- Read once for the whole run. A test that changes Parallel while it runs would
     -- otherwise switch the scheduling of blocks that start later, and the sequential
@@ -151,12 +180,18 @@ function TestRunner.runPlan(plan: any): any
     session.parallel = Config.Parallel
 
     -- Read the snapshot settings before tests run, since tests may call Config.reset().
-    const snapshots = SnapshotManager.new({ Store = Config.SnapshotStore, Update = Config.UpdateSnapshots })
+    const snapshots = SnapshotManager.new({
+        PathGuard = if Config.SnapshotStore == nil then TestRunner.SnapshotPathGuard else nil,
+        Store = Config.SnapshotStore,
+        Update = Config.UpdateSnapshots,
+    })
     session.results.snapshots = snapshots
 
     -- The plan captured the focus guard before any spec code ran, so neither planning nor
     -- the tests themselves can turn it off.
-    session.forbidFocus = plan.forbidFocus == true
+    session.forbidFocus = if options ~= nil and options.ForbidFocus ~= nil
+        then options.ForbidFocus
+        else plan.forbidFocus == true
 
     if session.hasFocusNodes then
         log("Focus nodes detected, other tests will be skipped.")
@@ -189,7 +224,7 @@ end
     @param planNode - The plan node to execute
     @param lifecycleHooks - The LifecycleHooks manager for before/after hooks
 ]]
-function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any): ()
+const function runPlanNode(session: any, planNode: any, lifecycleHooks: any): ()
     --[[
         Runs a callback function in a protected environment with error handling.
 
@@ -671,6 +706,7 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
                         hasFocusNodes = session.hasFocusNodes,
                         holdsExclusive = isSerial,
                         parallel = session.parallel,
+                        rootGate = session.rootGate,
                         semaphore = session.semaphore,
                     }
                     setmetatable(subSession, { __index = TestSession })
@@ -780,6 +816,23 @@ function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any
     end
 
     lifecycleHooks:popHooks()
+end
+
+-- A file gate surrounds the spec's outer hooks as well as every descendant. It does not
+-- enter the within-VM semaphore while waiting, so an exclusive file cannot deadlock on
+-- sibling specs that are waiting for their own coordinator grants.
+function TestRunner.runPlanNode(session: any, planNode: any, lifecycleHooks: any): ()
+    const gate = if planNode.specModule ~= nil then session.rootGate else nil
+    if gate == nil then
+        runPlanNode(session, planNode, lifecycleHooks)
+    else
+        const token = gate.Acquire(planNode)
+        const ok, problem = pcall(runPlanNode, session, planNode, lifecycleHooks)
+        gate.Release(planNode, token)
+        if not ok then
+            error(problem, 0)
+        end
+    end
 end
 
 return TestRunner

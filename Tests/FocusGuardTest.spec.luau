@@ -402,6 +402,58 @@ return function()
         end)
     end)
 
+    describe("coordinated worker focus", function()
+        it("should honor the global focus decision and defer the guard without changing the plan", function()
+            for _, localFocus in BOOLEANS do
+                for _, globalFocus in BOOLEANS do
+                    for _, guard in BOOLEANS do
+                        local executed = 0
+                        const plan = Testable.TestPlanner.createPlan({
+                            {
+                                method = function()
+                                    const declare = if localFocus then Testable.itFOCUS else Testable.it
+                                    declare("possibly focused", function()
+                                        executed += 1
+                                    end)
+                                    Testable.it("ordinary", function()
+                                        executed += 1
+                                    end)
+                                end,
+                                path = { "Shard" },
+                                pathStringForSorting = "shard",
+                            },
+                        })
+                        plan.forbidFocus = true
+                        const results = Testable.TestRunner.runPlan(plan, {
+                            ForbidFocus = guard,
+                            HasFocus = globalFocus,
+                        })
+                        const excluded = if not globalFocus then 0 elseif localFocus then 1 else 2
+                        expect(executed).to.equal(2 - excluded)
+                        expect(results.focusExcludedCount).to.equal(excluded)
+                        expect(results.failureCount).to.equal(if guard and excluded > 0 then 1 else 0)
+                        expect(plan.forbidFocus).to.equal(true)
+                    end
+                end
+            end
+        end)
+
+        it("should reject malformed coordinator controls", function()
+            const plan = Testable.TestPlanner.createPlan({})
+            for _, options in
+                {
+                    false,
+                    { HasFocus = 1 },
+                    { ForbidFocus = "yes" },
+                    { RootGate = false },
+                    { RootGate = { Acquire = function() end } },
+                }
+            do
+                expect(pcall(Testable.TestRunner.runPlan, plan, options :: any)).to.equal(false)
+            end
+        end)
+    end)
+
     it("should word the focus summary for every count", function()
         expect(TextReporter.formatFocusSummary(0)).to.equal(nil)
         expect(TextReporter.formatFocusSummary(1)).to.equal("1 test was excluded by focus.")

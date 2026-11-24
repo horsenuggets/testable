@@ -9,7 +9,7 @@ are reported through the "passed" return value of a run instead of being thrown.
 
 --]]
 
-export type Kind = "EmptyCoverage" | "EmptyFilter" | "InvalidConfiguration" | "InvalidReporters"
+export type Kind = "EmptyCoverage" | "EmptyFilter" | "InvalidConfiguration" | "InvalidReporters" | "WorkerFailure"
 
 export type ToolError = {
     Kind: Kind,
@@ -21,6 +21,7 @@ const KINDS = {
     EmptyFilter = "EmptyFilter" :: Kind,
     InvalidConfiguration = "InvalidConfiguration" :: Kind,
     InvalidReporters = "InvalidReporters" :: Kind,
+    WorkerFailure = "WorkerFailure" :: Kind,
 }
 
 const ToolError = {}

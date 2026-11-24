@@ -10,6 +10,7 @@ requires it on first use and the package still loads on Roblox.
 --]]
 
 const ChangeTracker = require("@self/ChangeTracker")
+const Config = require("@self/../Config")
 const Git = require("@self/Git")
 const Glob = require("@self/Glob")
 const Loader = require("@self/Loader")
@@ -25,6 +26,7 @@ export type Options = {
     Exclude: { string }?,
     Include: { string },
     Root: string?,
+    WorkerSetup: string?,
 }
 export type DiscoverOptions = Options & {
     Files: { string }?,
@@ -72,6 +74,7 @@ const function assertOptions(options: Options)
     assert(type(options.Include) == "table", "options.Include must be an array of globs")
     assert(options.Exclude == nil or type(options.Exclude) == "table", "options.Exclude must be an array of globs")
     assert(options.Root == nil or type(options.Root) == "string", "options.Root must be a string")
+    assert(options.WorkerSetup == nil or type(options.WorkerSetup) == "string", "options.WorkerSetup must be a string")
 end
 
 --[[
@@ -154,11 +157,16 @@ end
     skipped, and the result is sorted. Matching nothing is an error, since it almost
     always means the globs or the root are wrong.
 
-    @param options - The include globs, optional exclude globs, and optional root
+    Specific Files narrow the matching paths without requiring any spec. Every selected
+    file must match the globs, and an explicitly empty selection returns an empty list.
+
+    @param options - The include globs, optional exclude globs, optional root, and an
+        optional list of spec files to narrow the run to
     @return Sorted, root-relative spec file paths
 ]]
-function Discovery.findSpecs(options: Options): { string }
+function Discovery.findSpecs(options: DiscoverOptions): { string }
     assertOptions(options)
+    assert(options.Files == nil or type(options.Files) == "table", "options.Files must be an array of paths")
 
     const root = resolveRoot(options.Root)
     const files = findMatching(root, options)
@@ -166,7 +174,30 @@ function Discovery.findSpecs(options: Options): { string }
         error(`No spec files in "{root}" match {quoteList(options.Include)}.`, 0)
     end
 
-    return files
+    if options.Files == nil then
+        return files
+    end
+
+    const known: { [string]: boolean } = {}
+    for _, file in files do
+        known[file] = true
+    end
+
+    const selected: { [string]: boolean } = {}
+    for _, file in toRootRelative(root, options.Files) do
+        if not known[file] then
+            error(`"{file}" is not a spec file matched by {quoteList(options.Include)}.`, 0)
+        end
+        selected[file] = true
+    end
+
+    const narrowed = {}
+    for _, file in files do
+        if selected[file] then
+            table.insert(narrowed, file)
+        end
+    end
+    return narrowed
 end
 
 --[[
@@ -212,41 +243,111 @@ end
     @return One test root per spec file, sorted by path
 ]]
 function Discovery.discover(options: DiscoverOptions): { TestRoot }
+    const files = Discovery.findSpecs(options)
+    return Discovery.load(files, options.Root)
+end
+
+--[[
+    Scans specs and shared execution dependencies without loading any of them. Setup
+    resolves like Loader.load, including extension stripping and init directories. Every
+    resolution candidate is retained so creation, deletion, and priority changes count.
+    The package actor entry is shared even for local runs because specs can start actors.
+
+    @param fileSystem - The filesystem access to scan with
+    @param specs - Absolute selected spec paths, in selection order
+    @param options - Discovery options, with setup falling back to current configuration
+    @return graph - The require graph with explicit shared execution edges
+    @return watched - Sorted paths to poll, including absent candidates and alias configs
+]]
+function Discovery.buildGraph(
+    fileSystem: RequireGraph.FileSystem,
+    specs: { string },
+    options: Options
+): (RequireGraph.Graph, { string })
+    assert(type(fileSystem) == "table", "fileSystem must be a table")
+    assert(type(specs) == "table", "specs must be an array of paths")
     assertOptions(options)
-    assert(options.Files == nil or type(options.Files) == "table", "options.Files must be an array of paths")
 
     const root = resolveRoot(options.Root)
-    local files = Discovery.findSpecs(options)
+    const moduleDirectory = Loader.moduleDirectory(debug.info(Loader.load, "s"), process.cwd)
+    const execution = { PathUtil.join(moduleDirectory, "../Workers/Entry.exec.luau") }
+    const entries = table.clone(specs)
+    table.insert(entries, execution[1])
 
-    if options.Files ~= nil then
-        const known: { [string]: boolean } = {}
-        for _, file in files do
-            known[file] = true
+    const workerSetup = options.WorkerSetup or Config.WorkerSetup
+    if workerSetup ~= nil then
+        local target = PathUtil.stripLuauExtension(PathUtil.join(root, workerSetup))
+        if PathUtil.basename(target) == "init" then
+            target = PathUtil.dirname(target)
         end
-
-        const selected: { [string]: boolean } = {}
-        for _, file in toRootRelative(root, options.Files) do
-            if not known[file] then
-                error(`"{file}" is not a spec file matched by {quoteList(options.Include)}.`, 0)
-            end
-            selected[file] = true
+        const relative = PathUtil.relative(root, target)
+        assert(relative ~= nil, "WorkerSetup must be on the same drive as the root")
+        const resolved, candidates =
+            RequireGraph.resolve(fileSystem, PathUtil.join(root, "ExecutionDependencies.luau"), `./{relative}`)
+        for _, candidate in candidates do
+            table.insert(execution, candidate)
         end
-
-        const narrowed = {}
-        for _, file in files do
-            if selected[file] then
-                table.insert(narrowed, file)
-            end
+        if resolved ~= nil then
+            table.insert(entries, resolved)
         end
-        files = narrowed
     end
 
-    return Discovery.load(files, root)
+    const graph = RequireGraph.build(fileSystem, entries)
+    const shared = table.clone(execution)
+    -- Collect execution paths before attaching specs, so their ordinary hidden-file
+    -- filtering is preserved. Installed packages can themselves be in hidden directories.
+    const executionFiles: { [string]: boolean } = {}
+    local index = 1
+    while index <= #execution do
+        const file = execution[index]
+        index += 1
+        if executionFiles[file] then
+            continue
+        end
+        executionFiles[file] = true
+        for _, dependency in graph[file] or {} do
+            table.insert(execution, dependency)
+        end
+    end
+
+    for _, spec in specs do
+        const dependencies = graph[spec]
+        const seen: { [string]: boolean } = {}
+        for _, dependency in dependencies do
+            seen[dependency] = true
+        end
+        for _, file in shared do
+            if not seen[file] then
+                seen[file] = true
+                table.insert(dependencies, file)
+            end
+        end
+        table.sort(dependencies)
+    end
+
+    const watchedSet: { [string]: boolean } = {}
+    for _, file in ChangeTracker.watchList(root, RequireGraph.files(graph)) do
+        watchedSet[file] = true
+    end
+    for file in executionFiles do
+        watchedSet[file] = true
+        -- Explicit execution dependencies must still be polled when a package lives
+        -- outside Root or under a hidden install directory.
+        for _, path in ChangeTracker.watchList(PathUtil.dirname(file), { file }) do
+            watchedSet[path] = true
+        end
+    end
+    const watched = {}
+    for file in watchedSet do
+        table.insert(watched, file)
+    end
+    table.sort(watched)
+    return graph, watched
 end
 
 --[[
     Finds the specs affected by a set of changed files, meaning the spec changed or it
-    transitively requires a file that did.
+    transitively requires a file that did, including shared execution dependencies.
 
     @param options - The discovery options, plus the changed files as paths that are
         absolute or relative to the root
@@ -257,9 +358,16 @@ function Discovery.findAffected(options: AffectedOptions): { string }
     assert(type(options.Changed) == "table", "options.Changed must be an array of paths")
 
     const root = resolveRoot(options.Root)
-    const specs = toAbsolute(root, Discovery.findSpecs(options))
+    const specs = toAbsolute(
+        root,
+        Discovery.findSpecs({
+            Exclude = options.Exclude,
+            Include = options.Include,
+            Root = root,
+        })
+    )
     const changed = toAbsolute(root, options.Changed)
-    const graph = RequireGraph.build(FILE_SYSTEM, specs)
+    const graph = Discovery.buildGraph(FILE_SYSTEM, specs, options)
 
     return toRootRelative(root, RequireGraph.findAffected(graph, specs, changed))
 end
@@ -294,6 +402,7 @@ function Discovery.findChanged(options: ChangedOptions): { string }
         Exclude = options.Exclude,
         Include = options.Include,
         Root = root,
+        WorkerSetup = options.WorkerSetup,
     })
 end
 
@@ -383,6 +492,7 @@ function Discovery.watch(options: WatchOptions): WatchHandle
     local graph: RequireGraph.Graph = {}
     local running = true
     local snapshot: ChangeTracker.Snapshot = {}
+    local watched: { string } = {}
 
     const function findSpecs(): { string }
         return toAbsolute(root, findMatching(root, options))
@@ -393,11 +503,19 @@ function Discovery.watch(options: WatchOptions): WatchHandle
         since the graph was built, and the ".luaurc" files that apply to them.
     ]]
     const function listWatched(specs: { string }): { string }
-        const files = RequireGraph.files(graph)
-        for _, spec in specs do
-            table.insert(files, spec)
+        const files = table.clone(watched)
+        const seen: { [string]: boolean } = {}
+        for _, file in files do
+            seen[file] = true
         end
-        return ChangeTracker.watchList(root, files)
+        for _, file in ChangeTracker.watchList(root, specs) do
+            if not seen[file] then
+                seen[file] = true
+                table.insert(files, file)
+            end
+        end
+        table.sort(files)
+        return files
     end
 
     const function run(specs: { string }, changed: { string })
@@ -412,9 +530,7 @@ function Discovery.watch(options: WatchOptions): WatchHandle
 
     const function rebuild(): { string }
         const specs = findSpecs()
-        graph = RequireGraph.build(FILE_SYSTEM, specs)
-
-        const watched = listWatched(specs)
+        graph, watched = Discovery.buildGraph(FILE_SYSTEM, specs, options)
         snapshot = ChangeTracker.rebase(snapshot, takeSnapshot(watched), watched)
 
         return specs

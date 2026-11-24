@@ -8,6 +8,8 @@ running a pass in a child process, and watch mode.
 
 --]]
 
+const Config = require("../Source/Testable/Config")
+const FakeFileSystem = require("./Helpers/FakeFileSystem")
 const TempDirectory = require("./Helpers/TempDirectory")
 const Testable = require("../Source/Testable")
 const fs = require("@lune/fs")
@@ -358,6 +360,7 @@ return function()
             TempDirectory.write(root, "Tests/.Hidden.spec.luau", "return function() end\n")
             TempDirectory.write(root, "Tests/.hidden/Inner.spec.luau", "return function() end\n")
             TempDirectory.write(root, "Broken/NotAFunction.spec.luau", "return 5\n")
+            TempDirectory.write(root, "Broken/Throws.spec.luau", 'error("Spec required before execution.")\n')
         end)
 
         afterAll(function()
@@ -394,6 +397,54 @@ return function()
             expect(function()
                 Discovery.findSpecs({ Include = {}, Root = root })
             end).to.throw("No spec files")
+        end)
+
+        it("should narrow paths without loading any spec modules", function()
+            expect(Discovery.findSpecs({
+                Files = { "Broken/Throws.spec.luau" },
+                Include = { "Broken/*.spec.luau" },
+                Root = root,
+            })).to.deepEqual({ "Broken/Throws.spec.luau" })
+        end)
+
+        it("should normalize and deduplicate selected paths in discovery order", function()
+            const files = Discovery.findSpecs({
+                Files = {
+                    `{root}/Tests/Standalone.spec.luau`,
+                    ".\\Tests\\Nested\\Deep.spec.luau",
+                    "Tests/Nested/../Standalone.spec.luau",
+                },
+                Include = INCLUDE,
+                Root = root,
+            })
+            expect(files).to.deepEqual({ "Tests/Nested/Deep.spec.luau", "Tests/Standalone.spec.luau" })
+        end)
+
+        it("should preserve an explicitly empty selection for both discovery entry points", function()
+            expect(Discovery.findSpecs({ Files = {}, Include = INCLUDE, Root = root })).to.deepEqual({})
+            expect(Discovery.discover({ Files = {}, Include = INCLUDE, Root = root })).to.deepEqual({})
+            expect(function()
+                Discovery.findSpecs({ Files = {}, Include = { "Missing/**" }, Root = root })
+            end).to.throw("No spec files")
+        end)
+
+        it("should reject selected paths outside the include and exclude globs", function()
+            for _, file in { "Source/Library.luau", "Tests/Standalone.spec.luau" } do
+                expect(function()
+                    Discovery.findSpecs({
+                        Exclude = { "Tests/Standalone.spec.luau" },
+                        Files = { file },
+                        Include = INCLUDE,
+                        Root = root,
+                    })
+                end).to.throw("is not a spec file matched by")
+            end
+        end)
+
+        it("should validate the optional file list before matching globs", function()
+            expect(function()
+                Discovery.findSpecs({ Files = "Tests/Standalone.spec.luau", Include = INCLUDE, Root = root } :: any)
+            end).to.throw("options.Files must be an array of paths")
         end)
 
         it("should load specs from outside the working directory as test roots", function()
@@ -473,6 +524,209 @@ return function()
         end)
     end)
 
+    describe("Execution dependencies", function()
+        const entry = Discovery.PathUtil.join(
+            Loader.moduleDirectory(debug.info(Loader.load, "s"), process.cwd),
+            "../Workers/Entry.exec.luau"
+        )
+        const root = "/consumer/project"
+        const specs = { `{root}/Tests/A.spec.luau`, `{root}/Tests/B.spec.luau` }
+        const options = { Include = INCLUDE, Root = root, WorkerSetup = "Setup.luau" }
+
+        const function sourceFiles(): { [string]: string }
+            return {
+                [entry] = 'require("./Runtime")\nerror("Entry loaded.")',
+                [Discovery.PathUtil.join(Discovery.PathUtil.dirname(entry), "Runtime.luau")] = 'error("Runtime loaded.")',
+                [specs[1]] = 'error("Spec loaded.")',
+                [specs[2]] = 'error("Spec loaded.")',
+                [`{root}/Setup.luau`] = 'require("./Prepare")\nerror("Setup loaded.")',
+                [`{root}/Prepare.luau`] = 'require("./Deep")\nerror("Helper loaded.")',
+                [`{root}/Deep.luau`] = 'error("Deep helper loaded.")',
+            }
+        end
+
+        it("should scan execution graphs and list their watch candidates without loading code", function()
+            const files = sourceFiles()
+            const graph, watched = Discovery.buildGraph(FakeFileSystem.new(files), specs, options)
+            const runtime = Discovery.PathUtil.join(Discovery.PathUtil.dirname(entry), "Runtime.luau")
+            for _, changed in { entry, runtime, `{root}/Setup.luau`, `{root}/Prepare.luau`, `{root}/Deep.luau` } do
+                expect(Discovery.RequireGraph.findAffected(graph, specs, { changed })).to.deepEqual(specs)
+                expect(table.find(watched, changed)).never.to.equal(nil)
+            end
+            for _, base in { `{root}/Setup`, `{root}/Prepare`, `{root}/Deep` } do
+                for _, suffix in { ".luau", ".lua", "/init.luau", "/init.lua" } do
+                    const candidate = `{base}{suffix}`
+                    expect(table.find(watched, candidate)).never.to.equal(nil)
+                    expect(Discovery.RequireGraph.findAffected(graph, specs, { candidate })).to.deepEqual(specs)
+                end
+            end
+            expect(Discovery.RequireGraph.findAffected(graph, specs, { `{root}/Unrelated.luau` })).to.deepEqual({})
+            expect(table.find(watched, `{root}/Unrelated.luau`)).to.equal(nil)
+            expect(table.find(watched, `{root}/.luaurc`)).never.to.equal(nil)
+            const sorted = table.clone(watched)
+            table.sort(sorted)
+            expect(watched).to.deepEqual(sorted)
+            const seen: { [string]: boolean } = {}
+            for _, file in watched do
+                expect(seen[file]).to.equal(nil)
+                seen[file] = true
+            end
+        end)
+
+        it("should watch explicit hidden execution files without watching ordinary hidden dependencies", function()
+            const files = sourceFiles()
+            files[`{root}/.Setup.luau`] = 'require("./.Prepare")'
+            files[`{root}/.Prepare.luau`] = "return {}"
+            files[specs[1]] = 'require("./.Ordinary")'
+            files[`{root}/Tests/.Ordinary.luau`] = "return {}"
+            const graph, watched = Discovery.buildGraph(FakeFileSystem.new(files), specs, {
+                Include = INCLUDE,
+                Root = root,
+                WorkerSetup = ".Setup.luau",
+            })
+            for _, file in { entry, `{root}/.Setup.luau`, `{root}/.Prepare.luau` } do
+                expect(table.find(watched, file)).never.to.equal(nil)
+                expect(Discovery.RequireGraph.findAffected(graph, specs, { file })).to.deepEqual(specs)
+            end
+            expect(table.find(watched, `{root}/Tests/.Ordinary.luau`)).to.equal(nil)
+        end)
+
+        it("should resolve explicit setup extensions and init directories against a custom root", function()
+            for _, setup in
+                {
+                    "Setup.luau",
+                    "./Setup",
+                    `{root}/Setup.luau`,
+                    "Setup.lua",
+                    "Bootstrap",
+                    "Bootstrap/init.luau",
+                    "Bootstrap/init.lua",
+                    ".",
+                    "init.luau",
+                }
+            do
+                const files = sourceFiles()
+                files[`{root}/Setup.luau`] = nil
+                const isInit = setup == "." or setup == "init.luau" or string.find(setup, "Bootstrap", 1, true) ~= nil
+                const setupFile = if setup == "." or setup == "init.luau"
+                    then `{root}/init.luau`
+                    elseif isInit then `{root}/Bootstrap/init.luau`
+                    elseif setup == "Setup.lua" then `{root}/Setup.lua`
+                    else `{root}/Setup.luau`
+                files[setupFile] = if isInit
+                    then 'require("@self/Prepare")\nerror("Setup loaded.")'
+                    else 'require("./Prepare")\nerror("Setup loaded.")'
+                const helper = Discovery.PathUtil.join(Discovery.PathUtil.dirname(setupFile), "Prepare.luau")
+                files[helper] = 'error("Helper loaded.")'
+                const graph, watched = Discovery.buildGraph(FakeFileSystem.new(files), specs, {
+                    Include = INCLUDE,
+                    Root = root,
+                    WorkerSetup = setup,
+                })
+                expect(Discovery.RequireGraph.findAffected(graph, specs, { setupFile })).to.deepEqual(specs)
+                expect(Discovery.RequireGraph.findAffected(graph, specs, { helper })).to.deepEqual(specs)
+                expect(table.find(watched, setupFile)).never.to.equal(nil)
+                expect(table.find(watched, helper)).never.to.equal(nil)
+            end
+        end)
+
+        it("should track setup creation deletion and resolution priority without live watch sleeps", function()
+            const files = sourceFiles()
+            files[`{root}/Setup.luau`] = nil
+            files[`{root}/Setup/init.luau`] = 'require("@self/Prepare")'
+            files[`{root}/Setup/Prepare.luau`] = "return {}"
+            for _, active in { "Setup/init.luau", "Setup.lua", "Setup.luau", "Setup.lua", "Setup/init.luau", "" } do
+                files[`{root}/Setup.luau`] = if active == "Setup.luau" then 'require("./Prepare")' else nil
+                files[`{root}/Setup.lua`] = if active == "Setup.lua" then 'require("./Prepare")' else nil
+                files[`{root}/Setup/init.luau`] = if active ~= "" then 'require("@self/Prepare")' else nil
+                const graph, watched = Discovery.buildGraph(FakeFileSystem.new(files), specs, options)
+                for _, suffix in { ".luau", ".lua", "/init.luau", "/init.lua" } do
+                    const candidate = `{root}/Setup{suffix}`
+                    expect(table.find(watched, candidate)).never.to.equal(nil)
+                    const changed = Discovery.ChangeTracker.diff({ [candidate] = "old" }, {})
+                    expect(Discovery.RequireGraph.findAffected(graph, specs, changed)).to.deepEqual(specs)
+                    const created = Discovery.ChangeTracker.diff({}, { [candidate] = "new" })
+                    expect(Discovery.RequireGraph.findAffected(graph, specs, created)).to.deepEqual(specs)
+                end
+                if active ~= "" then
+                    const helper = if active == "Setup/init.luau"
+                        then `{root}/Setup/Prepare.luau`
+                        else `{root}/Prepare.luau`
+                    expect(table.find(watched, helper)).never.to.equal(nil)
+                    expect(Discovery.RequireGraph.findAffected(graph, specs, { helper })).to.deepEqual(specs)
+                    const dormant = if active == "Setup/init.luau"
+                        then `{root}/Prepare.luau`
+                        else `{root}/Setup/Prepare.luau`
+                    expect(Discovery.RequireGraph.findAffected(graph, specs, { dormant })).to.deepEqual({})
+                end
+            end
+        end)
+
+        it("should use current setup configuration unless an explicit option overrides it", function()
+            const previous = Config.WorkerSetup
+            const ok, problem = pcall(function()
+                const files = sourceFiles()
+                files[`{root}/Other.luau`] = 'require("./OtherHelper")'
+                files[`{root}/OtherHelper.luau`] = "return {}"
+                Config.WorkerSetup = "Setup.luau"
+                const fallback =
+                    Discovery.buildGraph(FakeFileSystem.new(files), specs, { Include = INCLUDE, Root = root })
+                expect(Discovery.RequireGraph.findAffected(fallback, specs, { `{root}/Deep.luau` })).to.deepEqual(specs)
+                const explicit = Discovery.buildGraph(FakeFileSystem.new(files), specs, {
+                    Include = INCLUDE,
+                    Root = root,
+                    WorkerSetup = "Other.luau",
+                })
+                expect(Discovery.RequireGraph.findAffected(explicit, specs, { `{root}/OtherHelper.luau` })).to.deepEqual(
+                    specs
+                )
+                expect(Discovery.RequireGraph.findAffected(explicit, specs, { `{root}/Setup.luau` })).to.deepEqual({})
+                Config.WorkerSetup = nil
+                const cleared =
+                    Discovery.buildGraph(FakeFileSystem.new(files), specs, { Include = INCLUDE, Root = root })
+                expect(Discovery.RequireGraph.findAffected(cleared, specs, { `{root}/Setup.luau` })).to.deepEqual({})
+                expect(Discovery.RequireGraph.findAffected(cleared, specs, { entry })).to.deepEqual(specs)
+            end)
+            Config.WorkerSetup = previous
+            if not ok then
+                error(problem, 0)
+            end
+        end)
+
+        it("should select every spec for setup and transitive helper edits without loading them", function()
+            withProject("execution_dependencies", function(root)
+                TempDirectory.write(root, "Setup.luau", 'require("./Source/Prepare")\nerror("Setup loaded.")\n')
+                TempDirectory.write(root, "Source/Prepare.luau", 'error("Helper loaded.")\n')
+                TempDirectory.write(root, "Tests/Standalone.spec.luau", 'error("Spec loaded.")\n')
+                for _, changed in { "Setup.luau", "Source/Prepare.luau" } do
+                    expect(Discovery.findAffected({
+                        Changed = { changed },
+                        Include = INCLUDE,
+                        Root = root,
+                        WorkerSetup = "Setup.luau",
+                    })).to.deepEqual({ "Tests/Library.spec.luau", "Tests/Standalone.spec.luau" })
+                end
+                expect(Discovery.findAffected({
+                    Changed = { "Source/Unrelated.luau" },
+                    Include = INCLUDE,
+                    Root = root,
+                    WorkerSetup = "Setup.luau",
+                })).to.deepEqual({})
+            end)
+        end)
+
+        it("should select every spec for the package actor entry even with default workers", function()
+            withProject("execution_entry", function(root)
+                expect(fs.isFile(entry)).to.equal(true)
+                expect(Discovery.findAffected({
+                    Changed = { entry },
+                    Include = INCLUDE,
+                    Root = root,
+                })).to.deepEqual({ "Tests/Library.spec.luau", "Tests/Standalone.spec.luau" })
+            end)
+        end)
+    end)
+
     describe("Discovery.findChanged()", function()
         it("should select nothing when nothing changed since the ref", function()
             withProject("unchanged", function(root)
@@ -492,6 +746,28 @@ return function()
                 TempDirectory.write(root, "Tests/New.spec.luau", "return function() end\n")
                 const afterCreate = Discovery.findChanged({ Include = INCLUDE, Ref = "HEAD", Root = root })
                 expect(table.concat(afterCreate, ",")).to.equal("Tests/Library.spec.luau,Tests/New.spec.luau")
+            end)
+        end)
+
+        it("should select every spec for changed setup helpers and deleted setup candidates", function()
+            withProject("changed_setup", function(root)
+                TempDirectory.write(root, "Setup.luau", 'require("./Prepare")\nerror("Setup loaded.")\n')
+                TempDirectory.write(root, "Prepare.luau", 'error("Helper loaded.")\n')
+                commitProject(root)
+                TempDirectory.write(root, "Prepare.luau", 'error("Edited helper loaded.")\n')
+                expect(Discovery.findChanged({
+                    Include = INCLUDE,
+                    Ref = "HEAD",
+                    Root = root,
+                    WorkerSetup = "Setup.luau",
+                })).to.deepEqual({ "Tests/Library.spec.luau", "Tests/Standalone.spec.luau" })
+                fs.removeFile(`{root}/Setup.luau`)
+                expect(Discovery.findChanged({
+                    Include = INCLUDE,
+                    Ref = "HEAD",
+                    Root = root,
+                    WorkerSetup = "Setup.luau",
+                })).to.deepEqual({ "Tests/Library.spec.luau", "Tests/Standalone.spec.luau" })
             end)
         end)
 
