@@ -246,14 +246,17 @@ const function assertLayout(first: { RawEntry }, other: { RawEntry }, path: stri
         )
         for line, count in entry.Hits do
             const otherCount = candidate.Hits[line]
-            assert(otherCount ~= nil, `{message} Hits key set differs at entry {index}, line {line}.`)
+            const hasLine = otherCount ~= nil
+            assert(hasLine, if hasLine then nil else `{message} Hits key set differs at entry {index}, line {line}.`)
+            const hasSameMask = (count >= 0) == (otherCount >= 0)
             assert(
-                (count >= 0) == (otherCount >= 0),
-                `{message} Executable mask differs at entry {index}, line {line}.`
+                hasSameMask,
+                if hasSameMask then nil else `{message} Executable mask differs at entry {index}, line {line}.`
             )
         end
         for line in candidate.Hits do
-            assert(entry.Hits[line] ~= nil, `{message} Hits key set differs at entry {index}, line {line}.`)
+            const hasLine = entry.Hits[line] ~= nil
+            assert(hasLine, if hasLine then nil else `{message} Hits key set differs at entry {index}, line {line}.`)
         end
     end
 end

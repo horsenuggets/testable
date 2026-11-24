@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.1
+
+- Avoided formatting per-hit layout error messages for matching raw coverage snapshots while preserving validation order and exact failure messages.
+- Added large-layout and exact error-message regressions and updated the test runtime to published Lune with corrected native coverage scanning.
+
 ## 1.6.0
 
 - Added file-oriented test APIs and isolated Lune actor execution with `Workers`, `WorkerGroups`, and `WorkerSetup` configuration and CLI worker flags.
