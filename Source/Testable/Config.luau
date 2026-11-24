@@ -31,6 +31,7 @@ export type ConfigOptions = {
     ForbidFocus: boolean?,
     Indent: string?,
     InjectGlobals: boolean?,
+    Log: ((message: string) -> ())?,
     MaxConcurrency: number?,
     Parallel: boolean?,
     PrintSkipped: boolean?,
@@ -64,6 +65,7 @@ const Config = {
     ForbidFocus = false,
     Indent = "   ",
     InjectGlobals = true,
+    Log = nil :: ((message: string) -> ())?,
     MaxConcurrency = 4,
     Parallel = true,
     PrintSkipped = false,
@@ -196,6 +198,11 @@ const function apply(options: ConfigOptions)
     if options.InjectGlobals ~= nil then
         check(type(options.InjectGlobals) == "boolean", "InjectGlobals must be a boolean")
         Config.InjectGlobals = options.InjectGlobals
+    end
+
+    if options.Log ~= nil then
+        check(type(options.Log) == "function", "Log must be a function")
+        Config.Log = options.Log
     end
 
     if options.MaxConcurrency ~= nil then
@@ -349,6 +356,7 @@ function Config.reset()
     Config.ForbidFocus = false
     Config.Indent = "   "
     Config.InjectGlobals = true
+    Config.Log = nil
     Config.MaxConcurrency = 4
     Config.Parallel = true
     Config.PrintSkipped = false

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.0
+
+- Added an optional `Log(message: string)` callback for native verbose progress and error details without intercepting reports or test output.
+- Captured logging settings per run so spec configuration changes cannot redirect active logs, while preserving default console formatting.
+- Retained parent callbacks for local file runs, rejected closure transport across worker VMs, and supported independent callbacks constructed in worker setup.
+- Added delivery ordering, async failure, reset, report isolation, and file/worker boundary regressions.
+
 ## 1.6.2
 
 - Reduced serial coverage reporting's raw snapshot retention to one physical source file at a time, while preserving full source eligibility and actual native entries.

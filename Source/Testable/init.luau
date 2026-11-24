@@ -67,7 +67,7 @@ const function captureFileConfiguration(): any
     end
     const options = {}
     for key, value in pairs(Config) do
-        if type(value) ~= "function" then
+        if key == "Log" or type(value) ~= "function" then
             options[key] = if key == "SnapshotStore" or key == "CoverageRoots" then value else copy(value)
         end
     end
@@ -102,7 +102,17 @@ const function runConfigured(testRoots: any, fileRoot: string?, fileMode: boolea
     if fileMode and not IS_LUNE then
         error(ToolError.new(ToolError.Kind.InvalidConfiguration, "File-oriented test execution requires Lune."), 0)
     end
+    const logging = { Log = Config.Log, Verbose = Config.Verbose }
     const fileConfiguration = if fileMode then captureFileConfiguration() else nil
+    if fileConfiguration ~= nil and fileConfiguration.Workers > 1 and logging.Log ~= nil then
+        error(
+            ToolError.new(
+                ToolError.Kind.InvalidConfiguration,
+                "Log callbacks cannot cross worker VMs. Use Workers = 1 for a parent-owned callback."
+            ),
+            0
+        )
+    end
 
     -- Snapshot coverage config before tests run, since tests may call
     -- Config.reset() which would wipe the coverage settings
@@ -216,11 +226,15 @@ const function runConfigured(testRoots: any, fileRoot: string?, fileMode: boolea
             const modules = TestBootstrap:getModulesFromMultipleRoots(roots)
             const plan = TestPlanner.createPlan(modules, filter, nil, suiteOrder)
             plan.forbidFocus = fileConfiguration.ForbidFocus
-            return { CoverageRoots = localCoverageRoots, LocalFiles = true, Results = TestRunner.runPlan(plan) }
+            return {
+                CoverageRoots = localCoverageRoots,
+                LocalFiles = true,
+                Results = TestRunner.runPlan(plan, { Logging = logging }),
+            }
         end
         const modules = TestBootstrap:getModulesFromMultipleRoots(testRoots)
         const plan = TestPlanner.createPlan(modules, filter, nil, suiteOrder)
-        return { Results = TestRunner.runPlan(plan) }
+        return { Results = TestRunner.runPlan(plan, { Logging = logging }) }
     end)
     const results = outcome.Results
 

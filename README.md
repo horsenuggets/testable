@@ -320,6 +320,7 @@ Testable.configure({
 | `ForbidFocus`       | `boolean`                                   | `false`        | Fails the run when a focus modifier excluded any test.                                                                                     |
 | `Indent`            | `string`                                    | `"   "`        | Indentation string used for nested test output.                                                                                            |
 | `InjectGlobals`     | `boolean`                                   | `true`         | Injects `describe`, `it`, `expect`, and the rest into spec functions as globals.                                                           |
+| `Log`               | `((message: string) -> ())?`                | `nil`          | Receives native verbose messages instead of printing them. Does not receive reports or test-owned output.                                  |
 | `MaxConcurrency`    | `number`                                    | `4`            | Maximum number of tests to run in parallel within each VM.                                                                                 |
 | `Parallel`          | `boolean`                                   | `true`         | Runs tests in parallel instead of one after another.                                                                                       |
 | `PrintSkipped`      | `boolean`                                   | `false`        | Includes skipped tests in the output.                                                                                                      |
@@ -334,6 +335,35 @@ Testable.configure({
 | `WorkerGroups`      | `{ { string } }`                            | `{}`           | Dense arrays of nonblank spec paths to keep in one worker. Overlapping groups are allowed (see [File-Oriented Runs](#file-oriented-runs)). |
 | `WorkerSetup`       | `string?`                                   | `nil`          | Nonblank setup module path relative to the file run's root, called before specs are required, including with one worker.                   |
 | `Workers`           | `number`                                    | `1`            | Finite positive integer worker limit for file-oriented runs. One uses the local pipeline; larger values use isolated actors.               |
+
+With `Verbose = true`, `Log` receives one string per native message, including the
+`[Testable] ` prefix or the indented `    Error: ` prefix for verbose failure details.
+Without a callback, the existing console formatting is unchanged. Text, coverage, and
+machine-readable reports, tool errors, and output printed by tests never use this sink.
+No global `print` function is replaced.
+
+```luau
+Testable.configure({
+    Log = function(message: string)
+        print(`[{os.clock()}] {message}`)
+    end,
+    Verbose = true,
+})
+```
+
+The callback and verbose flag are captured before discovery and planning, so config
+changes within specs do not redirect or disable an active run. Direct `TestRunner.runPlan`
+calls capture them at entry. Callbacks run synchronously in execution order, which is
+completion order for parallel tests, not report order. Keep callbacks non-yielding. If a
+callback throws, further deliveries stop and the error is rethrown after execution and
+cleanup rather than leaving parallel tasks waiting. `resetConfig()` clears `Log` for
+future runs; omitted or `nil` options leave the configured callback unchanged.
+
+File-oriented runs retain parent-owned callbacks with `Workers = 1`. A parent `Log` with
+`Workers > 1` is an `InvalidConfiguration` tool error, even when verbose mode is off;
+closures cannot cross isolated VMs. To log inside workers, create an independent callback
+in `WorkerSetup` instead. It is captured after setup, before spec loading, and runs only
+inside that worker VM, not in the parent.
 
 A preferred suite order can put heavyweight tool checks before fixtures allocate their
 place caches...
