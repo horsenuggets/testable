@@ -22,16 +22,16 @@ return function()
 end
 ```
 
-A test script hands the specs to `Testable.run`, which prints a report and returns the
-results along with whether every test passed. On Roblox, a test root is an instance whose
-`.spec` modules are collected. On Lune, [Spec Discovery](#spec-discovery) finds the spec
-files for you...
+A test script prints a report and receives the results along with whether every test
+passed. On Roblox, `Testable.run` takes an instance whose `.spec` modules are collected.
+On Lune, [Spec Discovery](#spec-discovery) finds the spec paths for `Testable.runFiles`,
+which can run them locally or in isolated worker VMs...
 
 ```luau
 const Testable = require("@devpackages/testable")
 
-const testRoots = Testable.Discovery.discover({ Include = { "Tests/**/*.spec.luau" } })
-const results, passed = Testable.run(testRoots)
+const files = Testable.Discovery.findSpecs({ Include = { "Tests/**/*.spec.luau" } })
+const results, passed = Testable.runFiles(files)
 
 if passed then
     print("All tests passed!")
@@ -40,8 +40,9 @@ else
 end
 ```
 
-A test root can also be a table with a `Name` and a `Func`, which works on both platforms
-(e.g., `{ Name = "ParserTest", Func = require("./ParserTest.spec") }`). See the
+`Testable.run` also accepts already-loaded test roots. A root can be a table with a `Name`
+and a `Func`, which works on both platforms (e.g.,
+`{ Name = "ParserTest", Func = require("./ParserTest.spec") }`). See the
 [TestEZ documentation](https://roblox.github.io/testez/api-reference/) for the basics of
 writing tests. The sections below cover what Testable adds, and their examples assume that
 the functions they call were required as shown above.
@@ -228,8 +229,8 @@ end, { Timeout = 30 })
 
 Tests run in parallel by default, so tests that share global state (a module-level
 variable, `Testable.configure`, a file on disk) can see each other's changes. Mark a test
-or a whole describe block as `Serial` to run it with no other test of the run executing
-at the same time...
+or a whole describe block as `Serial` to run it with no other test of the run executing at
+the same time...
 
 ```luau
 it("writes the shared fixture", function()
@@ -241,8 +242,8 @@ describe("configuration", function()
 end, { Serial = true })
 ```
 
-- A serial test waits for the tests that are already running to finish, and keeps new
-  ones from starting until it is done.
+- A serial test waits for the tests that are already running to finish, and keeps new ones
+  from starting until it is done.
 - Every test under a serial describe block runs one at a time, and the block as a whole
   waits for the rest of the run.
 - Serial tests anywhere in the run wait for each other, even across specs.
@@ -307,29 +308,32 @@ Testable.configure({
 })
 ```
 
-| Option              | Type                                        | Default        | Description                                                                                            |
-| ------------------- | ------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------ |
-| `AlphabeticalSort`  | `boolean`                                   | `false`        | Sorts test results alphabetically instead of in definition order.                                      |
-| `Coverage`          | `boolean`                                   | `false`        | Measures line coverage during the run, which only works in Lune (see [Coverage](#coverage)).           |
-| `CoverageRoots`     | `any?`                                      | `nil`          | The script, or a dictionary of named scripts, whose modules coverage is reported for.                  |
-| `CoverageRows`      | `number`                                    | `20`           | File rows listed in the coverage table before the rest fold into a summary row.                        |
-| `CoverageSort`      | `"Percentage" \| "HitLines"`                | `"Percentage"` | Orders coverage rows by percentage or by hit lines, both descending.                                   |
-| `CoverageThreshold` | `number`                                    | `0`            | Fails the run when total coverage is below this percentage, from `0` to `100`.                         |
-| `Filter`            | `string?`                                   | `nil`          | Only runs tests whose full name contains this text (see [Filtering Tests](#filtering-tests)).          |
-| `ForbidFocus`       | `boolean`                                   | `false`        | Fails the run when a focus modifier excluded any test.                                                 |
-| `Indent`            | `string`                                    | `"   "`        | Indentation string used for nested test output.                                                        |
-| `InjectGlobals`     | `boolean`                                   | `true`         | Injects `describe`, `it`, `expect`, and the rest into spec functions as globals.                       |
-| `MaxConcurrency`    | `number`                                    | `4`            | Maximum number of tests to run in parallel.                                                            |
-| `Parallel`          | `boolean`                                   | `true`         | Runs tests in parallel instead of one after another.                                                   |
-| `PrintSkipped`      | `boolean`                                   | `false`        | Includes skipped tests in the output.                                                                  |
-| `ReporterOutputs`   | `{ [string]: string }`                      | `{}`           | File paths for machine-readable reports, keyed by reporter name (see [Reporters](#reporters)).         |
-| `Reporters`         | `{ "Text" \| "Json" \| "JUnit" \| "Lcov" }` | `{ "Text" }`   | Reports that a run produces (see [Reporters](#reporters)).                                             |
-| `SlowestTests`      | `number`                                    | `0`            | Number of slowest tests listed after the text report, or `0` to leave the list out.                    |
-| `SnapshotStore`     | `table?`                                    | `nil`          | Where snapshot files are kept, which defaults to the filesystem in Lune (see [Snapshots](#snapshots)). |
-| `SuiteOrder`        | `{ string }`                                | `{}`           | Preferred spec identities, followed by unlisted specs in alphabetical order.                           |
-| `Timeout`           | `number?`                                   | `nil`          | Time budget in seconds for every test, or `nil` for no limit (see [Timeouts](#timeouts)).              |
-| `UpdateSnapshots`   | `boolean`                                   | `false`        | Accepts changed snapshots and removes obsolete ones (see [Snapshots](#snapshots)).                     |
-| `Verbose`           | `boolean`                                   | `false`        | Logs details about the run while it executes.                                                          |
+| Option              | Type                                        | Default        | Description                                                                                                                                |
+| ------------------- | ------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `AlphabeticalSort`  | `boolean`                                   | `false`        | Sorts test results alphabetically instead of in definition order.                                                                          |
+| `Coverage`          | `boolean`                                   | `false`        | Measures line coverage during the run, which only works in Lune (see [Coverage](#coverage)).                                               |
+| `CoverageRoots`     | `any?`                                      | `nil`          | Script instances or string paths, optionally in a named dictionary, whose modules coverage is reported for.                                |
+| `CoverageRows`      | `number`                                    | `20`           | File rows listed in the coverage table before the rest fold into a summary row.                                                            |
+| `CoverageSort`      | `"Percentage" \| "HitLines"`                | `"Percentage"` | Orders coverage rows by percentage or by hit lines, both descending.                                                                       |
+| `CoverageThreshold` | `number`                                    | `0`            | Fails the run when total coverage is below this percentage, from `0` to `100`.                                                             |
+| `Filter`            | `string?`                                   | `nil`          | Only runs tests whose full name contains this text (see [Filtering Tests](#filtering-tests)).                                              |
+| `ForbidFocus`       | `boolean`                                   | `false`        | Fails the run when a focus modifier excluded any test.                                                                                     |
+| `Indent`            | `string`                                    | `"   "`        | Indentation string used for nested test output.                                                                                            |
+| `InjectGlobals`     | `boolean`                                   | `true`         | Injects `describe`, `it`, `expect`, and the rest into spec functions as globals.                                                           |
+| `MaxConcurrency`    | `number`                                    | `4`            | Maximum number of tests to run in parallel within each VM.                                                                                 |
+| `Parallel`          | `boolean`                                   | `true`         | Runs tests in parallel instead of one after another.                                                                                       |
+| `PrintSkipped`      | `boolean`                                   | `false`        | Includes skipped tests in the output.                                                                                                      |
+| `ReporterOutputs`   | `{ [string]: string }`                      | `{}`           | File paths for machine-readable reports, keyed by reporter name (see [Reporters](#reporters)).                                             |
+| `Reporters`         | `{ "Text" \| "Json" \| "JUnit" \| "Lcov" }` | `{ "Text" }`   | Reports that a run produces (see [Reporters](#reporters)).                                                                                 |
+| `SlowestTests`      | `number`                                    | `0`            | Number of slowest tests listed after the text report, or `0` to leave the list out.                                                        |
+| `SnapshotStore`     | `table?`                                    | `nil`          | Where snapshot files are kept, which defaults to the filesystem in Lune (see [Snapshots](#snapshots)).                                     |
+| `SuiteOrder`        | `{ string }`                                | `{}`           | Preferred spec identities, followed by unlisted specs in alphabetical order.                                                               |
+| `Timeout`           | `number?`                                   | `nil`          | Time budget in seconds for every test, or `nil` for no limit (see [Timeouts](#timeouts)).                                                  |
+| `UpdateSnapshots`   | `boolean`                                   | `false`        | Accepts changed snapshots and removes obsolete ones (see [Snapshots](#snapshots)).                                                         |
+| `Verbose`           | `boolean`                                   | `false`        | Logs details about the run while it executes.                                                                                              |
+| `WorkerGroups`      | `{ { string } }`                            | `{}`           | Dense arrays of nonblank spec paths to keep in one worker. Overlapping groups are allowed (see [File-Oriented Runs](#file-oriented-runs)). |
+| `WorkerSetup`       | `string?`                                   | `nil`          | Nonblank setup module path relative to the file run's root, called before specs are required, including with one worker.                   |
+| `Workers`           | `number`                                    | `1`            | Finite positive integer worker limit for file-oriented runs. One uses the local pipeline; larger values use isolated actors.               |
 
 A preferred suite order can put heavyweight tool checks before fixtures allocate their
 place caches...
@@ -342,8 +346,8 @@ Each identity is the case-sensitive spec name. Nested spec paths join their pare
 and spec name with single spaces. Preferences never rename, add, exclude, or duplicate
 suites, and unknown identities are ignored so the same list can be used with a subset of
 specs. Unlisted specs remain alphabetical. Ordering does not disable parallel execution;
-set `Parallel = false` when suites must execute one after another. The list is copied
-when configured and snapshotted before each run's discovery.
+set `Parallel = false` when suites must execute one after another. The list is copied when
+configured and snapshotted before each run's discovery.
 
 ## Filtering Tests
 
@@ -456,8 +460,10 @@ long they ran, the results object records the whole run, and skipped tests have 
 ## Coverage
 
 In Lune, set `Coverage = true` and `CoverageRoots` to report line coverage for every
-module under the roots, including modules that no test required. `CoverageRoots` is either
-one script or a dictionary of named scripts...
+module under the roots, including modules that no test required. `CoverageRoots` accepts
+one script reference, a filesystem path, or a dictionary of named references or paths.
+Relative coverage paths resolve against the working directory, independently of the
+optional file run root. Paths are resolved locally without requiring their source...
 
 ```luau
 Testable.configure({
@@ -494,7 +500,9 @@ globs that matches nothing is an error. Here is everything the module offers...
 
 - `discover(options)` → Finds the specs and requires them, returning test roots for
   `Testable.run`. Pass `Files` to narrow the run to specific spec files.
-- `findSpecs(options)` → Returns the matching spec file paths without requiring them.
+- `findSpecs(options)` → Returns the matching spec file paths without requiring them. Pass
+  `Files` to narrow the selection, just as with `discover`; selected files must match the
+  include and exclude globs. An explicit empty list selects nothing.
 - `findAffected(options)` → Returns the specs that changed or that transitively require
   one of the files in `Changed`.
 - `findChanged(options)` → Returns the specs affected by everything that changed since the
@@ -508,6 +516,96 @@ Every function takes `Include`, and optionally `Exclude` and `Root`. Affected sp
 found through a graph of string requires that is built by scanning source files. It
 follows `./` and `../` paths, `@self`, `init.luau` directories, and `.luaurc` aliases. A
 changed `.luaurc` affects every spec.
+
+`findAffected`, `findChanged`, and `watch` also track shared execution dependencies.
+Pass `WorkerSetup` in their options to override the current configured setup path. It
+resolves relative to `Root`, using the same extension and `init.luau` directory resolution
+as file execution. Changing setup or any helper it transitively requires selects every
+matching spec. Missing and alternate resolution candidates are tracked too, so creating,
+deleting, or replacing a setup module also updates selection and watch behavior. The
+library's own actor entrypoint and its transitive string requires are always shared
+dependencies, even with `Workers = 1`, because specs can start nested actor runs. Graph
+construction scans source only and never requires specs or setup modules.
+
+### File-Oriented Runs
+
+Use `Testable.runFiles(files, root?)` to run selected spec paths on Lune without loading
+specs in the caller first. It returns the same `results, passed` pair as `Testable.run`.
+Paths and `WorkerSetup` resolve relative to `root`, which defaults to the working
+directory. `Testable.runFilesToExitCode(files, options?, root?)` applies optional
+configuration and maps the result to an [Exit Code](#exit-codes)...
+
+```luau
+Testable.configure({ Workers = 4 })
+const files = Testable.Discovery.findSpecs({ Include = { "Tests/**/*.spec.luau" } })
+process.exit(Testable.runFilesToExitCode(files))
+```
+
+The default `Workers = 1` loads specs locally through the existing pipeline. With more
+than one worker, Testable partitions files before requiring them and executes jobs in
+isolated Lune actor VMs. `MaxConcurrency` and `Parallel` control test execution within
+each VM, not the worker count. Names, suite ordering, focus, and filtering are resolved
+across the whole run. A file containing a `Serial` test or block runs exclusively across
+all workers, including its outer lifecycle hooks. Ordinary files can still overlap even
+when their VM also owns a Serial-bearing file. Actor execution requires a Lune runtime
+providing `@lune/actor`. The ordinary `Testable.run` and `Testable.runToExitCode` APIs are
+unchanged and do not use these worker settings.
+
+**Shared State & Setup**
+
+Actor VMs do not inherit parent VM state, module caches, functions, or fixtures. Set
+`WorkerSetup` to a module path relative to the run's root when initialization must happen
+before specs are required. The module **must return a function**, called with `Testable`
+and a context table containing `Files`, `JobId`, and `Root`. The same contract applies
+when `Workers = 1`, so setup always runs before spec requires...
+
+```luau
+-- Tests/Setup.luau
+return function(Testable, _context)
+    Testable.configure({ Timeout = 5 })
+end
+```
+
+```luau
+Testable.configure({ WorkerSetup = "Tests/Setup.luau", Workers = 4 })
+```
+
+Keep specs that share mutable module state, fake installations, or snapshot files in one
+job with `WorkerGroups`. Both array levels must be dense, every group must contain at
+least one nonblank path, and configuration deep-copies the groups and normalizes slashes
+and dot segments...
+
+```luau
+Testable.configure({
+    WorkerGroups = {
+        { "Tests/InstallFakes.spec.luau", "Tests/SharedFixture.spec.luau" },
+        { "Tests/SharedFixture.spec.luau", "Tests/UseFakes.spec.luau" },
+    },
+    Workers = 4,
+})
+```
+
+Overlapping groups are merged transitively before selecting files. In this example,
+`InstallFakes` and `UseFakes` stay together even if `SharedFixture` is not selected.
+Grouping guarantees common worker ownership, not an execution order or a transfer of
+parent state. Initialize required state in setup rather than depending on another spec.
+
+**Storage & Coverage Boundaries**
+
+A function-valued `SnapshotStore` configured in the parent is supported locally with
+`Workers = 1`, but rejected with a clear configuration error when `Workers > 1` because
+its functions cannot cross the actor boundary. A custom store created by setup is an
+independent worker-local store, not shared parent memory. If such stores need persistence
+or coordination, the store implementation must provide it explicitly.
+
+For default filesystem snapshots in actor mode, the planning barrier requires every
+snapshot path to have exactly one worker owner before storage access. Specs sharing a path
+must be grouped into one worker. Undeclared nested default snapshot paths fail before
+storage access instead of silently letting workers write the same file.
+
+String `CoverageRoots` pass across the actor boundary normally. Instance-valued roots
+cannot be transferred from the parent and must be created inside the worker through setup.
+Coverage from workers is merged for the final report and threshold check.
 
 ### Changed-Only Runs
 
@@ -526,10 +624,7 @@ if #affected == 0 then
     process.exit(0)
 end
 
-const testRoots = Testable.Discovery.discover({
-    Files = affected,
-    Include = { "Tests/**/*.spec.luau" },
-})
+process.exit(Testable.runFilesToExitCode(affected))
 ```
 
 ### Watch Mode
@@ -551,13 +646,28 @@ Testable.Discovery.watch({
 })
 ```
 
-The child script receives the spec files in `process.args` and passes them to `discover`
-as `Files`. Changes are debounced (`Debounce`, in seconds), and files are polled every
-`Interval` seconds. Hidden files are ignored, except for `.luaurc`. Every spec runs once
-at the start unless `RunOnStart` is `false`.
+The child script receives the spec files in `process.args`, selects paths with
+`findSpecs({ Files = specFiles, Include = ... })`, and passes them to `runFilesToExitCode`
+without eagerly requiring them. Changes are debounced (`Debounce`, in seconds), and files
+are polled every `Interval` seconds. Hidden files are ignored, except for `.luaurc` and
+explicit shared execution dependencies, including packages in hidden install directories.
+Every spec runs once at the start unless `RunOnStart` is `false`.
 
 This repository's own `Scripts/RunTests.exec.luau` is a complete example. It accepts
-`--changed <ref>`, `--watch`, and a list of spec files.
+`--changed <ref>`, `--watch`, `--workers <count>`, `--worker-setup <path>`, and a list of
+spec files. Worker flags can be combined with changed-only runs or watch mode. Watch
+tracks `--worker-setup` and its helpers in the parent graph, and passes the worker,
+reporter, filter, and snapshot flags to each fresh child...
+
+```sh
+./Scripts/RunTests.exec.luau --workers 4 --worker-setup Tests/Setup.luau
+./Scripts/RunTests.exec.luau --changed origin/main --workers 4
+./Scripts/RunTests.exec.luau --watch --workers 4 --worker-setup Tests/Setup.luau
+```
+
+The worker count must be a finite positive integer. Both worker flags require a value and
+can only be given once. The `--watch` and `--changed` flags remain mutually exclusive, and
+`--changed` cannot be combined with explicit spec files.
 
 ## Exit Codes
 
@@ -574,7 +684,9 @@ instead. These are the tool errors...
 
 `Testable.runToExitCode` wraps `Testable.run` and maps the outcome to `0` for a passing
 run, `1` for test failures, and `2` for a tool error (also available as
-`Testable.ExitCode`). It prints tool errors and rethrows any other error...
+`Testable.ExitCode`). It prints tool errors and rethrows any other error. The
+file-oriented `Testable.runFilesToExitCode(files, options?, root?)` uses the same exit
+codes, including for worker configuration and execution failures...
 
 ```luau
 const exitCode = Testable.runToExitCode(testRoots)

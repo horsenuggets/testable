@@ -99,6 +99,59 @@ return function()
             expect(#Config.SuiteOrder).to.equal(0)
         end)
 
+        it("should configure the worker count independently of concurrency", function()
+            Config.reset()
+            expect(Config.Workers).to.equal(1)
+            for _, workers in { 1, 2, 8 } do
+                Testable.configure({ Workers = workers })
+                expect(Config.Workers).to.equal(workers)
+                expect(Config.MaxConcurrency).to.equal(4)
+            end
+        end)
+
+        it("should deeply copy and normalize worker groups without rejecting overlaps", function()
+            Config.reset()
+            const groups = {
+                { "./Tests/A.spec.luau", "Tests/Nested/../Bridge.spec.luau" },
+                { "Tests\\Bridge.spec.luau", "Tests/B.spec.luau", "Tests/B.spec.luau" },
+            }
+            Testable.configure({ WorkerGroups = groups })
+            expect(Config.WorkerGroups).to.deepEqual({
+                { "Tests/A.spec.luau", "Tests/Bridge.spec.luau" },
+                { "Tests/Bridge.spec.luau", "Tests/B.spec.luau", "Tests/B.spec.luau" },
+            })
+            expect(groups[1][1]).to.equal("./Tests/A.spec.luau")
+            groups[1][1] = "Changed"
+            table.insert(groups[2], "Extra")
+            table.insert(groups, { "Another" })
+            expect(Config.WorkerGroups[1][1]).to.equal("Tests/A.spec.luau")
+            expect(#Config.WorkerGroups[2]).to.equal(3)
+            expect(#Config.WorkerGroups).to.equal(2)
+        end)
+
+        it("should normalize worker setup paths and retain omitted options", function()
+            Testable.configure({ WorkerSetup = ".\\Tests\\Nested\\..\\Setup.luau", Workers = 2 })
+            expect(Config.WorkerSetup).to.equal("Tests/Setup.luau")
+            Testable.configure({ Indent = ">" })
+            expect(Config.WorkerSetup).to.equal("Tests/Setup.luau")
+            expect(Config.Workers).to.equal(2)
+        end)
+
+        it("should reset worker settings and replace the group array", function()
+            Testable.configure({ WorkerGroups = { { "Tests/A.spec.luau" } }, WorkerSetup = "Setup.luau", Workers = 3 })
+            const previous = Config.WorkerGroups
+            Testable.resetConfig()
+            expect(Config.Workers).to.equal(1)
+            expect(Config.WorkerSetup).to.equal(nil)
+            expect(Config.WorkerGroups).to.deepEqual({})
+            expect(Config.WorkerGroups == previous).to.equal(false)
+            table.insert(previous[1], "Tests/B.spec.luau")
+            expect(#Config.WorkerGroups).to.equal(0)
+            Testable.configure({ WorkerGroups = { { "Tests/C.spec.luau" } } })
+            Testable.configure({ WorkerGroups = {} })
+            expect(#Config.WorkerGroups).to.equal(0)
+        end)
+
         it("should set Verbose", function()
             expect(Config.Verbose).to.equal(false)
             Testable.configure({ Verbose = true })
@@ -262,6 +315,77 @@ return function()
                 expect(table.concat(Config.SuiteOrder, ",")).to.equal("Original")
                 expect(Config.Indent).to.equal("   ")
             end
+        end)
+
+        it("should reject every invalid worker count with an identifiable tool error", function()
+            for _, workers in { "2", true, {}, 0, -1, 1.5, 0 / 0, math.huge, -math.huge } :: { any } do
+                const ok, problem = pcall(Testable.configure, { Workers = workers })
+                expect(ok).to.equal(false)
+                expect(Testable.ToolError.is(problem)).to.equal(true)
+                expect(problem.Kind).to.equal(Testable.ToolError.Kind.InvalidConfiguration)
+                expect(problem.Message).to.contain("Workers must be a finite positive integer")
+                expect(Config.Workers).to.equal(1)
+            end
+        end)
+
+        it("should reject blank or nonstring setup paths", function()
+            for _, setup in { "", " \t\n", 1, false, {} } :: { any } do
+                expect(function()
+                    Testable.configure({ WorkerSetup = setup })
+                end).to.throw("WorkerSetup must be a nonblank path")
+                expect(Config.WorkerSetup).to.equal(nil)
+            end
+        end)
+
+        it("should explicitly reject sparse and malformed worker group arrays", function()
+            const invalidArrays = {
+                "not an array",
+                { Named = {} },
+                { [0] = {} },
+                { [1.5] = {} },
+                { [1] = {}, [3] = {} },
+                { [2] = {}, [3] = {}, [4] = {}, [6] = {} },
+                setmetatable({}, {
+                    __index = function()
+                        return {}
+                    end,
+                }),
+            }
+            for _, invalid in invalidArrays do
+                expect(function()
+                    Testable.configure({ WorkerGroups = invalid } :: any)
+                end).to.throw("WorkerGroups must be a dense array")
+                expect(function()
+                    Testable.configure({ WorkerGroups = { invalid } } :: any)
+                end).to.throw("WorkerGroups[1] must be a dense array")
+            end
+            for _, group in { {}, { "" }, { " \t\n" }, { 1 }, { false }, { {} } } :: { any } do
+                expect(function()
+                    Testable.configure({ WorkerGroups = { group } } :: any)
+                end).to.throw("WorkerGroups[1]")
+            end
+        end)
+
+        it("should roll back worker settings and earlier options atomically", function()
+            Testable.configure({ WorkerGroups = { { "Original.spec.luau" } }, WorkerSetup = "OriginalSetup.luau" })
+            const originalGroups = Config.WorkerGroups
+            const originalGroup = originalGroups[1]
+            const rejected = pcall(Testable.configure, {
+                Indent = ">",
+                WorkerGroups = { { "Replacement.spec.luau" } },
+                WorkerSetup = "ReplacementSetup.luau",
+                Workers = 0,
+            })
+            expect(rejected).to.equal(false)
+            expect(Config.Indent).to.equal("   ")
+            expect(Config.WorkerGroups == originalGroups).to.equal(true)
+            expect(Config.WorkerGroups[1] == originalGroup).to.equal(true)
+            expect(Config.WorkerSetup).to.equal("OriginalSetup.luau")
+            expect(Config.Workers).to.equal(1)
+
+            Config.reset()
+            expect(pcall(Testable.configure, { WorkerSetup = "Setup.luau", Workers = 0 })).to.equal(false)
+            expect(Config.WorkerSetup).to.equal(nil)
         end)
 
         it("should error if Verbose is not a boolean", function()
