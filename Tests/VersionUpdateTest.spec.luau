@@ -78,7 +78,7 @@ const function setupRokitTemplate(): string
 
     local rokitToml = [[
         [tools]
-        lune = "horsenuggets/lune@0.11.1-horse.16.1"
+        lune = "horsenuggets/lune@0.11.1-horse.17.7"
     ]]
     -- Strip leading whitespace from each line for proper TOML format
     rokitToml = string.gsub(rokitToml, "\n%s+", "\n")
